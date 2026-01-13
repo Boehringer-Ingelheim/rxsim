@@ -1,0 +1,38 @@
+Package: rxsim
+Type: Package
+Title: rxtrial: Reducing friction for Randomized Clinical Trial simulations
+Version: 0.0.1
+Authors@R: c(
+    person(
+      "Matthew", "Valko",
+      email = "matthew.valko@boehringer-ingelheim.com",
+      role = c("aut")
+    ),
+    person(
+      "Saumil", "Shah",
+      email = "saumil.shah@boehringer-ingelheim.com",
+      role = c("aut", "cre")
+    ),
+    person(
+      "Ming", "Yang",
+      email = "ming.yang.ext@boehringer-ingelheim.com",
+      role = c("ctb")
+    ),
+    person(
+      "Mitchell", "Thomann",
+      email = "mitchell.thomann@boehringer-ingelheim.com",
+      role = c("ctb")
+    ),
+    person(
+      "Boehringer Ingelheim Pharma GmbH & Co. KG",
+      role = c("cph", "fnd"),
+      comment = c(ROR="00q32j219")
+    )
+  )
+Description: Simulate phase II and/or phase III clinical trials. It supports 
+  various types of endpoints and adaptive strategies. 
+License: Apache License (>= 2)
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    R6
