@@ -1,0 +1,95 @@
+---
+title: "Example usecase"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example usecase}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Setup
+
+```{r setup}
+library(rxsim)
+```
+
+# Population
+
+```{r population}
+ann <- Population$new(name="Ann", rnorm(50))
+enroll<-cbind(1:10,rep(5,10))
+drop<-cbind(1:10,rep(1,10))
+
+for(i in 1:nrow(enroll)){
+  ann$set_enrolled(time=enroll[i,1],n=enroll[i,2])
+  ann$set_dropped(time=drop[i,1],n=drop[i,2])
+
+}
+```
+
+# Timer
+
+```{r timer}
+# --- Usage ---
+t <- Timer$new(name = "Experiment1")
+
+t$add_timepoint(1, 5)
+t$add_timepoint(2, 10)
+
+# condition with pre-check on current_time
+t$add_condition(
+  time = 1,
+  n_events = 5,
+  func = function(data, time) {
+    if (time < 6) {
+      data <- 0
+    }
+    mean(data)
+  }
+)
+
+t$add_condition(
+  time = 2,
+  n_events = 10,
+  func = function(data, time) sum(data)
+)
+
+locked_data <- c(1, 2, 3, 4, 5)
+results <- t$check_conditions(locked_data, current_time = 1, n_events = 10)
+
+print(results)
+```
+
+# Trial
+
+```{r trial}
+# Two populations
+pop1 <- Population$new("Arm A", data = rnorm(20, mean = 50))
+pop2 <- Population$new("Arm B", data = rnorm(20, mean = 55))
+
+# Timers with multiple conditions
+t <- Timer$new(name = "TrialTimers")
+t$add_timepoint(dropper = 2, enroller = 5)
+t$add_timepoint(dropper = 1, enroller = 3)
+
+# Add conditions
+t$add_condition(time = 1, n_events = 5, func = function(ld,time) lapply(ld, mean))
+t$add_condition(time = 2, threshold = 10)  # snapshot if >=10 events
+# Add in condition flag of TTE
+
+# Trial with list of populations
+trial <- Trial$new(name = "Trial A", timer = t, population = list(pop1, pop2))
+
+# Run
+trial$run()
+
+# Inspect results
+trial$results
+```
