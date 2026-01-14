@@ -1,4 +1,4 @@
-# --- Fix run_readers so it passes current_time into cond$func ---
+
 Timers <- R6::R6Class(
   classname = "Timers",
   public = list(
@@ -19,9 +19,28 @@ Timers <- R6::R6Class(
       self$timelist <- append(self$timelist, list(tp))
     },
 
-    add_reader_condition = function(time = NULL, n_events = NULL, threshold = NULL, func = NULL) {
-      cond <- list(time = time, n_events = n_events, threshold = threshold, func = func)
+    # New: add reader with dplyr-style predicates
+    # - '...' are filter-like boolean expressions, e.g., status == "active", visit >= 3
+    # - 'func' will be called as func(filtered_data, current_time)
+    # - 'name' becomes the result key ("reader_<name>")
+    # Legacy params kept but ignored (warn) to ease migration
+    add_reader_condition = function(..., func = NULL, name = NULL,
+                                    time = NULL, n_events = NULL, threshold = NULL,
+                                    .env = parent.frame()) {
+      if (!requireNamespace("rlang", quietly = TRUE)) {
+        stop("This version requires {rlang}.")
+      }
+      # Capture filter predicates as quosures (with caller env)
+      where_quos <- rlang::enquos(..., .named = FALSE)
+
+
+      cond <- list(
+        where = where_quos,
+        func  = func,
+        name  = name
+      )
       self$reader_conditions <- append(self$reader_conditions, list(cond))
+      invisible(self)
     },
 
     get_n_timepoints = function() length(self$timelist),
@@ -31,53 +50,78 @@ Timers <- R6::R6Class(
       self$timelist[[i]]
     },
 
-    run_readers = function(locked_data, current_time, n_events = NULL) {
+    # New run_readers:
+    # - Applies each reader's own filter predicates (cond$where) to locked_data
+    # - Calls cond$func(filtered_data, current_time)
+    # - Optional controls:
+    #     .skip_empty: skip calling func if per-reader filtered data is empty
+    #     .name_prefix: prefix for result keys (default "reader_")
+    run_readers = function(locked_data, current_time,
+                           .skip_empty = FALSE,
+                           .name_prefix = "reader_") {
+
+      if (!requireNamespace("dplyr", quietly = TRUE) ||
+          !requireNamespace("rlang", quietly = TRUE)) {
+        stop("run_readers requires {dplyr} and {rlang}.")
+      }
+      stopifnot(is.data.frame(locked_data))
+
       results <- list()
+
       for (i in seq_along(self$reader_conditions)) {
         cond <- self$reader_conditions[[i]]
-        time_ok <- is.null(cond$time) || cond$time == current_time
-        events_ok <- is.null(cond$n_events) || (!is.null(n_events) && n_events >= cond$n_events)
-        threshold_ok <- is.null(cond$threshold) || (is.numeric(cond$threshold) && n_events >= cond$threshold)
 
-        if (time_ok && events_ok && threshold_ok) {
-          if (is.function(cond$func)) {
-            # Pass both locked_data and current_time into the function
-            results[[paste0("reader_", i)]] <- cond$func(locked_data, current_time)
-          } else {
-            results[[paste0("reader_", i)]] <- locked_data
-          }
+        key <- if (!is.null(cond$name) && nzchar(cond$name)) {
+          paste0(.name_prefix, cond$name)
+        } else {
+          paste0(.name_prefix, i)
+        }
+
+        # Per-reader filtering (dplyr semantics: NA in predicates drops rows)
+        df_i <- if (!is.null(cond$where) && length(cond$where) > 0) {
+          dplyr::filter(locked_data, !!!cond$where)
+        } else {
+          locked_data
+        }
+
+        if (.skip_empty && nrow(df_i) == 0L) {
+          next
+        }
+
+        if (is.function(cond$func) && nrow(df_i) != 0L) {
+          results[[key]] <- cond$func(df_i, current_time)
+        } else {
+          results[[key]] <- df_i
+          warning(sprintf("Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
         }
       }
+
       results
     }
   )
 )
 
-# --- Usage ---
-t <- Timers$new(name = "Experiment1")
+# Example reader funcs
+summary_reader <- function(dat, t_now) {
+  list(t = t_now, n = nrow(dat),
+       mean_value = if ("value" %in% names(dat) && nrow(dat) > 0) mean(dat$value) else NA_real_)
+}
+ids_reader <- function(dat, t_now) unique(dat$subject_id)
 
-t$add_timepoint(1, 5)
-t$add_timepoint(2, 10)
-
-# Reader condition with pre-check on current_time
-t$add_reader_condition(
-  time = 1,
-  n_events = 5,
-  func = function(data, time) {
-    if (time < 6) {
-      data <- 0
-    }
-    mean(data)
-  }
+# Sample data
+set.seed(1)
+df <- data.frame(
+  subject_id = rep(1:5, each = 4),
+  visit      = rep(1:4, times = 5),
+  status     = sample(c("active", "inactive"), 20, replace = TRUE),
+  value      = rnorm(20),
+  center     = sample(c("EU","US"), 20, replace = TRUE)
 )
 
-t$add_reader_condition(
-  time = 2,
-  n_events = 10,
-  func = function(data, time) sum(data)
-)
+timers <- Timers$new("TidyTimers")
+# Each reader carries its own dplyr-like predicates
+timers$add_reader_condition(status == "active", visit >= 3, func = summary_reader, name = "active_v3_sum")
+timers$add_reader_condition(center == "EU", value > 0,       func = ids_reader,     name = "eu_ids")
 
-locked_data <- c(1, 2, 3, 4, 5)
-results <- t$run_readers(locked_data, current_time = 1, n_events = 10)
-
-print(results)
+out <- timers$run_readers(df, Sys.time())
+str(out, 1)
