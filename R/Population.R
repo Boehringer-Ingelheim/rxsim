@@ -12,7 +12,7 @@ Population <- R6::R6Class(
       self$name <- name
 
       if (is.vector(data)) {
-        self$data <- cbind(seq_along(data), data)
+        self$data <- data.frame(pat_id = seq_along(data), data = data)
       } else {
         self$data <- data
       }
@@ -41,7 +41,7 @@ Population <- R6::R6Class(
     },
     set_data = function(data) {
       if (is.vector(data)) {
-        self$data <- cbind(seq_along(data), data)
+        self$data <- data.frame(pat_id = seq_along(data), data = data)
       } else {
         self$data <- data
       }
