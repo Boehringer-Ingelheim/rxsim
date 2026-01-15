@@ -41,7 +41,7 @@ Trial <- R6::R6Class(
     # run method: loop through timelist and apply conditions
     run = function() {
       if (is.null(self$timer) || length(self$population) == 0) {
-        stop("Timer and population list must be set before running fit()")
+        stop("Timer and population list must be set before running run()")
       }
 
       n_timepoints <- self$timer$get_n_timepoints()
@@ -61,13 +61,13 @@ Trial <- R6::R6Class(
 
         # collect snapshots from all populations
         locked_snapshot <- lapply(self$population, function(p) p$get_data())
-        n_events <- sum(sapply(self$population, function(p) sum(!is.na(p$enrolled))))
+        n_enrolled <- sum(sapply(self$population, function(p) sum(!is.na(p$enrolled)))) # this right here! is enrollment
 
         # check all conditions
         results <- self$timer$check_conditions(
           locked_data = locked_snapshot,
           current_time = i,
-          n_events = n_events
+          n_enrolled = n_enrolled
         )
 
         if (length(results) > 0) {

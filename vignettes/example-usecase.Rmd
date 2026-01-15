@@ -46,8 +46,8 @@ t$add_timepoint(2, 10)
 # condition with pre-check on current_time
 t$add_condition(
   time = 1,
-  n_events = 5,
-  func = function(data, time) {
+  n_enrolled = 5,
+  analysis = function(data, time) {
     if (time < 6) {
       data <- 0
     }
@@ -57,12 +57,12 @@ t$add_condition(
 
 t$add_condition(
   time = 2,
-  n_events = 10,
-  func = function(data, time) sum(data)
+  n_enrolled = 10,
+  analysis = function(data, time) sum(data)
 )
 
 locked_data <- c(1, 2, 3, 4, 5)
-results <- t$check_conditions(locked_data, current_time = 1, n_events = 10)
+results <- t$check_conditions(locked_data, current_time = 1, n_enrolled = 10)
 
 print(results)
 ```
@@ -80,7 +80,7 @@ t$add_timepoint(dropper = 2, enroller = 5)
 t$add_timepoint(dropper = 1, enroller = 3)
 
 # Add conditions
-t$add_condition(time = 1, n_events = 5, func = function(ld,time) lapply(ld, mean))
+t$add_condition(time = 1, n_enrolled = 5, analysis = function(data,time) lapply(data, mean))
 t$add_condition(time = 2, threshold = 10)  # snapshot if >=10 events
 # Add in condition flag of TTE
 
