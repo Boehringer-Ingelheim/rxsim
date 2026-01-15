@@ -81,7 +81,7 @@ t$add_timepoint(dropper = 1, enroller = 3)
 
 # Add conditions
 t$add_condition(time = 1, n_enrolled = 5, analysis = function(data,time) lapply(data, mean))
-t$add_condition(time = 2, threshold = 10)  # snapshot if >=10 events
+t$add_condition(time = 2)  # snapshot if >=10 events
 # Add in condition flag of TTE
 
 # Trial with list of populations

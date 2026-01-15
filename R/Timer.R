@@ -29,10 +29,9 @@ Timer <- R6::R6Class(
     add_condition = function(
     time = NULL,
     n_enrolled = NULL,
-    threshold = NULL,
     analysis = NULL # this is the action function
     ) {
-      cond <- list(time = time, n_enrolled = n_enrolled, threshold = threshold, analysis = analysis)
+      cond <- list(time = time, n_enrolled = n_enrolled, analysis = analysis)
       self$conditions <- append(self$conditions, list(cond))
     },
 
@@ -53,9 +52,8 @@ Timer <- R6::R6Class(
         cond <- self$conditions[[i]]
         time_ok <- is.null(cond$time) || cond$time == current_time
         enrolled_ok <- is.null(cond$n_enrolled) || (!is.null(n_enrolled) && n_enrolled >= cond$n_enrolled)
-        threshold_ok <- is.null(cond$threshold) || (is.numeric(cond$threshold) && n_enrolled >= cond$threshold)
 
-        if (time_ok && enrolled_ok && threshold_ok) {
+        if (time_ok && enrolled_ok) {
           if (is.function(cond$analysis)) {
             # Pass both locked_data and current_time into the function
             results[[paste0("",i)]] <- cond$analysis(locked_data, current_time)
