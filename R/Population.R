@@ -1,13 +1,20 @@
 Population <- R6::R6Class(
-  "Population",
-
+  classname = "Population",
   public = list(
+    # fields
     name = NULL,
     data = NULL,
     dropped = NULL,
     enrolled = NULL,
 
-    initialize = function(name, data = NULL, dropped = NULL, enrolled = NULL, ...) {
+    # constructor
+    initialize = function(
+    name,
+    data = NULL,
+    dropped = NULL,
+    enrolled = NULL,
+    ...
+    ) {
       stopifnot(is.character(name))
       self$name <- name
 
@@ -26,8 +33,7 @@ Population <- R6::R6Class(
       self$enrolled <- rep(NA, n)
     },
 
-
-
+    # methods
     set_dropped = function(n, time) {
       potential=self$dropped[is.na(self$dropped)&!is.na(self$enrolled)]
       id <- sample(seq_len(length(potential)), n, replace = FALSE)
@@ -43,6 +49,7 @@ Population <- R6::R6Class(
     get_data = function() {
       self$data[!is.na(self$enrolled), ]
     },
+
     set_data = function(data) {
       if (is.vector(data)) {
         self$data <- data.frame(
@@ -57,16 +64,6 @@ Population <- R6::R6Class(
       self$dropped <- rep(NA, n)
       self$enrolled <- rep(NA, n)
     }
-  )
-)
 
-ann <- Population$new(name="Ann", rnorm(50))
-enroll<-cbind(1:10,rep(5,10))
-drop<-cbind(1:10,rep(1,10))
-
-for(i in 1:nrow(enroll)){
-  ann$set_enrolled(time=enroll[i,1],n=enroll[i,2])
-  ann$set_dropped(time=drop[i,1],n=drop[i,2])
-
-  }
-
+  ) # end public
+) # end class
