@@ -38,6 +38,3 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
-Imports: 
-    dplyr,
-    rlang

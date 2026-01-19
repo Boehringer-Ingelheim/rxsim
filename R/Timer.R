@@ -98,7 +98,7 @@ Timer <- R6::R6Class(
           results[[key]] <- cond$func(df_i, current_time)
         } else {
           results[[key]] <- df_i
-          warning(sprintf("Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
+          warning(sprintf("\n Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
         }
       }
 

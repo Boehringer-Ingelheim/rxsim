@@ -34,36 +34,6 @@ for (i in 1:nrow(enroll)) {
 
 ```{r timer}
 # --- Usage ---
-t <- Timer$new(name = "Experiment1")
-
-t$add_timepoint(1, 5)
-t$add_timepoint(2, 10)
-
-# condition with pre-check on current_time
-t$add_condition(
-  time = 1,
-  n_enrolled = 5,
-  analysis = function(data, time) {
-    if (time < 6) {
-      data <- 0
-    }
-    mean(data)
-  }
-)
-
-t$add_condition(
-  time = 2,
-  n_enrolled = 10,
-  analysis = function(data, time) {
-    sum(data)
-  }
-)
-
-locked_data <- c(1, 2, 3, 4, 5)
-results <- t$check_conditions(locked_data, current_time = 1, n_enrolled = 10)
-
-print(results)
-
 # Example reader funcs
 summary_reader <- function(dat, t_now) {
   list(
@@ -111,8 +81,14 @@ set.seed(123)
 
 # --- Two populations with a common 'value' column ---
 # long_format
-pop1 <- Population$new("Arm A", data = data.frame(value = rnorm(20, mean = 50)))
-pop2 <- Population$new("Arm B", data = data.frame(value = rnorm(20, mean = 55)))
+pop1 <- Population$new("Arm A", data = data.frame(
+  subject_id = 1:20,
+  value = rnorm(20, mean = 50)
+))
+pop2 <- Population$new("Arm B", data = data.frame(
+  subject_id = 1:20,
+  value = rnorm(20, mean = 55)
+))
 
 # --- Timers with multiple timepoints ---
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
@@ -129,7 +105,7 @@ t$add_timepoint(dropper = 1, enroller = 3)
 # event condition
 t$add_condition(
   length(value) > 4,
-  func = function(d, tt) {
+  analysis = function(d, tt) {
     mean(d$value)
   },
   name = "overall_mean"
@@ -137,7 +113,7 @@ t$add_condition(
 
 t$add_condition(
   sum(value > 40) > 10,
-  func = function(d, tt) {
+  analysis = function(d, tt) {
     mean(d$value)
   },
   name = "overall_mean"
@@ -146,14 +122,14 @@ t$add_condition(
 t$add_condition(
   time == 4,
   # uses the 'time' column added by Trials$fit()
-  func = function(d, tt) {
+  analysis = function(d, tt) {
     mean(d$value)
   },
   name = "time_mean"
 )
 t$add_condition(
   sum((value + time) > 45) > 10,
-  func = function(d, tt) {
+  analysis = function(d, tt) {
     mean(d$value)
   },
   name = "overall_mean_2"
@@ -165,8 +141,10 @@ trial <- Trial$new(
   timer = t,
   population = list(pop1, pop2)
 )
-self <- trial
+# self <- trial
 
 # --- Run ---
-trial$fit()
+trial$run()
+
+trial$results
 ```
