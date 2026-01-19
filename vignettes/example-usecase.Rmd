@@ -4,11 +4,14 @@ output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Example usecase}
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF - 8}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
 ```
 
 # Setup
