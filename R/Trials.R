@@ -62,8 +62,8 @@ Trials <- R6::R6Class(
         # Collect snapshots from all populations
         locked_snapshot <- lapply(self$population, function(p) {
           cbind(p$data, data.frame(
-            enroll_t = p$enrolled,
-            drop_t = p$dropped
+            enroll_time = p$enrolled,
+            drop_time = p$dropped
           ))
         })
         n_events <- sum(sapply(self$population, function(p) sum(!is.na(p$enrolled))))
