@@ -1,18 +1,24 @@
-
-Timers <- R6::R6Class(
-  classname = "Timers",
+Timer <- R6::R6Class(
+  classname = "Timer",
   public = list(
+    # fields
     name = NULL,
     timelist = NULL,
-    reader_conditions = NULL,
+    conditions = NULL,
 
-    initialize = function(name, timelist = NULL, reader_conditions = NULL) {
+    # constructor
+    initialize = function(
+    name,
+    timelist = NULL,
+    conditions = NULL
+    ) {
       stopifnot(is.character(name))
       self$name <- name
       self$timelist <- if (is.null(timelist)) list() else timelist
-      self$reader_conditions <- if (is.null(reader_conditions)) list() else reader_conditions
+      self$conditions <- if (is.null(conditions)) list() else conditions
     },
 
+    # methods
     add_timepoint = function(dropper, enroller) {
       stopifnot(is.numeric(dropper), is.numeric(enroller))
       tp <- list(dropper = dropper, enroller = enroller)
@@ -24,22 +30,24 @@ Timers <- R6::R6Class(
     # - 'func' will be called as func(filtered_data, current_time)
     # - 'name' becomes the result key ("reader_<name>")
     # Legacy params kept but ignored (warn) to ease migration
-    add_reader_condition = function(..., func = NULL, name = NULL,
-                                    time = NULL, n_events = NULL, threshold = NULL,
-                                    .env = parent.frame()) {
-      if (!requireNamespace("rlang", quietly = TRUE)) {
-        stop("This version requires {rlang}.")
-      }
+    add_condition = function(
+    ...,
+    analysis = NULL,
+    name = NULL,
+    time = NULL,
+    n_events = NULL,
+    threshold = NULL,
+    .env = parent.frame()
+    ) {
       # Capture filter predicates as quosures (with caller env)
       where_quos <- rlang::enquos(..., .named = FALSE)
 
-
       cond <- list(
         where = where_quos,
-        func  = func,
+        analysis  = analysis,
         name  = name
       )
-      self$reader_conditions <- append(self$reader_conditions, list(cond))
+      self$conditions <- append(self$conditions, list(cond))
       invisible(self)
     },
 
@@ -50,26 +58,24 @@ Timers <- R6::R6Class(
       self$timelist[[i]]
     },
 
-    # New run_readers:
+    # New check_conditions:
     # - Applies each reader's own filter predicates (cond$where) to locked_data
     # - Calls cond$func(filtered_data, current_time)
     # - Optional controls:
     #     .skip_empty: skip calling func if per-reader filtered data is empty
     #     .name_prefix: prefix for result keys (default "reader_")
-    run_readers = function(locked_data, current_time,
-                           .skip_empty = FALSE,
-                           .name_prefix = "reader_") {
-
-      if (!requireNamespace("dplyr", quietly = TRUE) ||
-          !requireNamespace("rlang", quietly = TRUE)) {
-        stop("run_readers requires {dplyr} and {rlang}.")
-      }
+    check_conditions = function(
+    locked_data,
+    current_time,
+    .skip_empty = FALSE,
+    .name_prefix = "reader_"
+    ) {
       stopifnot(is.data.frame(locked_data))
 
       results <- list()
 
-      for (i in seq_along(self$reader_conditions)) {
-        cond <- self$reader_conditions[[i]]
+      for (i in seq_along(self$conditions)) {
+        cond <- self$conditions[[i]]
 
         key <- if (!is.null(cond$name) && nzchar(cond$name)) {
           paste0(.name_prefix, cond$name)
@@ -98,30 +104,6 @@ Timers <- R6::R6Class(
 
       results
     }
-  )
-)
 
-# Example reader funcs
-summary_reader <- function(dat, t_now) {
-  list(t = t_now, n = nrow(dat),
-       mean_value = if ("value" %in% names(dat) && nrow(dat) > 0) mean(dat$value) else NA_real_)
-}
-ids_reader <- function(dat, t_now) unique(dat$subject_id)
-
-# Sample data
-set.seed(1)
-df <- data.frame(
-  subject_id = rep(1:5, each = 4),
-  visit      = rep(1:4, times = 5),
-  status     = sample(c("active", "inactive"), 20, replace = TRUE),
-  value      = rnorm(20),
-  center     = sample(c("EU","US"), 20, replace = TRUE)
-)
-
-timers <- Timers$new("TidyTimers")
-# Each reader carries its own dplyr-like predicates
-timers$add_reader_condition(status == "active", visit >= 3, func = summary_reader, name = "active_v3_sum")
-timers$add_reader_condition(center == "EU", value > 0,       func = ids_reader,     name = "eu_ids")
-
-out <- timers$run_readers(df, Sys.time())
-str(out, 1)
+  ) # end public
+) # end class

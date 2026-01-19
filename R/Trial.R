@@ -1,9 +1,7 @@
-
-Trials <- R6::R6Class(
-  "Trials",
-
+Trial <- R6::R6Class(
+  classname = "Trial",
   public = list(
-    # Fields
+    # fields
     name = NULL,
     description = NULL,
     silent = FALSE,
@@ -11,9 +9,9 @@ Trials <- R6::R6Class(
     timer = NULL,        # a Timers object
     population = NULL,   # list of Population objects
     locked_data = NULL,  # list of snapshots per time
-    results = NULL,      # list of reader results per time
+    results = NULL,      # list of results per time
 
-    # Constructor
+    # constructor
     initialize = function(
     name,
     description = name,
@@ -39,10 +37,11 @@ Trials <- R6::R6Class(
       self$results <- results
     },
 
-    # Fit method: loop through timelist and apply reader conditions
-    fit = function() {
+    # methods
+    # run method: loop through timelist and apply conditions
+    run = function() {
       if (is.null(self$timer) || length(self$population) == 0) {
-        stop("Timer and population list must be set before running fit()")
+        stop("Timer and population list must be set before running run()")
       }
 
       n_timepoints <- self$timer$get_n_timepoints()
@@ -50,7 +49,7 @@ Trials <- R6::R6Class(
       for (i in seq_len(n_timepoints)[-1]) {
         tp <- self$timer$get_timepoint(i)
 
-        # Apply enrollment/dropout to each Population object in the list
+        # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
           if (!is.null(tp$enroller)) {
             p$set_enrolled(tp$enroller, time = i)
@@ -60,9 +59,13 @@ Trials <- R6::R6Class(
           }
         }
 
-
         # Collect raw snapshots from all populations (as a list)
-        locked_snapshot_list <- lapply(self$population, function(p) p$get_data())
+        locked_snapshot_list <- lapply(self$population, function(p) {
+          subset(cbind(p$data, data.frame(
+            enroll_time = p$enrolled,
+            drop_time = p$dropped
+          )), !is.na(p$enrolled))
+        })
 
         # Try to use population names for an 'arm' column; fall back to list names or P1..Pn
         pop_names <- vapply(self$population, function(p) {
@@ -96,68 +99,18 @@ Trials <- R6::R6Class(
         # Add current time column for predicates like time >= 1
         combined$time <- i
 
-        # Run all reader conditions on the combined snapshot
-        reader_results <- self$timer$run_readers(
+        # Check all conditions on the combined snapshot
+        results <- self$timer$check_conditions(
           locked_data  = combined,
           current_time = i
         )
 
         # Store only if there are results
-        if (length(reader_results) > 0) {
+        if (length(results) > 0) {
           self$locked_data[[paste0("time_", i)]] <- combined
-          self$results[[paste0("time_", i)]] <- reader_results
+          self$results[[paste0("time_", i)]] <- results
         }
       }
     }
-  )
-)
-
-
-
-# --- Two populations with a common 'value' column ---
-set.seed(123)
-#long_format
-pop1 <- Population$new("Arm A", data = data.frame(value = rnorm(20, mean = 50)))
-pop2 <- Population$new("Arm B", data = data.frame(value = rnorm(20, mean = 55)))
-
-# --- Timers with multiple timepoints ---
-t <- Timers$new(name = "TrialTimers")  # Use your updated Timers from earlier
-t$add_timepoint(dropper = 2, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-
-# --- Reader conditions (per-reader predicates like dplyr::filter) ---
-# IMPORTANT: func must accept (data, current_time). Wrap base functions accordingly.
-
-#event condition
-t$add_reader_condition(
-  length(value )>4,
-  func = function(d, tt) mean(d$value),
-  name = "overall_mean"
-)
-
-t$add_reader_condition(
-  sum(value > 40)>10,
-  func = function(d, tt) mean(d$value),
-  name = "overall_mean"
-)
-
-t$add_reader_condition(
-  time == 4,  # uses the 'time' column added by Trials$fit()
-  func = function(d, tt) mean(d$value),
-  name = "time_mean"
-)
-t$add_reader_condition(
-  sum((value+ time) > 45)>10,
-  func = function(d, tt) mean(d$value),
-  name = "overall_mean_2"
-)
-
-# --- Trial with list of populations ---
-trial <- Trials$new(name = "Trial A", timer = t, population = list(pop1, pop2))
-self=trial
-# --- Run ---
-trial$fit()
+  ) # end public
+) # end class
