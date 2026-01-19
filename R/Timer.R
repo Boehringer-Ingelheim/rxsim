@@ -1,4 +1,3 @@
-# --- Fix run_readers so it passes current_time into cond$func ---
 Timer <- R6::R6Class(
   classname = "Timer",
   public = list(
@@ -26,13 +25,30 @@ Timer <- R6::R6Class(
       self$timelist <- append(self$timelist, list(tp))
     },
 
+    # New: add reader with dplyr-style predicates
+    # - '...' are filter-like boolean expressions, e.g., status == "active", visit >= 3
+    # - 'func' will be called as func(filtered_data, current_time)
+    # - 'name' becomes the result key ("reader_<name>")
+    # Legacy params kept but ignored (warn) to ease migration
     add_condition = function(
+    ...,
+    analysis = NULL,
+    name = NULL,
     time = NULL,
-    n_enrolled = NULL,
-    analysis = NULL # this is the action function
+    n_events = NULL,
+    threshold = NULL,
+    .env = parent.frame()
     ) {
-      cond <- list(time = time, n_enrolled = n_enrolled, analysis = analysis)
+      # Capture filter predicates as quosures (with caller env)
+      where_quos <- rlang::enquos(..., .named = FALSE)
+
+      cond <- list(
+        where = where_quos,
+        analysis  = analysis,
+        name  = name
+      )
       self$conditions <- append(self$conditions, list(cond))
+      invisible(self)
     },
 
     get_n_timepoints = function() length(self$timelist),
@@ -42,26 +58,50 @@ Timer <- R6::R6Class(
       self$timelist[[i]]
     },
 
+    # New check_conditions:
+    # - Applies each reader's own filter predicates (cond$where) to locked_data
+    # - Calls cond$func(filtered_data, current_time)
+    # - Optional controls:
+    #     .skip_empty: skip calling func if per-reader filtered data is empty
+    #     .name_prefix: prefix for result keys (default "reader_")
     check_conditions = function(
     locked_data,
     current_time,
-    n_enrolled = NULL
+    .skip_empty = FALSE,
+    .name_prefix = "reader_"
     ) {
+      stopifnot(is.data.frame(locked_data))
+
       results <- list()
+
       for (i in seq_along(self$conditions)) {
         cond <- self$conditions[[i]]
-        time_ok <- is.null(cond$time) || cond$time == current_time
-        enrolled_ok <- is.null(cond$n_enrolled) || (!is.null(n_enrolled) && n_enrolled >= cond$n_enrolled)
 
-        if (time_ok && enrolled_ok) {
-          if (is.function(cond$analysis)) {
-            # Pass both locked_data and current_time into the function
-            results[[paste0("",i)]] <- cond$analysis(locked_data, current_time)
-          } else {
-            results[[paste0("",i)]] <- locked_data
-          }
+        key <- if (!is.null(cond$name) && nzchar(cond$name)) {
+          paste0(.name_prefix, cond$name)
+        } else {
+          paste0(.name_prefix, i)
+        }
+
+        # Per-reader filtering (dplyr semantics: NA in predicates drops rows)
+        df_i <- if (!is.null(cond$where) && length(cond$where) > 0) {
+          dplyr::filter(locked_data, !!!cond$where)
+        } else {
+          locked_data
+        }
+
+        if (.skip_empty && nrow(df_i) == 0L) {
+          next
+        }
+
+        if (is.function(cond$func) && nrow(df_i) != 0L) {
+          results[[key]] <- cond$func(df_i, current_time)
+        } else {
+          results[[key]] <- df_i
+          warning(sprintf("\n Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
         }
       }
+
       results
     }
 

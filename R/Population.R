@@ -47,7 +47,7 @@ Population <- R6::R6Class(
     },
 
     get_data = function() {
-      self$data[!is.na(self$enrolled), ]
+      subset(self$data,!is.na(self$enrolled))
     },
 
     set_data = function(data) {

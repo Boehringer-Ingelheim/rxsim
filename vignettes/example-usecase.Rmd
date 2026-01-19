@@ -23,14 +23,13 @@ library(rxsim)
 # Population
 
 ```{r population}
-ann <- Population$new(name="Ann", rnorm(50))
-enroll<-cbind(1:10,rep(5,10))
-drop<-cbind(1:10,rep(1,10))
+ann <- Population$new(name = "Ann", rnorm(50))
+enroll <- cbind(1:10, rep(5, 10))
+drop <- cbind(1:10, rep(1, 10))
 
-for(i in 1:nrow(enroll)){
-  ann$set_enrolled(time=enroll[i,1],n=enroll[i,2])
-  ann$set_dropped(time=drop[i,1],n=drop[i,2])
-
+for (i in 1:nrow(enroll)) {
+  ann$set_enrolled(time = enroll[i, 1], n = enroll[i, 2])
+  ann$set_dropped(time = drop[i, 1], n = drop[i, 2])
 }
 ```
 
@@ -38,58 +37,117 @@ for(i in 1:nrow(enroll)){
 
 ```{r timer}
 # --- Usage ---
-t <- Timer$new(name = "Experiment1")
-
-t$add_timepoint(1, 5)
-t$add_timepoint(2, 10)
-
-# condition with pre-check on current_time
-t$add_condition(
-  time = 1,
-  n_enrolled = 5,
-  analysis = function(data, time) {
-    if (time < 6) {
-      data <- 0
+# Example reader funcs
+summary_reader <- function(dat, t_now) {
+  list(
+    t = t_now,
+    n = nrow(dat),
+    mean_value = if ("value" %in% names(dat) &&
+      nrow(dat) > 0) {
+      mean(dat$value)
+    } else {
+      NA_real_
     }
-    mean(data)
-  }
+  )
+}
+ids_reader <- function(dat, t_now) {
+  unique(dat$subject_id)
+}
+
+# Sample data
+set.seed(1)
+df <- data.frame(
+  subject_id = rep(1:5, each = 4),
+  visit      = rep(1:4, times = 5),
+  status     = sample(c("active", "inactive"), 20, replace = TRUE),
+  value      = rnorm(20),
+  center     = sample(c("EU", "US"), 20, replace = TRUE)
 )
 
-t$add_condition(
-  time = 2,
-  n_enrolled = 10,
-  analysis = function(data, time) sum(data)
+timers <- Timer$new("TidyTimers")
+# Each reader carries its own dplyr-like predicates
+timers$add_condition(status == "active",
+  visit >= 3,
+  analysis = summary_reader,
+  name = "active_v3_sum"
 )
+timers$add_condition(center == "EU", value > 0, analysis = ids_reader, name = "eu_ids")
 
-locked_data <- c(1, 2, 3, 4, 5)
-results <- t$check_conditions(locked_data, current_time = 1, n_enrolled = 10)
-
-print(results)
+out <- timers$check_conditions(df, Sys.time())
+str(out, 1)
 ```
 
 # Trial
 
 ```{r trial}
-# Two populations
-pop1 <- Population$new("Arm A", data = rnorm(20, mean = 50))
-pop2 <- Population$new("Arm B", data = rnorm(20, mean = 55))
+set.seed(123)
 
-# Timers with multiple conditions
-t <- Timer$new(name = "TrialTimers")
-t$add_timepoint(dropper = 2, enroller = 5)
+# --- Two populations with a common 'value' column ---
+# long_format
+pop1 <- Population$new("Arm A", data = data.frame(
+  subject_id = 1:20,
+  value = rnorm(20, mean = 50)
+))
+pop2 <- Population$new("Arm B", data = data.frame(
+  subject_id = 1:20,
+  value = rnorm(20, mean = 55)
+))
+
+# --- Timers with multiple timepoints ---
+t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
+t$add_timepoint(dropper = 2, enroller = 3)
+t$add_timepoint(dropper = 1, enroller = 3)
+t$add_timepoint(dropper = 1, enroller = 3)
+t$add_timepoint(dropper = 1, enroller = 3)
+t$add_timepoint(dropper = 1, enroller = 3)
 t$add_timepoint(dropper = 1, enroller = 3)
 
-# Add conditions
-t$add_condition(time = 1, n_enrolled = 5, analysis = function(data,time) lapply(data, mean))
-t$add_condition(time = 2)  # snapshot if >=10 events
-# Add in condition flag of TTE
+# --- Reader conditions (per-reader predicates like dplyr::filter) ---
+# IMPORTANT: func must accept (data, current_time). Wrap base functions accordingly.
 
-# Trial with list of populations
-trial <- Trial$new(name = "Trial A", timer = t, population = list(pop1, pop2))
+# event condition
+t$add_condition(
+  length(value) > 4,
+  analysis = function(d, tt) {
+    mean(d$value)
+  },
+  name = "overall_mean"
+)
 
-# Run
+t$add_condition(
+  sum(value > 40) > 10,
+  analysis = function(d, tt) {
+    mean(d$value)
+  },
+  name = "overall_mean"
+)
+
+t$add_condition(
+  time == 4,
+  # uses the 'time' column added by Trials$fit()
+  analysis = function(d, tt) {
+    mean(d$value)
+  },
+  name = "time_mean"
+)
+t$add_condition(
+  sum((value + time) > 45) > 10,
+  analysis = function(d, tt) {
+    mean(d$value)
+  },
+  name = "overall_mean_2"
+)
+
+# --- Trial with list of populations ---
+trial <- Trial$new(
+  name = "Trial A",
+  timer = t,
+  population = list(pop1, pop2)
+)
+# self <- trial
+
+# --- Run ---
 trial$run()
 
-# Inspect results
 trial$results
 ```
