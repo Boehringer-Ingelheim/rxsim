@@ -46,7 +46,7 @@ Trial <- R6::R6Class(
 
       n_timepoints <- self$timer$get_n_timepoints()
 
-      for (i in seq_len(n_timepoints)[-1]) {
+      for (i in seq_len(n_timepoints)) {
         tp <- self$timer$get_timepoint(i)
 
         # apply enrollment/dropout to each Population object in the list
