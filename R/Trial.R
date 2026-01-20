@@ -44,13 +44,20 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
-      n_timepoints <- self$timer$get_n_timepoints()
+      if( self$timer$get_n_arms() != length(self$population))
+      {
+        stop("Need timers for the same amount of arms run()")
 
-      for (i in seq_len(n_timepoints)) {
-        tp <- self$timer$get_timepoint(i)
+      }
+
+        for (i in  self$timer$get_unique_times()){
+
+
 
         # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
+            tp <- self$timer$get_timepoint(p$name,i)
+
           if (!is.null(tp$enroller)) {
             p$set_enrolled(tp$enroller, time = i)
           }
@@ -111,6 +118,7 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
-    }
+        }
+
   ) # end public
 ) # end class

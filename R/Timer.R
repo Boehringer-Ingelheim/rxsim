@@ -19,9 +19,9 @@ Timer <- R6::R6Class(
     },
 
     # methods
-    add_timepoint = function(dropper, enroller) {
+    add_timepoint = function(time,arm,dropper, enroller) {
       stopifnot(is.numeric(dropper), is.numeric(enroller))
-      tp <- list(dropper = dropper, enroller = enroller)
+      tp <- list(time=time,arm=arm,dropper = dropper, enroller = enroller)
       self$timelist <- append(self$timelist, list(tp))
     },
 
@@ -51,11 +51,14 @@ Timer <- R6::R6Class(
       invisible(self)
     },
 
-    get_n_timepoints = function() length(self$timelist),
+    get_end_timepoint = function() max(sapply(self$timelist,function(x){ x$time})),
+    get_n_arms = function() length(unique(sapply(self$timelist,function(x) x$arm))),
+    get_unique_times = function() unique(sapply(self$timelist,function(x) x$time)),
 
-    get_timepoint = function(i) {
+
+    get_timepoint = function(arm,i) {
       if (i <= 0 || i > length(self$timelist)) stop("Index out of range")
-      self$timelist[[i]]
+      self$timelist[[which(lapply(self$timelist,function(x){ x$time})==i& lapply(self$timelist,function(x){ x$arm})==arm)]]
     },
 
     # New check_conditions:
