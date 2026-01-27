@@ -1,100 +1,10 @@
----
-title: "Example usecase"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Example usecase}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
----
+data= rbind(cbind(subject_id=1:20,measurement_time=1,value = rnorm(20, mean = 50)),cbind(subject_id=1:20,measurement_time=4,value = rnorm(20, mean = 50)))
+pop1 <- Population$new("Arm A", data = data.frame(
+data
+))
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
-```
 
-# Setup
 
-```{r setup}
-library(rxsim)
-```
-
-# Population
-
-```{r population}
-ann <- Population$new(name = "Ann", rnorm(50))
-enroll <- cbind(1:10, rep(5, 10))
-drop <- cbind(1:10, rep(1, 10))
-
-for (i in 1:nrow(enroll)) {
-  ann$set_enrolled(time = enroll[i, 1], n = enroll[i, 2])
-  ann$set_dropped(time = drop[i, 1], n = drop[i, 2])
-}
-```
-
-# Timer
-
-```{r timer}
-# --- Usage ---
-# Example reader funcs
-summary_reader <- function(dat, t_now) {
-  list(
-    t = t_now,
-    n = nrow(dat),
-    mean_value = if ("value" %in% names(dat) &&
-      nrow(dat) > 0) {
-      mean(dat$value)
-    } else {
-      NA_real_
-    }
-  )
-}
-ids_reader <- function(dat, t_now) {
-  unique(dat$subject_id)
-}
-
-# Sample data
-set.seed(1)
-df <- data.frame(
-  subject_id = rep(1:5, each = 4),
-  visit      = rep(1:4, times = 5),
-  status     = sample(c("active", "inactive"), 20, replace = TRUE),
-  value      = rnorm(20),
-  center     = sample(c("EU", "US"), 20, replace = TRUE)
-)
-
-timers <- Timer$new("TidyTimers")
-# Each reader carries its own dplyr-like predicates
-timers$add_condition(status == "active",
-  visit >= 3,
-  analysis = summary_reader,
-  name = "active_v3_sum"
-)
-timers$add_condition(center == "EU", value > 0, analysis = ids_reader, name = "eu_ids")
-
-out <- timers$check_conditions(df, Sys.time())
-str(out, 1)
-```
-
-# Trial
-
-```{r trial}
-set.seed(123)
-
-data = rbind(
-  cbind(
-    subject_id = 1:20,
-    measurement_time = 1,
-    value = rnorm(20, mean = 50)
-  ),
-  cbind(
-    subject_id = 1:20,
-    measurement_time = 4,
-    value = rnorm(20, mean = 50)
-  )
-)
-pop1 <- Population$new("Arm A", data = data.frame(data))
 
 # --- Timers with multiple timepoints ---
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
@@ -125,9 +35,6 @@ self <- trial
 trial$run()
 
 trial$results
-```
-
-```{r trial-2}
 
 # --- Two populations with a common 'value' column ---
 # long_format
@@ -178,7 +85,7 @@ t$add_condition(
 )
 
 t$add_condition(
-  time == 4,
+  time == 4.0,
   # uses the 'time' column added by Trials$fit()
   analysis = function(d, tt) {
     mean(d$value)
@@ -206,5 +113,3 @@ trial$run()
 
 trial$results
 
-
-```

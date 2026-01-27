@@ -6,6 +6,7 @@ Population <- R6::R6Class(
     data = NULL,
     dropped = NULL,
     enrolled = NULL,
+    n=NULL,
 
     # constructor
     initialize = function(
@@ -13,6 +14,7 @@ Population <- R6::R6Class(
     data = NULL,
     dropped = NULL,
     enrolled = NULL,
+    n=NULL,
     ...
     ) {
       stopifnot(is.character(name))
@@ -28,9 +30,9 @@ Population <- R6::R6Class(
         self$data <- data
       }
 
-      n <- nrow(self$data)
-      self$dropped <- rep(NA, n)
-      self$enrolled <- rep(NA, n)
+      self$n <- length(unique(self$data$subject_id))
+      self$dropped <- rep(NA, self$n)
+      self$enrolled <- rep(NA, self$n)
     },
 
     # methods
@@ -46,9 +48,6 @@ Population <- R6::R6Class(
       self$enrolled[is.na(self$enrolled)] [id]<- time
     },
 
-    get_data = function() {
-      subset(self$data,!is.na(self$enrolled))
-    },
 
     set_data = function(data) {
       if (is.vector(data)) {

@@ -3,8 +3,6 @@ Trial <- R6::R6Class(
   public = list(
     # fields
     name = NULL,
-    description = NULL,
-    silent = FALSE,
     seed = NULL,
     timer = NULL,        # a Timers object
     population = NULL,   # list of Population objects
@@ -14,8 +12,6 @@ Trial <- R6::R6Class(
     # constructor
     initialize = function(
     name,
-    description = name,
-    silent = FALSE,
     seed = NULL,
     timer = NULL,
     population = list(),   # default empty list
@@ -25,8 +21,6 @@ Trial <- R6::R6Class(
     ) {
       stopifnot(is.character(name))
       self$name <- name
-      self$description <- description
-      self$silent <- silent
       self$seed <- seed
       if (!is.null(seed)) set.seed(seed)
 
@@ -44,57 +38,42 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
-      n_timepoints <- self$timer$get_n_timepoints()
+      if( self$timer$get_n_arms() != length(self$population))
+      {
+        stop("Need timers for the same amount of arms run()")
 
-      for (i in seq_len(n_timepoints)) {
-        tp <- self$timer$get_timepoint(i)
+      }
+
+        for (i in  sort(self$timer$get_unique_times())){
+
+
 
         # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
+          #add an error statement if the time/population dne
+            tp <- self$timer$get_timepoint(p$name,i)
+          if(length(tp)>1){
           if (!is.null(tp$enroller)) {
             p$set_enrolled(tp$enroller, time = i)
           }
           if (!is.null(tp$dropper)) {
             p$set_dropped(tp$dropper, time = i)
           }
+          }
         }
 
         # Collect raw snapshots from all populations (as a list)
         locked_snapshot_list <- lapply(self$population, function(p) {
           subset(cbind(p$data, data.frame(
-            enroll_time = p$enrolled,
-            drop_time = p$dropped
+            #add measurement_time column
+            enroll_time = rep(x=p$enrolled,times=dim(p$data)[1]),
+            drop_time = rep(p$dropped,times=dim(p$data)[1])
           )), !is.na(p$enrolled))
         })
 
-        # Try to use population names for an 'arm' column; fall back to list names or P1..Pn
-        pop_names <- vapply(self$population, function(p) {
-          nm <- tryCatch(p$name, error = function(e) NULL)
-          if (is.null(nm) || isTRUE(nchar(nm) == 0)) NA_character_ else as.character(nm)
-        }, character(1))
-        if (all(is.na(pop_names))) {
-          pop_names <- names(self$population)
-          if (is.null(pop_names) || any(pop_names == "")) {
-            pop_names <- paste0("P", seq_along(self$population))
-          }
-        }
 
-        # Convert each snapshot to data.frame and tag with arm
-        dfs <- Map(function(dat, arm_name) {
-          df <- as.data.frame(dat, stringsAsFactors = FALSE)
-          df$arm <- arm_name
-          df
-        }, locked_snapshot_list, pop_names)
+        combined <- do.call(rbind, locked_snapshot_list)
 
-        # Align columns across populations (union of cols) and row-bind
-        all_cols <- Reduce(union, lapply(dfs, names))
-        dfs_aligned <- lapply(dfs, function(df) {
-          missing_cols <- setdiff(all_cols, names(df))
-          if (length(missing_cols)) df[missing_cols] <- NA
-          df[, all_cols, drop = FALSE]
-        })
-        combined <- do.call(rbind, dfs_aligned)
-        rownames(combined) <- NULL
 
         # Add current time column for predicates like time >= 1
         combined$time <- i
@@ -111,6 +90,7 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
-    }
+        }
+
   ) # end public
 ) # end class

@@ -19,9 +19,9 @@ Timer <- R6::R6Class(
     },
 
     # methods
-    add_timepoint = function(dropper, enroller) {
+    add_timepoint = function(time,arm,dropper, enroller) {
       stopifnot(is.numeric(dropper), is.numeric(enroller))
-      tp <- list(dropper = dropper, enroller = enroller)
+      tp <- list(time=time,arm=arm,dropper = dropper, enroller = enroller)
       self$timelist <- append(self$timelist, list(tp))
     },
 
@@ -51,12 +51,36 @@ Timer <- R6::R6Class(
       invisible(self)
     },
 
-    get_n_timepoints = function() length(self$timelist),
+    get_end_timepoint = function() max(sapply(self$timelist,function(x){ x$time})),
+    get_n_arms = function() length(unique(sapply(self$timelist,function(x) x$arm))),
+    get_unique_times = function() unique(sapply(self$timelist,function(x) x$time)),
 
-    get_timepoint = function(i) {
-      if (i <= 0 || i > length(self$timelist)) stop("Index out of range")
-      self$timelist[[i]]
+    get_timepoint = function(arm, i) {
+      # Basic validation
+      if (missing(arm)) stop("`arm` is required.")
+      if (missing(i))   stop("`i` is required.")
+
+      # Extract columns from list with type safety
+      times <- vapply(self$timelist, function(x) x$time, FUN.VALUE = numeric(1))
+      arms  <- vapply(self$timelist, function(x) x$arm,  FUN.VALUE = character(1))
+
+      # Find matching indices
+      idx <- which(times == i & arms == arm)
+
+      # Handle match outcomes
+      if (length(idx) == 0L) {
+        return(NA)
+      }
+      if (length(idx) > 1L) {
+        stop(sprintf("Multiple timepoints found for arm = %s and time = %s.", arm, as.character(i)))
+      }
+
+      self$timelist[[idx]]
     },
+
+
+
+
 
     # New check_conditions:
     # - Applies each reader's own filter predicates (cond$where) to locked_data
@@ -94,8 +118,8 @@ Timer <- R6::R6Class(
           next
         }
 
-        if (is.function(cond$func) && nrow(df_i) != 0L) {
-          results[[key]] <- cond$func(df_i, current_time)
+        if (is.function(cond$analysis) && nrow(df_i) != 0L) {
+          results[[key]] <- cond$analysis(df_i, current_time)
         } else {
           results[[key]] <- df_i
           warning(sprintf("\n Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
