@@ -82,6 +82,53 @@ str(out, 1)
 ```{r trial}
 set.seed(123)
 
+data = rbind(
+  cbind(
+    subject_id = 1:20,
+    measurement_time = 1,
+    value = rnorm(20, mean = 50)
+  ),
+  cbind(
+    subject_id = 1:20,
+    measurement_time = 4,
+    value = rnorm(20, mean = 50)
+  )
+)
+pop1 <- Population$new("Arm A", data = data.frame(data))
+
+# --- Timers with multiple timepoints ---
+t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
+t$add_timepoint(time=1.0,arm="Arm A",dropper = 2, enroller = 3)
+t$add_timepoint(time=2.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=3.1,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=4.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=5.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=6.0,arm="Arm A",dropper = 1, enroller = 3)
+
+t$add_condition(
+  length(value) > 4,
+  analysis = function(d, tt) {
+    mean(d$value)
+  },
+  name = "overall_mean"
+)
+
+
+trial <- Trial$new(
+  name = "Trial A",
+  timer = t,
+  population = list(pop1)
+)
+self <- trial
+
+# --- Run ---
+trial$run()
+
+trial$results
+```
+
+```{r trial-2}
+
 # --- Two populations with a common 'value' column ---
 # long_format
 pop1 <- Population$new("Arm A", data = data.frame(
@@ -89,18 +136,26 @@ pop1 <- Population$new("Arm A", data = data.frame(
   value = rnorm(20, mean = 50)
 ))
 pop2 <- Population$new("Arm B", data = data.frame(
-  subject_id = 1:20,
+  subject_id = 21:40,
   value = rnorm(20, mean = 55)
 ))
 
 # --- Timers with multiple timepoints ---
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
-t$add_timepoint(dropper = 2, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
-t$add_timepoint(dropper = 1, enroller = 3)
+t$add_timepoint(time=1.0,arm="Arm A",dropper = 2, enroller = 3)
+t$add_timepoint(time=2.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=3.1,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=4.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=5.0,arm="Arm A",dropper = 1, enroller = 3)
+t$add_timepoint(time=6.0,arm="Arm A",dropper = 1, enroller = 3)
+
+
+t$add_timepoint(time=1.0,arm="Arm B",dropper = 2, enroller = 3)
+t$add_timepoint(time=2.0,arm="Arm B",dropper = 1, enroller = 3)
+t$add_timepoint(time=3.0,arm="Arm B",dropper = 1, enroller = 3)
+t$add_timepoint(time=4.0,arm="Arm B",dropper = 1, enroller = 3)
+t$add_timepoint(time=5.0,arm="Arm B",dropper = 1, enroller = 3)
+t$add_timepoint(time=6.0,arm="Arm B",dropper = 1, enroller = 3)
 
 # --- Reader conditions (per-reader predicates like dplyr::filter) ---
 # IMPORTANT: func must accept (data, current_time). Wrap base functions accordingly.
@@ -144,10 +199,12 @@ trial <- Trial$new(
   timer = t,
   population = list(pop1, pop2)
 )
-# self <- trial
+ self <- trial
 
 # --- Run ---
 trial$run()
 
 trial$results
+
+
 ```
