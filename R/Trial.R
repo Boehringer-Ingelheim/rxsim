@@ -46,34 +46,25 @@ Trial <- R6::R6Class(
 
         for (i in  sort(self$timer$get_unique_times())){
 
-
-
         # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
           #add an error statement if the time/population dne
-            tp <- self$timer$get_timepoint(p$name,i)
-          if(length(tp)>1){
-          if (!is.null(tp$enroller)) {
-            p$set_enrolled(tp$enroller, time = i)
-          }
-          if (!is.null(tp$dropper)) {
-            p$set_dropped(tp$dropper, time = i)
-          }
+          tp <- self$timer$get_timepoint(p$name, i)
+          if (!is.null(tp)) {
+            if (!is.null(tp$enroller)) p$set_enrolled(tp$enroller, time = i)
+            if (!is.null(tp$dropper))  p$set_dropped(tp$dropper,  time = i)
           }
         }
 
         # Collect raw snapshots from all populations (as a list)
-        locked_snapshot_list <- lapply(self$population, function(p) {
-          subset(cbind(p$data, data.frame(
-            #add measurement_time column
-            enroll_time = rep(x=p$enrolled,times=dim(p$data)[1]),
-            drop_time = rep(p$dropped,times=dim(p$data)[1])
-          )), !is.na(p$enrolled))
-        })
-
+          locked_snapshot_list <- lapply(self$population, function(p) {
+            keep <- !is.na(p$enrolled)
+            cbind(p$data[keep, , drop = FALSE],
+                  enroll_time = p$enrolled[keep],
+                  drop_time   = p$dropped[keep])
+          })
 
         combined <- do.call(rbind, locked_snapshot_list)
-
 
         # Add current time column for predicates like time >= 1
         combined$time <- i

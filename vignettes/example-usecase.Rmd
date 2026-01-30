@@ -96,14 +96,16 @@ data = rbind(
 )
 pop1 <- Population$new("Arm A", data = data.frame(data))
 
+timepoints <- data.frame(
+  time = c(1,2,3.1,4,5,6),
+  arm = rep("Arm A", 6),
+  dropper = c(2, rep(1, 5)),
+  enroller = rep(3, 6)
+)
+
 # --- Timers with multiple timepoints ---
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
-t$add_timepoint(time=1.0,arm="Arm A",dropper = 2, enroller = 3)
-t$add_timepoint(time=2.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=3.1,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=4.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=5.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=6.0,arm="Arm A",dropper = 1, enroller = 3)
+add_timepoints(t, timepoints)
 
 t$add_condition(
   length(value) > 4,
@@ -112,7 +114,6 @@ t$add_condition(
   },
   name = "overall_mean"
 )
-
 
 trial <- Trial$new(
   name = "Trial A",
@@ -142,20 +143,11 @@ pop2 <- Population$new("Arm B", data = data.frame(
 
 # --- Timers with multiple timepoints ---
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
-t$add_timepoint(time=1.0,arm="Arm A",dropper = 2, enroller = 3)
-t$add_timepoint(time=2.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=3.1,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=4.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=5.0,arm="Arm A",dropper = 1, enroller = 3)
-t$add_timepoint(time=6.0,arm="Arm A",dropper = 1, enroller = 3)
+add_timepoints(t, timepoints)
 
-
-t$add_timepoint(time=1.0,arm="Arm B",dropper = 2, enroller = 3)
-t$add_timepoint(time=2.0,arm="Arm B",dropper = 1, enroller = 3)
-t$add_timepoint(time=3.0,arm="Arm B",dropper = 1, enroller = 3)
-t$add_timepoint(time=4.0,arm="Arm B",dropper = 1, enroller = 3)
-t$add_timepoint(time=5.0,arm="Arm B",dropper = 1, enroller = 3)
-t$add_timepoint(time=6.0,arm="Arm B",dropper = 1, enroller = 3)
+timepoints$time <- 1:6
+timepoints$arm <- rep("Arm B", 6)
+add_timepoints(t, timepoints)
 
 # --- Reader conditions (per-reader predicates like dplyr::filter) ---
 # IMPORTANT: func must accept (data, current_time). Wrap base functions accordingly.

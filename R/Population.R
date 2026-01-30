@@ -37,17 +37,14 @@ Population <- R6::R6Class(
 
     # methods
     set_dropped = function(n, time) {
-      potential=self$dropped[is.na(self$dropped)&!is.na(self$enrolled)]
-      id <- sample(seq_len(length(potential)), n, replace = FALSE)
-      self$dropped[is.na(self$dropped)&!is.na(self$enrolled)] [id]<- time
+      idx <- which(is.na(self$dropped) & !is.na(self$enrolled))
+      self$dropped[sample(idx, n, replace = FALSE)] <- time
     },
 
     set_enrolled = function(n, time) {
-      potential=self$enrolled[is.na(self$enrolled)]
-      id <- sample(seq_len(length(potential)), n, replace = FALSE)
-      self$enrolled[is.na(self$enrolled)] [id]<- time
+      idx <- which(is.na(self$enrolled))
+      self$enrolled[sample(idx, n, replace = FALSE)] <- time
     },
-
 
     set_data = function(data) {
       if (is.vector(data)) {
@@ -59,9 +56,9 @@ Population <- R6::R6Class(
       } else {
         self$data <- data
       }
-     n <- nrow(self$data)
-      self$dropped <- rep(NA, n)
-      self$enrolled <- rep(NA, n)
+      self$n <- nrow(self$data)
+      self$dropped  <- rep(NA, self$n)
+      self$enrolled <- rep(NA, self$n)
     }
 
   ) # end public
