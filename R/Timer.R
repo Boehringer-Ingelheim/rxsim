@@ -77,14 +77,9 @@ Timer <- R6::R6Class(
     # New check_conditions:
     # - Applies each reader's own filter predicates (cond$where) to locked_data
     # - Calls cond$func(filtered_data, current_time)
-    # - Optional controls:
-    #     .skip_empty: skip calling func if per-reader filtered data is empty
-    #     .name_prefix: prefix for result keys (default "reader_")
     check_conditions = function(
     locked_data,
-    current_time,
-    .skip_empty = FALSE,
-    .name_prefix = "reader_"
+    current_time
     ) {
       stopifnot(is.data.frame(locked_data))
 
@@ -93,11 +88,11 @@ Timer <- R6::R6Class(
       for (i in seq_along(self$conditions)) {
         cond <- self$conditions[[i]]
 
-        key <- if (!is.null(cond$name) && nzchar(cond$name)) {
-          paste0(.name_prefix, cond$name)
-        } else {
-          paste0(.name_prefix, i)
-        }
+        key <- ifelse(
+          !is.null(cond$name) && nzchar(cond$name),
+          cond$name,
+          i
+        )
 
         # Per-reader filtering (dplyr semantics: NA in predicates drops rows)
         df_i <- if (!is.null(cond$where) && length(cond$where) > 0) {
@@ -106,15 +101,16 @@ Timer <- R6::R6Class(
           locked_data
         }
 
-        if (.skip_empty && nrow(df_i) == 0L) {
+        if (nrow(df_i) == 0L) {
+          warning(sprintf(" skipping check as filtered is empty \n"), call. = FALSE)
           next
         }
 
-        if (is.function(cond$analysis) && nrow(df_i) != 0L) {
+        if (is.function(cond$analysis)) {
           results[[key]] <- cond$analysis(df_i, current_time)
         } else {
           results[[key]] <- df_i
-          warning(sprintf("\n Condition '%s' has no valid func; returning filtered data.", key), call. = FALSE)
+          warning(sprintf(" returning filtered data as is because condition '%s' has no applicable analysis \n", key), call. = FALSE)
         }
       }
 
