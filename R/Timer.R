@@ -27,17 +27,13 @@ Timer <- R6::R6Class(
 
     # New: add reader with dplyr-style predicates
     # - '...' are filter-like boolean expressions, e.g., status == "active", visit >= 3
-    # - 'func' will be called as func(filtered_data, current_time)
+    # - 'analysis' will be called as analysis(filtered_data, current_time)
     # - 'name' becomes the result key ("reader_<name>")
     # Legacy params kept but ignored (warn) to ease migration
     add_condition = function(
     ...,
     analysis = NULL,
-    name = NULL,
-    time = NULL,
-    n_events = NULL,
-    threshold = NULL,
-    .env = parent.frame()
+    name = NULL
     ) {
       # Capture filter predicates as quosures (with caller env)
       where_quos <- rlang::enquos(..., .named = FALSE)
@@ -69,7 +65,7 @@ Timer <- R6::R6Class(
 
       # Handle match outcomes
       if (length(idx) == 0L) {
-        return(NA)
+        return(NULL)
       }
       if (length(idx) > 1L) {
         stop(sprintf("Multiple timepoints found for arm = %s and time = %s.", arm, as.character(i)))
@@ -77,10 +73,6 @@ Timer <- R6::R6Class(
 
       self$timelist[[idx]]
     },
-
-
-
-
 
     # New check_conditions:
     # - Applies each reader's own filter predicates (cond$where) to locked_data
