@@ -24,8 +24,8 @@ library(rxsim)
 
 ```{r population}
 ann <- Population$new(name = "Ann", rnorm(50))
-enroll <- cbind(1:10, rep(5, 10))
-drop <- cbind(1:10, rep(1, 10))
+enroll <- cbind(1:10, rep(5L, 10))
+drop <- cbind(1:10, rep(1L, 10))
 
 for (i in 1:nrow(enroll)) {
   ann$set_enrolled(time = enroll[i, 1], n = enroll[i, 2])
@@ -99,8 +99,8 @@ pop1 <- Population$new("Arm A", data = data.frame(data))
 timepoints <- data.frame(
   time = c(1,2,3.1,4,5,6),
   arm = rep("Arm A", 6),
-  dropper = c(2, rep(1, 5)),
-  enroller = rep(3, 6)
+  dropper = c(2L, rep(1L, 5)),
+  enroller = rep(3L, 6)
 )
 
 # --- Timers with multiple timepoints ---

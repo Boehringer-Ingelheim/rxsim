@@ -1,3 +1,4 @@
+#' @export
 Population <- R6::R6Class(
   classname = "Population",
   public = list(

@@ -1,3 +1,4 @@
+#' @export
 add_timepoints <- function(timer,df){
   invisible(
     sapply(
@@ -7,6 +8,7 @@ add_timepoints <- function(timer,df){
   )
 }
 
+#' @export
 prettify_results <- function(results) {
   all_cols <- unique(unlist(lapply(results, names)))
 

@@ -1,3 +1,4 @@
+#' @export
 Trial <- R6::R6Class(
   classname = "Trial",
   public = list(
