@@ -195,21 +195,21 @@ t$add_condition(
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{name}}{(\code{character}) Unique identifier for the \code{Timer} instance.}
+\item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
 
-\item{\code{timelist}}{(\code{list}) A list of timepoints. Each timepoint is a list with keys:
+\item{\code{timelist}}{\code{list} A list of timepoints. Each timepoint is a list with keys:
 \itemize{
-\item \code{time} (\code{numeric}) Calendar time
-\item \code{arm} (\code{character}) Unique identifier of the arm
-\item \code{dropper} (\code{integer}) # of subjects dropper at \code{time}
-\item \code{enroller} (\code{integer}) # of subjects enrolled at \code{time}
+\item \code{time} \code{numeric} Calendar time
+\item \code{arm} \code{character} Unique identifier of the arm
+\item \code{dropper} \code{integer} # of subjects dropper at \code{time}
+\item \code{enroller} \code{integer} # of subjects enrolled at \code{time}
 }}
 
-\item{\code{conditions}}{(\code{list}) A list of condition entries. Each entry is a list with keys:
+\item{\code{conditions}}{\code{list} A list of condition entries. Each entry is a list with keys:
 \itemize{
-\item \code{where} (\code{quosures}) filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
-\item \code{analysis} (\code{function} or \code{NULL}) analysis applied to filtered data
-\item \code{name} (\code{character} or \code{NULL}) unique key for the condition
+\item \code{where} \code{expr} filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
+\item \code{analysis} \code{function} or \code{NULL} analysis applied to filtered data
+\item \code{name} \code{character} or \code{NULL} unique key for the condition
 }}
 }
 \if{html}{\out{</div>}}
@@ -240,21 +240,21 @@ Creates a new instance of \link{Timer} class.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{name}}{(\code{character}) Unique identifier for the \code{Timer} instance.}
+\item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
 
-\item{\code{timelist}}{(\code{list}) A list of timepoints. Each timepoint is a list with keys:
+\item{\code{timelist}}{\code{list} A list of timepoints. Each timepoint is a list with keys:
 \itemize{
-\item \code{time} (\code{numeric}) Calendar time
-\item \code{arm} (\code{character}) Unique identifier of an arm
-\item \code{dropper} (\code{integer}) # of subjects dropped at \code{time}
-\item \code{enroller} (\code{integer}) # of subjects enrolled at \code{time}
+\item \code{time} \code{numeric} Calendar time
+\item \code{arm} \code{character} Unique identifier of an arm
+\item \code{dropper} \code{integer} # of subjects dropped at \code{time}
+\item \code{enroller} \code{integer} # of subjects enrolled at \code{time}
 }}
 
-\item{\code{conditions}}{(\code{list}) A list of condition entries. Each entry is a list with keys:
+\item{\code{conditions}}{\code{list} A list of condition entries. Each entry is a list with keys:
 \itemize{
-\item \code{where} (\code{quosures}) filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
-\item \code{analysis} (\code{function} or \code{NULL}) analysis applied to filtered data
-\item \code{name} (\code{character} or \code{NULL}) unique key for the condition
+\item \code{where} \code{expr} filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
+\item \code{analysis} \code{function} or \code{NULL} analysis applied to filtered data
+\item \code{name} \code{character} or \code{NULL} unique key for the condition
 }}
 }
 \if{html}{\out{</div>}}
@@ -280,13 +280,13 @@ Add a timepoint to existing \code{Timer} instance
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{time}}{(\code{numeric}) Calendat time}
+\item{\code{time}}{\code{numeric} Calendat time}
 
-\item{\code{arm}}{(\code{character}) Unique identifier of an arm}
+\item{\code{arm}}{\code{character} Unique identifier of an arm}
 
-\item{\code{dropper}}{(\code{integer}) # of subjects dropped at \code{time}}
+\item{\code{dropper}}{\code{integer} # of subjects dropped at \code{time}}
 
-\item{\code{enroller}}{(\code{integer}) # of subjects dropped at \code{time}}
+\item{\code{enroller}}{\code{integer} # of subjects dropped at \code{time}}
 }
 \if{html}{\out{</div>}}
 }
@@ -317,11 +317,11 @@ Add a trigger condition to existing \code{Timer} instance
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{(\code{expr}) boolean expression for \code{\link[dplyr:filter]{dplyr::filter()}}}
+\item{\code{...}}{\code{expr} boolean expression for \code{\link[dplyr:filter]{dplyr::filter()}}}
 
-\item{\code{analysis}}{(\code{function}) analysis function to apply to filtered data}
+\item{\code{analysis}}{\code{function} analysis function to apply to filtered data}
 
-\item{\code{name}}{(\code{character}) unique key for the condition}
+\item{\code{name}}{\code{character} unique key for the condition}
 }
 \if{html}{\out{</div>}}
 }
@@ -434,9 +434,9 @@ Get i-th timepoint of an arm of interest.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{arm}}{(\code{character}) identifier of arm of interest}
+\item{\code{arm}}{\code{character} identifier of arm of interest}
 
-\item{\code{i}}{(\code{integer}) index of the timepoint}
+\item{\code{i}}{\code{integer} index of the timepoint}
 }
 \if{html}{\out{</div>}}
 }
@@ -466,9 +466,9 @@ apply analysis.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{locked_data}}{(\code{data.frame}) trial data}
+\item{\code{locked_data}}{\code{data.frame} trial data}
 
-\item{\code{current_time}}{(\code{numeric}) calendar time of subsetting}
+\item{\code{current_time}}{\code{numeric} calendar time of subsetting}
 }
 \if{html}{\out{</div>}}
 }

@@ -66,36 +66,36 @@ Timer <- R6::R6Class(
   classname = "Timer",
   public = list(
     # --- fields ---
-    #' @field name (`character`) Unique identifier for the `Timer` instance.
+    #' @field name `character` Unique identifier for the `Timer` instance.
     name = NULL,
 
-    #' @field timelist (`list`) A list of timepoints. Each timepoint is a list with keys:
-    #' - `time` (`numeric`) Calendar time
-    #' - `arm` (`character`) Unique identifier of the arm
-    #' - `dropper` (`integer`) # of subjects dropper at `time`
-    #' - `enroller` (`integer`) # of subjects enrolled at `time`
+    #' @field timelist `list` A list of timepoints. Each timepoint is a list with keys:
+    #' - `time` `numeric` Calendar time
+    #' - `arm` `character` Unique identifier of the arm
+    #' - `dropper` `integer` # of subjects dropper at `time`
+    #' - `enroller` `integer` # of subjects enrolled at `time`
     timelist = NULL,
 
-    #' @field conditions (`list`) A list of condition entries. Each entry is a list with keys:
-    #' - `where` (`quosures`) filter conditions in [dplyr::filter()] style
-    #' - `analysis` (`function` or `NULL`) analysis applied to filtered data
-    #' - `name` (`character` or `NULL`) unique key for the condition
+    #' @field conditions `list` A list of condition entries. Each entry is a list with keys:
+    #' - `where` `expr` filter conditions in [dplyr::filter()] style
+    #' - `analysis` `function` or `NULL` analysis applied to filtered data
+    #' - `name` `character` or `NULL` unique key for the condition
     conditions = NULL,
 
     # --- constructor ---
     #' @description
     #' Creates a new instance of [Timer] class.
     #'
-    #' @param name (`character`) Unique identifier for the `Timer` instance.
-    #' @param timelist (`list`) A list of timepoints. Each timepoint is a list with keys:
-    #' - `time` (`numeric`) Calendar time
-    #' - `arm` (`character`) Unique identifier of an arm
-    #' - `dropper` (`integer`) # of subjects dropped at `time`
-    #' - `enroller` (`integer`) # of subjects enrolled at `time`
-    #' @param conditions (`list`) A list of condition entries. Each entry is a list with keys:
-    #' - `where` (`quosures`) filter conditions in [dplyr::filter()] style
-    #' - `analysis` (`function` or `NULL`) analysis applied to filtered data
-    #' - `name` (`character` or `NULL`) unique key for the condition
+    #' @param name `character` Unique identifier for the `Timer` instance.
+    #' @param timelist `list` A list of timepoints. Each timepoint is a list with keys:
+    #' - `time` `numeric` Calendar time
+    #' - `arm` `character` Unique identifier of an arm
+    #' - `dropper` `integer` # of subjects dropped at `time`
+    #' - `enroller` `integer` # of subjects enrolled at `time`
+    #' @param conditions `list` A list of condition entries. Each entry is a list with keys:
+    #' - `where` `expr` filter conditions in [dplyr::filter()] style
+    #' - `analysis` `function` or `NULL` analysis applied to filtered data
+    #' - `name` `character` or `NULL` unique key for the condition
     #'
     #' @returns An instance of `Timer` class.
     #'
@@ -116,10 +116,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Add a timepoint to existing `Timer` instance
     #'
-    #' @param time (`numeric`) Calendat time
-    #' @param arm (`character`) Unique identifier of an arm
-    #' @param dropper (`integer`) # of subjects dropped at `time`
-    #' @param enroller (`integer`) # of subjects dropped at `time`
+    #' @param time `numeric` Calendat time
+    #' @param arm `character` Unique identifier of an arm
+    #' @param dropper `integer` # of subjects dropped at `time`
+    #' @param enroller `integer` # of subjects dropped at `time`
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -138,9 +138,9 @@ Timer <- R6::R6Class(
     #' @description
     #' Add a trigger condition to existing `Timer` instance
     #'
-    #' @param ... (`expr`) boolean expression for [dplyr::filter()]
-    #' @param analysis (`function`) analysis function to apply to filtered data
-    #' @param name (`character`) unique key for the condition
+    #' @param ... `expr` boolean expression for [dplyr::filter()]
+    #' @param analysis `function` analysis function to apply to filtered data
+    #' @param name `character` unique key for the condition
     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
@@ -219,8 +219,8 @@ Timer <- R6::R6Class(
     #' @description
     #' Get i-th timepoint of an arm of interest.
     #'
-    #' @param arm (`character`) identifier of arm of interest
-    #' @param i (`integer`) index of the timepoint
+    #' @param arm `character` identifier of arm of interest
+    #' @param i `integer` index of the timepoint
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -255,8 +255,8 @@ Timer <- R6::R6Class(
     #' Get a filtered data frame based on a trigger condition and optionally
     #' apply analysis.
     #'
-    #' @param locked_data (`data.frame`) trial data
-    #' @param current_time (`numeric`) calendar time of subsetting
+    #' @param locked_data `data.frame` trial data
+    #' @param current_time `numeric` calendar time of subsetting
     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
