@@ -1,7 +1,7 @@
 Package: rxsim
 Type: Package
 Title: rxsim: Reducing friction for Randomized Clinical Trial simulations
-Version: 0.0.3
+Version: 0.0.4
 Authors@R: c(
     person(
       "Matthew", "Valko",
