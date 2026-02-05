@@ -107,13 +107,25 @@ timepoints <- data.frame(
 t <- Timer$new(name = "TrialTimers") # Use your updated Timers from earlier
 add_timepoints(t, timepoints)
 
+# t$add_condition(
+#   length(value) > 4,
+#   analysis = function(d, tt) {
+#     mean(d$value)
+#   },
+#   name = "overall_mean"
+# )
+
 t$add_condition(
-  length(value) > 4,
-  analysis = function(d, tt) {
-    mean(d$value)
-  },
-  name = "overall_mean"
+  sum((time - enroll_time) > 1) > 3,
+  analysis = NULL,
+  name = "study_time_>_2_for_3"
 )
+
+# t$add_condition(
+#   (time - enroll_time) > 1,
+#   analysis = NULL,
+#   name = "blah"
+# )
 
 trial <- Trial$new(
   name = "Trial A",
