@@ -49,9 +49,6 @@ prettify_results <- function(results) {
   df[c("time", setdiff(names(df), "time"))]
 }
 
-
-
-
 #' Convert vector to our dataframe format
 #'
 #' @param data `numeric` population data in vector format
@@ -67,3 +64,68 @@ vector_to_dataframe<-function(data)
     )
     return(data)
   }
+
+#' Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout
+#'
+#' @param n `integer` trial sample size
+#' @param arms `character` vector of unique identifier of arms
+#' @param allocation `numeric` vector of arm allocations
+#' @param enrollment `list` named list with enrollment parameters
+#' - `end_time` vector of end times of duration
+#' - `rate` # of subjects to enroll per unit time within that duration
+#' @param dropout `list` named list with dropout parameters
+#' - `end_time` vector of end times of duration
+#' - `rate` # of subjects to enroll per unit time within that duration
+#'
+#' @returns `data.frame` timepoints that may be passed to [add_timepoints()]
+#' @export
+#'
+#' @examples
+#' gen_timepoints(
+#'   n = 100,
+#'   arms = c("A", "B"),
+#'   allocation = c(2,1),
+#'   enrollment = list(
+#'     end_time = c(4,8,12),
+#'     rate = c(6,12,18)
+#'   ),
+#'   dropout = list(
+#'     end_time = c(5,9,13),
+#'     rate = c(0,3,6)
+#'   )
+#' )
+gen_timepoints <- function(n, arms, allocation, enrollment, dropout) {
+
+  # determine number of arms
+  n_arms <- length(arms)
+  # get valid weights
+  ratio <- allocation / sum(allocation)
+  # get the end time
+  end <- max(tail(enrollment$end_time,1), tail(dropout$end_time, 1))
+
+  # pad with 0 rates when necessary
+  pad <- function(x, end) if (tail(x$end_time, 1) != end) {
+    x$end_time <- c(x$end_time, end)
+    x$rate <- c(x$rate, 0)
+    x
+  } else x
+
+  enrollment <- pad(enrollment, end)
+  dropout <- pad(dropout, end)
+
+  # get duration from end times
+  get_durations <- function(x) (c(0,x) - dplyr::lag(c(0,x)))[-1]
+
+  df <- data.frame(
+    time = rep(seq_len(end), n_arms),
+    arm = rep(arms, each=end),
+    enroller = rep(
+      as.vector(outer(enrollment$rate, ratio)),
+      rep(get_durations(enrollment$end_time), n_arms)
+    ) |> as.integer(),
+    dropper = rep(
+      as.vector(outer(dropout$rate, ratio)),
+      rep(get_durations(dropout$end_time), n_arms)
+    ) |> as.integer()
+  )
+}
