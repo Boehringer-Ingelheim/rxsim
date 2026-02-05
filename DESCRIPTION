@@ -1,7 +1,7 @@
 Package: rxsim
 Type: Package
 Title: rxsim: Reducing friction for Randomized Clinical Trial simulations
-Version: 0.0.2
+Version: 0.0.3
 Authors@R: c(
     person(
       "Matthew", "Valko",
@@ -38,3 +38,8 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
+RoxygenNote: 7.3.3
+Imports: 
+    dplyr,
+    rlang
+Roxygen: list(markdown = TRUE)
