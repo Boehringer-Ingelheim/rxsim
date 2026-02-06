@@ -78,15 +78,8 @@ Population <- R6::R6Class(
       stopifnot(is.character(name))
       self$name <- name
 
-      if (is.vector(data)) {
-        self$data <- data.frame(
-          subject_id = seq_along(data),
-          data = data,
-          population_name = self$name
-        )
-      } else {
         self$data <- data
-      }
+
 
       self$n <- length(unique(self$data$subject_id))
       self$enrolled <- rep(NA, self$n)
@@ -148,15 +141,9 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-      if (is.vector(data)) {
-        self$data <- data.frame(
-          subject_id = seq_along(data),
-          data = data,
-          population_name = self$name
-        )
-      } else {
+
         self$data <- data
-      }
+
       self$n <- nrow(self$data)
       self$dropped  <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)
