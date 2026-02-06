@@ -48,3 +48,21 @@ prettify_results <- function(results) {
 
   df[c("time", setdiff(names(df), "time"))]
 }
+
+
+
+
+#' Convert vector to our data standards
+#'
+#' @param results pass results data field of your `data`
+#'
+#' @export
+
+vector_to_dataframe<-function(data)
+  if (is.vector(data)) {
+    data <- data.frame(
+      subject_id = seq_along(data),
+      data = data
+    )
+    return(data)
+  }
