@@ -4,10 +4,10 @@
 \alias{gen_timepoints}
 \title{Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout}
 \usage{
-gen_timepoints(n, arms, allocation, enrollment, dropout)
+gen_timepoints(sample_size, arms, allocation, enrollment, dropout)
 }
 \arguments{
-\item{n}{\code{integer} trial sample size}
+\item{sample_size}{\code{integer} trial sample size}
 
 \item{arms}{\code{character} vector of unique identifier of arms}
 
@@ -33,7 +33,7 @@ Generate timepoints for trial with allocation, piece-wise linear enrollment and 
 }
 \examples{
 gen_timepoints(
-  n = 100,
+  sample_size = 100,
   arms = c("A", "B"),
   allocation = c(2,1),
   enrollment = list(
@@ -45,4 +45,5 @@ gen_timepoints(
     rate = c(0,3,6)
   )
 )
+
 }
