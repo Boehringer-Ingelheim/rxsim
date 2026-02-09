@@ -15,7 +15,7 @@ times to random subsets of subjects.
 }
 \examples{
 # Basic example: vector input
-pop <- Population$new(name = "Control", data = rnorm(10))
+pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
 
 pop$n              # number of subjects
 head(pop$data)     # generated subject-level data
@@ -27,27 +27,27 @@ pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
 # Reset underlying data
-pop$set_data(rnorm(8))
+pop$set_data(vector_to_dataframe(rnorm(8)))
 
 
 ## ------------------------------------------------
 ## Method `Population$new`
 ## ------------------------------------------------
 
-Population$new(name = "Intervention", data = rnorm(5))
+Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
 
 ## ------------------------------------------------
 ## Method `Population$set_enrolled`
 ## ------------------------------------------------
 
-pop <- Population$new("Test", rnorm(10))
+pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 
 ## ------------------------------------------------
 ## Method `Population$set_dropped`
 ## ------------------------------------------------
 
-pop <- Population$new("Test", rnorm(10))
+pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
 pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
@@ -55,7 +55,7 @@ pop$set_dropped(n = 2, time = 3)
 ## Method `Population$set_data`
 ## ------------------------------------------------
 
-pop <- Population$new("ResetDemo", rnorm(5))
+pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
 pop$set_data(
   data.frame(
     subject_id = 1:8,
@@ -124,7 +124,7 @@ automatically as \code{NA}.}
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{Population$new(name = "Intervention", data = rnorm(5))
+\preformatted{Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
 }
 \if{html}{\out{</div>}}
 
@@ -153,7 +153,7 @@ Enrollment applies to subjects who are not yet enrolled \code{NA}.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("Test", rnorm(10))
+\preformatted{pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 }
 \if{html}{\out{</div>}}
@@ -187,7 +187,7 @@ Dropout applies only to subjects who:
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("Test", rnorm(10))
+\preformatted{pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
 pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 }
@@ -220,7 +220,7 @@ Replace the underlying subject data and reset enrollment/dropout status.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("ResetDemo", rnorm(5))
+\preformatted{pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
 pop$set_data(
   data.frame(
     subject_id = 1:8,

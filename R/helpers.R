@@ -52,12 +52,13 @@ prettify_results <- function(results) {
 
 
 
-#' Convert vector to our data standards
+#' Convert vector to our dataframe format
 #'
-#' @param results pass results data field of your `data`
+#' @param data `numeric` population data in vector format
 #'
-#' @export
+#' @returns `data.frame` population data that may be passed to [Population]
 
+#' @export
 vector_to_dataframe<-function(data)
   if (is.vector(data)) {
     data <- data.frame(

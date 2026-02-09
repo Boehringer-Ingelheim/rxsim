@@ -23,7 +23,7 @@ library(rxsim)
 # Population
 
 ```{r population}
-ann <- Population$new(name = "Ann", rnorm(50))
+ann <- Population$new(name = "Ann", vector_to_dataframe(rnorm(50)))
 enroll <- cbind(1:10, rep(5L, 10))
 drop <- cbind(1:10, rep(1L, 10))
 
