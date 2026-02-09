@@ -9,7 +9,7 @@
 #'
 #' @examples
 #' # Basic example: vector input
-#' pop <- Population$new(name = "Control", data = rnorm(10))
+#' pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
 #'
 #' pop$n              # number of subjects
 #' head(pop$data)     # generated subject-level data
@@ -21,7 +21,7 @@
 #' pop$set_dropped(n = 2, time = 3)
 #'
 #' # Reset underlying data
-#' pop$set_data(rnorm(8))
+#' pop$set_data(vector_to_dataframe(rnorm(8)))
 #'
 #' @export
 Population <- R6::R6Class(
@@ -67,7 +67,7 @@ Population <- R6::R6Class(
     #' @returns A new `Population` instance.
     #'
     #' @examples
-    #' Population$new(name = "Intervention", data = rnorm(5))
+    #' Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
     initialize = function(
     name,
     data = NULL,
@@ -78,15 +78,8 @@ Population <- R6::R6Class(
       stopifnot(is.character(name))
       self$name <- name
 
-      if (is.vector(data)) {
-        self$data <- data.frame(
-          subject_id = seq_along(data),
-          data = data,
-          population_name = self$name
-        )
-      } else {
         self$data <- data
-      }
+
 
       self$n <- length(unique(self$data$subject_id))
       self$enrolled <- rep(NA, self$n)
@@ -103,7 +96,7 @@ Population <- R6::R6Class(
     #' @param time `numeric` Enrollment time.
     #'
     #' @examples
-    #' pop <- Population$new("Test", rnorm(10))
+    #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
     #' pop$set_enrolled(n = 4, time = 2)
     set_enrolled = function(n, time) {
       idx <- which(is.na(self$enrolled))
@@ -121,7 +114,7 @@ Population <- R6::R6Class(
     #' @param time `numeric` Dropout time
     #'
     #' @examples
-    #' pop <- Population$new("Test", rnorm(10))
+    #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
     #' pop$set_enrolled(n = 5, time = 1)
     #' pop$set_dropped(n = 2, time = 3)
     set_dropped = function(n, time) {
@@ -139,7 +132,7 @@ Population <- R6::R6Class(
     #' - may contain more columns
     #'
     #' @examples
-    #' pop <- Population$new("ResetDemo", rnorm(5))
+    #' pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
     #' pop$set_data(
     #'   data.frame(
     #'     subject_id = 1:8,
@@ -148,15 +141,9 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-      if (is.vector(data)) {
-        self$data <- data.frame(
-          subject_id = seq_along(data),
-          data = data,
-          population_name = self$name
-        )
-      } else {
+
         self$data <- data
-      }
+
       self$n <- nrow(self$data)
       self$dropped  <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)

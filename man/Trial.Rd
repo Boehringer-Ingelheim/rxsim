@@ -24,15 +24,15 @@ Use \code{run()} to execute the simulation.
 }
 \examples{
 # Create two populations
-popA <- Population$new("A", data = rnorm(10))
-popB <- Population$new("B", data = rnorm(12))
+popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
+popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0, enroller = 4)
-t$add_timepoint(time = 1, arm = "B", dropper = 0, enroller = 5)
-t$add_timepoint(time = 2, arm = "A", dropper = 1, enroller = 2)
-t$add_timepoint(time = 2, arm = "B", dropper = 2, enroller = 3)
+t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
+t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
+t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
+t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 
 # Create a trial
 trial <- Trial$new(
@@ -58,8 +58,29 @@ Trial$new(name = "Simple", population = list())
 ## Method `Trial$run`
 ## ------------------------------------------------
 
-trial <- Trial$new(name = "Demo", timer = t, population = list(popA, popB))
+# Create two populations
+popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
+popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+
+# Create a timer and add timepoints
+t <- Timer$new("Timer")
+t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
+t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
+t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
+t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+
+# Create a trial
+trial <- Trial$new(
+  name = "ExampleTrial",
+  seed = 123,
+  timer = t,
+  population = list(popA, popB)
+)
+
+# Run the simulation
 trial$run()
+
+prettify_results(trial$results)
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -150,8 +171,29 @@ At each unique time defined by the trial's \code{Timer}:
 
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{trial <- Trial$new(name = "Demo", timer = t, population = list(popA, popB))
+\preformatted{# Create two populations
+popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
+popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+
+# Create a timer and add timepoints
+t <- Timer$new("Timer")
+t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
+t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
+t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
+t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+
+# Create a trial
+trial <- Trial$new(
+  name = "ExampleTrial",
+  seed = 123,
+  timer = t,
+  population = list(popA, popB)
+)
+
+# Run the simulation
 trial$run()
+
+prettify_results(trial$results)
 }
 \if{html}{\out{</div>}}
 

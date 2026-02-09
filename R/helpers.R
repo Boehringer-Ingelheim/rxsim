@@ -48,3 +48,22 @@ prettify_results <- function(results) {
 
   df[c("time", setdiff(names(df), "time"))]
 }
+
+
+
+
+#' Convert vector to our dataframe format
+#'
+#' @param data `numeric` population data in vector format
+#'
+#' @returns `data.frame` population data that may be passed to [Population]
+
+#' @export
+vector_to_dataframe<-function(data)
+  if (is.vector(data)) {
+    data <- data.frame(
+      subject_id = seq_along(data),
+      data = data
+    )
+    return(data)
+  }
