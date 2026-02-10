@@ -38,6 +38,7 @@ control <- Population$new(
 
 ## Time points
 Record all time points where we expect important events to occur like:
+
 - enrollment
 - dropout
 - interim analysis
