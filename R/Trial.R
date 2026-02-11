@@ -96,11 +96,31 @@ Trial <- R6::R6Class(
       self$seed <- seed
       if (!is.null(seed)) set.seed(seed)
 
-      self$timer <- timer
+
       stopifnot(is.list(population))   # enforce list of Population objects
+
+      if (length(timer$timelist) == 0){
+        if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
+          stop("Neither Timer nor Population has enrollment data.")
+        }
+        else {
+          timepoints <- data.frame(
+            time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
+            arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
+            enroller = 1L,
+            dropper = 0L
+          )
+          add_timepoints(timer, timepoints)
+          self$timer <- timer
+        }
+      } else self$timer <- timer
+
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
+
+      # routine for empty time list
+
     },
 
     # --- methods ---
@@ -146,11 +166,11 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
-      if( self$timer$get_n_arms() != length(self$population))
-      {
-        stop("Need timers for the same amount of arms run()")
-
-      }
+      # if( self$timer$get_n_arms() != length(self$population))
+      # {
+      #   stop("Need timers for the same amount of arms run()")
+      #
+      # }
 
         for (i in  sort(self$timer$get_unique_times())){
 
@@ -159,8 +179,17 @@ Trial <- R6::R6Class(
           #add an error statement if the time/population dne
           tp <- self$timer$get_timepoint(p$name, i)
           if (!is.null(tp)) {
-            if (!is.null(tp$enroller)) p$set_enrolled(tp$enroller, time = i)
-            if (!is.null(tp$dropper))  p$set_dropped(tp$dropper,  time = i)
+            # check whether any one left to enroll?
+            if (
+              !is.null(tp$enroller) &
+              any(is.na(pbo$enrolled))
+              ) p$set_enrolled(tp$enroller, time = i)
+            # check whether anyone left to drop
+            if (
+              !is.null(tp$dropper) &
+              any(!is.na(pbo$enrolled)) &
+              any(is.na(pbo$dropped))
+              )p$set_dropped(tp$dropper,  time = i)
           }
         }
 
