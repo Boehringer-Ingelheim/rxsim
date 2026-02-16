@@ -1,0 +1,84 @@
+---
+title: "Example 1: Two arm | Fixed design | Continuous"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{example-1}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rxsim)
+```
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 100
+arms <- c("pbo", "trt")
+allocation <- c(1,1)
+enrollment <- list(
+  end_time = c(4, 8, 12, 16),
+  rate = c(5, 10, 15, 20)
+)
+dropout <- list(
+  end_time = c(4, 8, 12, 16),
+  rate = c(1, 2, 4, 8)
+)
+```
+
+# Time points
+Get a list of time points where important events occur. Add time points to a timer.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout
+)
+
+t <- Timer$new(name = "trial_timer")
+add_timepoints(t, timepoints)
+```
+
+## Arms
+Generate populations and endpoint data.
+
+```{r population}
+control <- Population$new(
+  name = "pbo",
+  data = data.frame(
+    subject_id = 1:50,
+    data = rnorm(50)
+  )
+)
+
+treatment <- Population$new(
+  name = "trt",
+  data = data.frame(
+    subject_id = 1:50,
+    data = rnorm(50, 0.15)
+  )
+)
+```
+
+## Triggers & Analysis
+We want to do a t-test when 100 subjects have been enrolled. 
+
+```{r trigger}
+t$add_condition(
+  nrow(!is.na(enroll_time)) >= 100,
+  analysis = function(df, time){
+    df |> 
+  }
+)
