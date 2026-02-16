@@ -142,7 +142,7 @@ Population <- R6::R6Class(
     #' )
     set_data = function(data) {
       if(!("arm" %in% names(data))){
-        data$arm <- name
+        data$arm <- self$name
       }
       self$data <- data
       self$n <- nrow(self$data)
