@@ -6,6 +6,7 @@
 .DS_Store
 inst/doc
 docs
+renv/profile
 renv/profiles
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
