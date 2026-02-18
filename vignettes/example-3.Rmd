@@ -1,0 +1,235 @@
+---
+title: "Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{example-two-endpoints-fixed}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core package that provides Timer, Population, Trial, gen_timepoints, add_timepoints, ...
+library(rxsim)
+
+# Utilities
+library(dplyr)
+library(MASS)   # for mvrnorm (simulate correlated endpoints)
+```
+
+## Scenario
+
+We consider a **two-arm, fixed design** with **two correlated continuous endpoints** per subject.  
+Enrollment is piece-wise linear; analysis happens **once at the final time**.
+
+```{r scenario}
+# Total target sample size
+sample_size <- 100
+
+# Arms and allocation (balanced)
+arms       <- c("pbo", "trt")
+allocation <- c(1, 1)
+
+# Piece-wise linear enrollment and dropout rates (per unit time)
+# (You can tweak these to match your program's cadence.)
+enrollment <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(5, 10, 15, 20)
+)
+dropout <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(1, 2, 4, 8)
+)
+
+# Endpoint model parameters
+# Endpoint correlation structure (common across arms for simplicity)
+rho  <- 0.60            # correlation between endpoint1 and endpoint2
+sd1  <- 1.00            # SD of endpoint1
+sd2  <- 1.00            # SD of endpoint2
+
+# Mean structure per arm
+mu1_pbo <- 0.00         # Control mean for endpoint1
+mu2_pbo <- 0.00         # Control mean for endpoint2
+
+# Treatment effects (mean shifts)
+delta1  <- 0.30         # Treatment - control difference for endpoint1
+delta2  <- 0.20         # Treatment - control difference for endpoint2
+
+mu1_trt <- mu1_pbo + delta1
+mu2_trt <- mu2_pbo + delta2
+
+# Construct covariance matrix
+Sigma <- matrix(
+  c(sd1^2, rho*sd1*sd2,
+    rho*sd1*sd2, sd2^2),
+  nrow = 2, byrow = TRUE
+)
+```
+
+## Time points
+
+Generate timeline of discrete timepoints and add them to a `Timer`.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size = sample_size,
+  arms        = arms,
+  allocation  = allocation,
+  enrollment  = enrollment,
+  dropout     = dropout
+)
+
+t <- Timer$new(name = "trial_timer_two_endpoints")
+add_timepoints(t, timepoints)
+
+final_time <- t$get_end_timepoint()
+final_time
+```
+
+## Arms (Populations)
+
+For each arm we simulate **two correlated endpoints** per subject using `MASS::mvrnorm`.  
+We keep **50** subjects per arm (consistent with `sample_size = 100` and equal allocation).
+
+```{r population}
+set.seed(2026)  # Seed local to data simulation; Trial also allows its own seed
+
+n_per_arm <- sample_size / length(arms)  # 50 per arm
+
+# Control population data (two correlated endpoints)
+xy_pbo <- MASS::mvrnorm(
+  n     = n_per_arm,
+  mu    = c(mu1_pbo, mu2_pbo),
+  Sigma = Sigma
+)
+control_df <- data.frame(
+  subject_id = seq_len(n_per_arm),
+  y1 = xy_pbo[, 1],
+  y2 = xy_pbo[, 2]
+)
+
+# Treatment population data (shifted means, same covariance)
+xy_trt <- MASS::mvrnorm(
+  n     = n_per_arm,
+  mu    = c(mu1_trt, mu2_trt),
+  Sigma = Sigma
+)
+treatment_df <- data.frame(
+  subject_id = seq_len(n_per_arm),
+  y1 = xy_trt[, 1],
+  y2 = xy_trt[, 2]
+)
+
+# Build Population objects
+control <- Population$new(
+  name = "pbo",
+  data = control_df
+)
+
+treatment <- Population$new(
+  name = "trt",
+  data = treatment_df
+)
+```
+
+## Trigger & Analysis
+
+This is a **fixed design**: perform analysis **once at the final timepoint**.  
+We run two independent two-sample t-tests (one per endpoint).  
+(If you want multiplicity control, you can add `p.adjust` below.)
+
+```{r trigger}
+t$add_condition(
+  time == final_time,
+  analysis = function(df, time) {
+    df_e <- df |> dplyr::filter(!is.na(enroll_time))
+
+    # Two-sample t-tests by arm for each endpoint
+    p1 <- t.test(y1 ~ arm, data = df_e)$p.value
+    p2 <- t.test(y2 ~ arm, data = df_e)$p.value
+
+    # Optional: simple multiplicity adjustment (Holm)
+    padj <- p.adjust(c(p1, p2), method = "holm")
+
+    # Return a named, row-like object (list or data.frame both fine)
+    list(
+      p_y1      = unname(p1),
+      p_y2      = unname(p2),
+      p_holm_y1 = unname(padj[1]),
+      p_holm_y2 = unname(padj[2]),
+      n_total   = nrow(df_e),
+      n_pbo     = sum(df_e$arm == "pbo"),
+      n_trt     = sum(df_e$arm == "trt")
+    )
+  },
+  name = "final"
+)
+```
+
+## Trial
+
+Create and run the trial.  
+(We supply a `seed` for reproducibility inside the trial engine—e.g., enrollment/dropout sampling.)
+
+```{r trial}
+trial <- Trial$new(
+  name       = "two_endpoints_fixed_design",
+  seed       = 123,
+  timer      = t,
+  population = list(control, treatment)
+)
+```
+
+## Simulate
+
+```{r sim}
+trial$run()
+```
+
+## Results
+
+The analysis results at the final timepoint:
+
+```{r results}
+trial$results
+```
+
+If you prefer a flat frame (when returning lists/records), you can prettify:
+
+```{r results_pretty}
+prettify_results(trial$results)
+```
+
+## Locked data (snapshot)
+
+Inspect the data that was “locked” at analysis time:
+
+```{r locked}
+lapply(trial$locked_data, head)
+```
+
+## (Optional) Check realized correlation by arm among enrolled
+
+This verifies the simulated correlation structure **among those enrolled** (pooled across all time up to final):
+
+```{r correlation_check, message=FALSE}
+locked_final <- trial$locked_data[[paste0("time_", final_time)]]
+
+locked_final |>
+  filter(!is.na(enroll_time)) |>
+  group_by(arm) |>
+  summarise(
+    n         = n(),
+    cor_y1_y2 = cor(y1, y2)
+  )
+```
+
+### Notes
+- This example uses **independent two-sample t-tests** for each endpoint. You can adapt the `analysis` function to use **multivariate** methods (e.g., Hotelling’s T^2 via `HotellingsT2::HotellingsT2`) or to implement different **multiplicity adjustments** depending on your program’s control strategy.
+- The `MASS::mvrnorm` generation ensures **correlated endpoints** per subject with correlation `rho`. Realized sample correlations will vary around `rho` due to sampling and enrollment patterns with dropout.

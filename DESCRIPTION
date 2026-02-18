@@ -37,7 +37,8 @@ LazyData: true
 Suggests: 
     knitr,
     rmarkdown,
-    tibble
+    tibble,
+    MASS
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 Imports: 
