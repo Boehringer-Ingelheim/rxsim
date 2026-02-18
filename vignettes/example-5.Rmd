@@ -1,0 +1,200 @@
+---
+title: "Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{example-5}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core simulation framework (Timer, Population, Trial, gen_timepoints, add_timepoints, ...)
+library(rxsim)
+
+# Analyses
+library(multcomp)     # Dunnett
+library(DoseFinding)  # MCP-Mod
+
+# Helpers
+library(dplyr)
+set.seed(4566)
+```
+
+## Scenario
+
+A **multi-arm, fixed design** (placebo + 4 active doses) with a **single continuous endpoint**.  
+At the **final analysis**, we perform:
+
+- **Dunnett test**: all active doses vs placebo using a normal-theory linear model.
+- **MCP-Mod**: model-based multiple contrast test + model fitting on a candidate set of dose–response shapes.
+
+```{r scenario}
+# Dose levels (placebo + 4 actives)
+doses <- c(0, 5, 10, 20, 50)
+
+# Total N and allocation (balanced across arms)
+sample_size <- 150
+allocation  <- rep(1, length(doses))
+arm_names   <- paste0("d", doses)  # e.g., d0, d5, ... used as arm labels
+
+# Enrollment & dropout profile (piece-wise constant)
+enrollment <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(6, 12, 18, 24)
+)
+dropout <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(0,  1,  2,  3)
+)
+
+# Data-generating model: Emax with homoscedastic noise
+e0    <- 0.0
+emax  <- 1.0
+ed50  <- 20.0
+sigma <- 1.0
+
+mean_fun <- function(d) e0 + emax * d / (ed50 + d)
+
+# operating characteristics
+alpha <- 0.05
+delta <- 0.1
+```
+
+## Time points
+
+Create a `Timer` with discrete time points to reach the target sample size.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size = sample_size,
+  arms        = arm_names,
+  allocation  = allocation,
+  enrollment  = enrollment,
+  dropout     = dropout
+)
+
+# Timer
+tr_timer <- Timer$new(name = "timer_multiarm")
+add_timepoints(tr_timer, timepoints)
+final_time <- tr_timer$get_end_timepoint()
+final_time
+```
+
+## Populations
+
+Simulate subject-level responses for each arm according to the Emax model.
+
+```{r population}
+n_per_arm <- sample_size / length(doses)
+
+mk_pop <- function(d){
+  mu <- mean_fun(d)
+  y  <- rnorm(n_per_arm, mean = mu, sd = sigma)
+  data.frame(
+    subject_id = seq_len(n_per_arm),
+    dose       = d,
+    y          = y
+  )
+}
+
+pops <- lapply(seq_along(doses), function(i){
+  nm <- paste0("d", doses[i])
+  Population$new(name = nm, data = mk_pop(doses[i]))
+})
+```
+
+## Triggers & Analyses
+
+At the **final time**, run:
+
+1) **Dunnett test** (active vs placebo) using `multcomp::glht` on `lm(y ~ arm)`.
+
+2) **MCP-Mod** using `DoseFinding::MCPMod` with a candidate model set (`Mods`).
+
+```{r trigger}
+# Candidate model set for MCP-Mod (tweak to your compound)
+# We pass shape parameters on the original dose scale via 'doses = doses'.
+mods <- Mods(
+  linear     = NULL,
+  emax       = 20,           # ED50 ~ 20
+  exponential= 50,           # delta ~ 50
+  sigEmax    = c(20, 3),     # ED50 ~ 20, Hill ~ 3
+  quadratic  = -0.2,         # standardized curvature; see help(drmodels)
+  doses      = doses
+)
+
+tr_timer$add_condition(
+  time == final_time,
+  analysis = function(df, time){
+    df_e <- df |>
+      dplyr::filter(!is.na(enroll_time)) |>
+      dplyr::mutate(
+        arm  = factor(arm, levels = paste0("d", doses)),
+        dose = as.numeric(dose)
+      )
+
+    # 1) Dunnett (active vs placebo)
+    fit <- lm(y ~ arm, data = df_e)
+    dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
+    summ <- summary(dun)
+
+    # 2) MCP-Mod (one-step): model-based multiple contrast tests + model fit
+    mm <- DoseFinding::MCPMod(
+        dose   = df_e$dose,
+        resp   = df_e$y,
+        models = mods,
+        type   = "normal",
+        Delta  = delta,
+        alpha  = alpha,
+        selModel = "aveAIC"
+    )
+
+    mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
+
+    list(
+      n_total      = nrow(df_e),
+      dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
+      mcpmod_min_p = mct_min_p
+    )
+  },
+  name = "final"
+)
+```
+
+## Trial
+
+```{r trial}
+trial <- Trial$new(
+  name       = "multiarm_dunnett_mcpmod",
+  seed       = 456,
+  timer      = tr_timer,
+  population = pops
+)
+```
+
+## Simulate
+
+```{r sim}
+trial$run()
+```
+
+## Results
+
+The full result list (Dunnett table + MCP-Mod summary elements):
+
+```{r results}
+trial$results
+```
+
+Flatten for quick inspection:
+
+```{r results_pretty}
+prettify_results(trial$results)
+```

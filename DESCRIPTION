@@ -38,7 +38,9 @@ Suggests:
     knitr,
     rmarkdown,
     tibble,
-    MASS
+    MASS,
+    multcomp,
+    DoseFinding
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 Imports: 
