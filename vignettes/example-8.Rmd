@@ -255,7 +255,7 @@ tr_timer$add_condition(
     crit_prob <- BayesianMCPMod::getCritProb(
       mods = mods,
       dose_levels = dose_levels,
-      dose_weights = n_vec,
+      dose_weights = n_vec |> as.numeric(),
       alpha_crit_val = alpha_final
     )
 
