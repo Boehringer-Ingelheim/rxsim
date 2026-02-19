@@ -40,7 +40,9 @@ Suggests:
     tibble,
     MASS,
     multcomp,
-    DoseFinding
+    DoseFinding,
+    RBesT,
+    BayesianMCPMod
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 Imports: 
