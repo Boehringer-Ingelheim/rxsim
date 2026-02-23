@@ -82,8 +82,17 @@ Population <- R6::R6Class(
       }
       self$data <- data
       self$n <- length(unique(self$data$subject_id))
-      self$enrolled <- rep(NA, self$n)
-      self$dropped <- rep(NA, self$n)
+      # accept enrolled and dropped it passed
+      ifelse(
+        is.null(enrolled),
+        self$enrolled <- rep(NA, self$n),
+        self$enrolled <- enrolled
+      )
+      ifelse(
+        is.null(dropped),
+        self$dropped <- rep(NA, self$n),
+        self$dropped <- dropped
+      )
     },
 
     # --- methods ---
