@@ -52,7 +52,13 @@ prettify_results(trial$results)
 ## Method `Trial$new`
 ## ------------------------------------------------
 
-Trial$new(name = "Simple", population = list())
+t <- Timer$new(name="simple_timer")
+pop <- Population$new(
+  name = "simple_pop",
+  data = vector_to_dataframe(rnorm(5))
+)
+pop$set_enrolled(5, 1)
+Trial$new(name = "simple_trial", timer=t, population = list(pop))
 
 ## ------------------------------------------------
 ## Method `Trial$run`
@@ -144,7 +150,13 @@ sets the RNG seed for reproducibility.}
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
-\preformatted{Trial$new(name = "Simple", population = list())
+\preformatted{t <- Timer$new(name="simple_timer")
+pop <- Population$new(
+  name = "simple_pop",
+  data = vector_to_dataframe(rnorm(5))
+)
+pop$set_enrolled(5, 1)
+Trial$new(name = "simple_trial", timer=t, population = list(pop))
 }
 \if{html}{\out{</div>}}
 
