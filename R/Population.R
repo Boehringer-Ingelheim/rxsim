@@ -46,7 +46,8 @@ Population <- R6::R6Class(
 
     #' @field n `integer` Number of unique subjects in the population.
     n=NULL,
-
+    #' @field m `integer` Number of readout_times in the population.
+    m=NULL,
     # --- constructor ---
     #' @description
     #' Create a new `Population`` instance.
@@ -73,7 +74,8 @@ Population <- R6::R6Class(
     data = NULL,
     enrolled = NULL,
     dropped = NULL,
-    n=NULL
+    n=NULL,
+    m=NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
@@ -82,6 +84,8 @@ Population <- R6::R6Class(
       }
       self$data <- data
       self$n <- length(unique(self$data$subject_id))
+      self$m <- (self$n/dim(self$data)[1])
+
       # accept enrolled and dropped it passed
       ifelse(
         is.null(enrolled),
