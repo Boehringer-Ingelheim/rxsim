@@ -168,8 +168,9 @@ Trial <- R6::R6Class(
           locked_snapshot_list <- lapply(self$population, function(p) {
             keep <- !is.na(p$enrolled)
             cbind(p$data[keep, , drop = FALSE],
-                  enroll_time = p$enrolled[keep],
-                  drop_time   = p$dropped[keep])
+            enroll_time = rep(x=p$enrolled[keep],times=p$m),
+            drop_time   = rep(x=p$dropped[keep],times=p$m) )
+
           })
 
         combined <- do.call(rbind, locked_snapshot_list)
