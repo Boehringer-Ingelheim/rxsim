@@ -77,6 +77,9 @@ Population <- R6::R6Class(
     ) {
       stopifnot(is.character(name))
       self$name <- name
+      if(!("arm" %in% names(data))){
+        data$arm <- name
+      }
       self$data <- data
       self$n <- length(unique(self$data$subject_id))
       # accept enrolled and dropped it passed
@@ -147,9 +150,10 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-
-        self$data <- data
-
+      if(!("arm" %in% names(data))){
+        data$arm <- self$name
+      }
+      self$data <- data
       self$n <- nrow(self$data)
       self$dropped  <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)
