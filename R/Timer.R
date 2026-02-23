@@ -319,7 +319,7 @@ Timer <- R6::R6Class(
         }
 
         if (nrow(df_i) == 0L) {
-          warning(sprintf(" skipping check as filtered is empty \n"), call. = FALSE)
+          # warning(sprintf(" skipping check as filtered is empty \n"), call. = FALSE)
           next
         }
 
