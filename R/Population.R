@@ -45,9 +45,11 @@ Population <- R6::R6Class(
     dropped = NULL,
 
     #' @field n `integer` Number of unique subjects in the population.
-    n=NULL,
-    #' @field m `integer` Number of readout_times in the population.
-    m=NULL,
+    n = NULL,
+
+    #' @field n_readouts `integer` Number of readout_times in the population.
+    n_readouts = NULL,
+
     # --- constructor ---
     #' @description
     #' Create a new `Population`` instance.
@@ -63,7 +65,9 @@ Population <- R6::R6Class(
     #' @param dropped `numeric` dropout times are always initialized
     #' automatically as `NA`.
     #'
-    #' @param n `integer` `n` is automatically computed from data.
+    #' @param n `integer` is automatically computed from data.
+    #'
+    #' @param n_readouts `integer` is automatically computed from data.
     #'
     #' @returns A new `Population` instance.
     #'
@@ -75,7 +79,7 @@ Population <- R6::R6Class(
     enrolled = NULL,
     dropped = NULL,
     n=NULL,
-    m=NULL
+    n_readouts=NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
@@ -84,7 +88,7 @@ Population <- R6::R6Class(
       }
       self$data <- data
       self$n <- length(unique(self$data$subject_id))
-      self$m <- (self$n/dim(self$data)[1])
+      self$n_readouts <- (dim(self$data)[1] / self$n)
 
       # accept enrolled and dropped it passed
       ifelse(
