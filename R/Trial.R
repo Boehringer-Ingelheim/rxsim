@@ -82,7 +82,13 @@ Trial <- R6::R6Class(
     #' @returns A new `Trial` instance.
     #'
     #' @examples
-    #' Trial$new(name = "Simple", population = list())
+    #' t <- Timer$new(name="simple_timer")
+    #' pop <- Population$new(
+    #'   name = "simple_pop",
+    #'   data = vector_to_dataframe(rnorm(5))
+    #' )
+    #' pop$set_enrolled(5, 1)
+    #' Trial$new(name = "simple_trial", timer=t, population = list(pop))
     initialize = function(
     name,
     seed = NULL,
@@ -182,13 +188,13 @@ Trial <- R6::R6Class(
             # check whether any one left to enroll?
             if (
               !is.null(tp$enroller) &
-              any(is.na(pbo$enrolled))
+              any(is.na(p$enrolled))
               ) p$set_enrolled(tp$enroller, time = i)
             # check whether anyone left to drop
             if (
               !is.null(tp$dropper) &
-              any(!is.na(pbo$enrolled)) &
-              any(is.na(pbo$dropped))
+              any(!is.na(p$enrolled)) &
+              any(is.na(p$dropped))
               )p$set_dropped(tp$dropper,  time = i)
           }
         }
