@@ -4,7 +4,7 @@ options(Ncpus = 2)
 # Use PPM and {pak} with {renv}
 # https://github.com/rstudio/renv/
 # https://github.com/r-lib/pak
-# options(renv.config.pak.enabled = TRUE)
+options(renv.config.pak.enabled = TRUE)
 
 # activate renv
 source("renv/activate.R")
