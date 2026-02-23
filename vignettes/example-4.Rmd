@@ -2,7 +2,7 @@
 title: "Example 4: Two arm | Fixed design | Correlated continuous & time-to-event endpoints | t-test + survival analysis"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-4}
+  %\VignetteIndexEntry{Example 4: Two arm | Fixed design | Correlated continuous & time-to-event endpoints | t-test + survival analysis}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

@@ -2,7 +2,7 @@
 title: "Example 2: Two arm | Interim | Continuous | t-test"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-2}
+  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

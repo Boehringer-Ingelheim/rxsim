@@ -2,7 +2,7 @@
 title: "Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-7}
+  %\VignetteIndexEntry{Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

@@ -2,7 +2,7 @@
 title: "Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-6}
+  %\VignetteIndexEntry{Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

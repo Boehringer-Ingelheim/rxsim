@@ -2,7 +2,7 @@
 title: "Example 8: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-8}
+  %\VignetteIndexEntry{Example 8: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

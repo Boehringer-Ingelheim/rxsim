@@ -2,7 +2,7 @@
 title: "Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-5}
+  %\VignetteIndexEntry{Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

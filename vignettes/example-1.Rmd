@@ -2,7 +2,7 @@
 title: "Example 1: Two arm | Fixed design | Continuous"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{example-1}
+  %\VignetteIndexEntry{Example 1: Two arm | Fixed design | Continuous}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
