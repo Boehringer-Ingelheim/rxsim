@@ -1,0 +1,201 @@
+---
+title: "Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core simulation framework
+library(rxsim)
+
+# Helpers
+library(dplyr)
+
+set.seed(6606)
+```
+
+## Scenario
+
+A **two-arm, fixed design** trial (placebo vs treatment) with a **single continuous endpoint** and one **final analysis**.
+
+At final analysis, we report:
+
+- **Overall analysis**: treatment effect across all subjects.
+- **Exploratory subgroup analysis**: treatment effect within each subgroup + arm-by-subgroup interaction test.
+
+```{r scenario}
+# Trial design
+sample_size <- 120
+allocation  <- c(1, 1)
+arms        <- c("placebo", "treatment")
+
+# Subgroup settings
+subgroup_levels <- c("A", "B")
+subgroup_prob   <- c(0.6, 0.4)
+
+# Data-generating truth (example values)
+mu_placebo_A <- 0.00
+mu_placebo_B <- 0.00
+mu_treat_A   <- 0.40
+mu_treat_B   <- 0.15
+sigma        <- 1.0
+
+# Enrollment/dropout profile
+enrollment <- list(
+  end_time = c(4, 8),
+  rate     = c(8, 7)
+)
+dropout <- list(
+  end_time = c(4, 8),
+  rate     = c(0, 0)
+)
+```
+
+## Time points
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size = sample_size,
+  arms        = arms,
+  allocation  = allocation,
+  enrollment  = enrollment,
+  dropout     = dropout
+)
+
+tr_timer <- Timer$new(name = "timer_example_6")
+add_timepoints(tr_timer, timepoints)
+
+final_time <- tr_timer$get_end_timepoint()
+final_time
+```
+
+## Populations
+
+Create two populations and include a `subgroup` column in each population dataset.
+
+```{r populations}
+n_per_arm <- sample_size / 2
+
+mk_arm_data <- function(n, mean_A, mean_B) {
+  subgroup <- sample(subgroup_levels, size = n, replace = TRUE, prob = subgroup_prob)
+  mu <- ifelse(subgroup == "A", mean_A, mean_B)
+
+  data.frame(
+    subject_id = seq_len(n),
+    subgroup = subgroup,
+    y = rnorm(n, mean = mu, sd = sigma)
+  )
+}
+
+pop_placebo <- Population$new(
+  name = "placebo",
+  data = mk_arm_data(n_per_arm, mu_placebo_A, mu_placebo_B)
+)
+
+pop_treatment <- Population$new(
+  name = "treatment",
+  data = mk_arm_data(n_per_arm, mu_treat_A, mu_treat_B)
+)
+```
+
+## Final analysis trigger
+
+```{r analysis}
+tr_timer$add_condition(
+  time == final_time,
+  analysis = function(df, time) {
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time)) |>
+      dplyr::mutate(
+        arm = factor(arm, levels = c("placebo", "treatment")),
+        subgroup = factor(subgroup, levels = subgroup_levels)
+      )
+
+    # Overall analysis
+    fit_overall <- lm(y ~ arm, data = dat)
+    coef_overall <- summary(fit_overall)$coefficients
+
+    overall_est <- unname(coef_overall["armtreatment", "Estimate"])
+    overall_se  <- unname(coef_overall["armtreatment", "Std. Error"])
+    overall_p   <- unname(coef_overall["armtreatment", "Pr(>|t|)"])
+
+    # Exploratory subgroup analyses (within each subgroup)
+    subgroup_results <- lapply(levels(dat$subgroup), function(sg) {
+      dsg <- dat[dat$subgroup == sg, , drop = FALSE]
+      fit_sg <- lm(y ~ arm, data = dsg)
+      coef_sg <- summary(fit_sg)$coefficients
+
+      data.frame(
+        subgroup = sg,
+        n_total = nrow(dsg),
+        n_placebo = sum(dsg$arm == "placebo"),
+        n_treatment = sum(dsg$arm == "treatment"),
+        estimate = unname(coef_sg["armtreatment", "Estimate"]),
+        std_error = unname(coef_sg["armtreatment", "Std. Error"]),
+        p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"]),
+        stringsAsFactors = FALSE
+      )
+    })
+
+    subgroup_results <- do.call(rbind, subgroup_results)
+
+    # Exploratory interaction test
+    fit_interaction <- lm(y ~ arm * subgroup, data = dat)
+    coef_int <- summary(fit_interaction)$coefficients
+    int_term <- grep("^arm.*:subgroup", rownames(coef_int), value = TRUE)
+    p_interaction <- if (length(int_term) > 0) {
+      unname(coef_int[int_term[1], "Pr(>|t|)"])
+    } else {
+      NA_real_
+    }
+
+    list(
+      n_total = nrow(dat),
+      overall_estimate = overall_est,
+      overall_std_error = overall_se,
+      overall_p_value = overall_p,
+      subgroup_results = subgroup_results,
+      interaction_p_value = p_interaction,
+      note = "Subgroup and interaction analyses are exploratory and not multiplicity-adjusted."
+    )
+  },
+  name = "final"
+)
+```
+
+## Trial
+
+```{r trial}
+trial <- Trial$new(
+  name = "example_6_two_arm_fixed_subgroup",
+  seed = 6606,
+  timer = tr_timer,
+  population = list(pop_placebo, pop_treatment)
+)
+```
+
+## Simulate
+
+```{r simulate}
+trial$run()
+```
+
+## Results
+
+```{r results}
+trial$results
+```
+
+```{r results-pretty}
+prettify_results(trial$results)
+```

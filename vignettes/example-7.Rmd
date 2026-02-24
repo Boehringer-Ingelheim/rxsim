@@ -1,0 +1,236 @@
+---
+title: "Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core simulation framework
+library(rxsim)
+
+# Bayesian borrowing utilities
+library(RBesT)
+
+# Helpers
+library(dplyr)
+
+set.seed(777)
+```
+
+## Scenario
+
+A **two-arm, fixed design** trial (placebo vs treatment) with a **single continuous endpoint** and a **single final analysis**.
+
+- Placebo arm uses **historical borrowing** through an informative prior derived from historical placebo data and robustified with a non-informative component.
+- Treatment arm uses a **non-informative prior**.
+- Go/No-Go rule at final analysis:
+
+\[
+\text{Go if } P(\Delta > \delta \mid \text{data}) \ge \gamma,
+\]
+
+where \(\Delta = \mu_T - \mu_P\), with \(\delta = 0.1\) and \(\gamma = 0.8\).
+
+```{r scenario}
+# Trial design
+sample_size <- 80
+allocation  <- c(1, 1)
+arms        <- c("placebo", "treatment")
+
+# Data-generating truth for this simulation example
+mu_placebo_true <- 0.00
+mu_treat_true   <- 0.30
+sigma_known     <- 1.0
+
+# Enrollment/dropout profile (fixed design timeline)
+enrollment <- list(
+  end_time = c(4, 8),
+  rate     = c(6, 10)
+)
+dropout <- list(
+  end_time = c(4, 8),
+  rate     = c(0, 0)
+)
+
+# Bayesian decision thresholds
+delta <- 0.1
+gamma <- 0.8
+```
+
+## Historical placebo dataset and priors
+
+We include a small historical placebo dataset as study-level means and sample sizes.
+
+```{r priors}
+hist_placebo <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c(24, 18, 20),
+  mean  = c(-0.05, 0.02, 0.00)
+)
+
+hist_placebo
+
+# Pooled historical summary used to derive an informative placebo prior
+n_hist_total <- sum(hist_placebo$n)
+m_hist_pooled <- weighted.mean(hist_placebo$mean, hist_placebo$n)
+
+# Non-informative prior (very small pseudo-sample size in mn parametrization)
+# Used as treatment prior and as base for historical update.
+prior_noninf <- mixnorm(
+  c(1, 0, 1e-6),
+  sigma = sigma_known,
+  param = "mn"
+)
+
+# Informative placebo prior from historical placebo summary
+prior_placebo_inf <- postmix(
+  prior_noninf,
+  n = n_hist_total,
+  m = m_hist_pooled
+)
+
+# Robustified placebo prior to protect against prior-data conflict
+prior_placebo <- robustify(
+  prior_placebo_inf,
+  weight = 0.2,
+  mean   = 0,
+  n      = 1,
+  sigma  = sigma_known
+)
+
+# Treatment prior remains non-informative
+prior_treatment <- prior_noninf
+
+summary(prior_placebo)
+```
+
+## Time points
+
+Create trial time points and identify the single final analysis time.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size = sample_size,
+  arms        = arms,
+  allocation  = allocation,
+  enrollment  = enrollment,
+  dropout     = dropout
+)
+
+tr_timer <- Timer$new(name = "timer_example_7")
+add_timepoints(tr_timer, timepoints)
+
+final_time <- tr_timer$get_end_timepoint()
+final_time
+```
+
+## Populations
+
+```{r population}
+n_per_arm <- sample_size / 2
+
+pop_placebo <- Population$new(
+  name = "placebo",
+  data = data.frame(
+    subject_id = seq_len(n_per_arm),
+    y = rnorm(n_per_arm, mean = mu_placebo_true, sd = sigma_known)
+  )
+)
+
+pop_treatment <- Population$new(
+  name = "treatment",
+  data = data.frame(
+    subject_id = seq_len(n_per_arm),
+    y = rnorm(n_per_arm, mean = mu_treat_true, sd = sigma_known)
+  )
+)
+```
+
+## Final analysis trigger (Bayesian Go/No-Go)
+
+Only one trigger is added at `time == final_time`.
+
+```{r trigger}
+tr_timer$add_condition(
+  time == final_time,
+  analysis = function(df, time) {
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time)) |>
+      dplyr::mutate(arm = factor(arm, levels = c("placebo", "treatment")))
+
+    y_p <- dat$y[dat$arm == "placebo"]
+    y_t <- dat$y[dat$arm == "treatment"]
+
+    n_p <- length(y_p)
+    n_t <- length(y_t)
+
+    m_p <- mean(y_p)
+    m_t <- mean(y_t)
+
+    # Posterior for each arm mean
+    post_placebo <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+    post_treat   <- RBesT::postmix(prior_treatment, n = n_t, m = m_t)
+
+    # Posterior probability for treatment effect exceeding delta
+    prob_delta <- RBesT::pmixdiff(post_treat, post_placebo, delta, lower.tail = FALSE)
+
+    # Posterior summaries for Delta = mu_T - mu_P
+    delta_ci <- RBesT::qmixdiff(post_treat, post_placebo, c(0.025, 0.5, 0.975))
+
+    list(
+      n_placebo = n_p,
+      n_treatment = n_t,
+      mean_placebo = m_p,
+      mean_treatment = m_t,
+      threshold_delta = delta,
+      threshold_gamma = gamma,
+      post_prob_delta = prob_delta,
+      delta_q025 = delta_ci[1],
+      delta_q500 = delta_ci[2],
+      delta_q975 = delta_ci[3],
+      decision_go = as.integer(prob_delta >= gamma)
+    )
+  },
+  name = "final"
+)
+```
+
+## Trial
+
+```{r trial}
+trial <- Trial$new(
+  name = "example_7_bayes_two_arm_fixed",
+  seed = 777,
+  timer = tr_timer,
+  population = list(pop_placebo, pop_treatment)
+)
+```
+
+## Simulate
+
+```{r simulate}
+trial$run()
+```
+
+## Results
+
+```{r results}
+trial$results
+```
+
+```{r results-pretty}
+prettify_results(trial$results)
+```
+
+`decision_go = 1` indicates **Go**, and `decision_go = 0` indicates **No-Go** under the criterion
+\(P(\Delta > 0.1 \mid \text{data}) \ge 0.8\).
