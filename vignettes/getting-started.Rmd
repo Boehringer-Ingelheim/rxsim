@@ -1,0 +1,96 @@
+---
+title: "Getting Started"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting Started}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Setup package
+```{r setup}
+library(rxsim)
+```
+
+## Scenario
+Capture essential trial parameters. These will form scenarios.
+
+```{r scenario}
+sample_size <- 15
+```
+
+## Arm / Population / Cohort
+Let's assume a continuous endpoint that follows a normal distribution.
+
+```{r population}
+control <- Population$new(
+  name = "control",
+  data = vector_to_dataframe(rnorm(sample_size))
+)
+```
+
+## Time points
+Record all time points where we expect important events to occur like:
+
+- enrollment
+- dropout
+- interim analysis
+- final analysis
+- futility
+- measurements 
+
+```{r timepoints}
+timepoints <- tibble::tribble(
+ ~time,      ~arm, ~enroller, ~dropper,
+     1, "control",         5L,        0L,
+     2, "control",         5L,        1L,
+     3, "control",         5L,        1L
+)
+
+t <- Timer$new(name = "timer")
+add_timepoints(t, timepoints)
+```
+
+## Event Triggers
+Specify event triggers; for example: when do we do interim analysis. These are 
+dplyr::filter() expressions for data frames and tables.
+
+For example, at time = 3 units we want to find the mean of the endpoint.
+```{r timer}
+t$add_condition(
+  time == 3,
+  analysis = function(df, t) mean(df$data),
+  name = "endpoint_mean"
+)
+```
+
+## Collect & Run
+Collect everything in the `Trial` object:
+
+```{r trial}
+trial <- Trial$new(
+  name = "test_trial",
+  timer = t,
+  population = list(control)
+)
+```
+
+That's it now we can run a single replicate using
+
+```{r run}
+trial$run()
+prettify_results(trial$results)
+```
+
+You can of course also get the raw data at the specified milestone.
+
+```{r data}
+trial$locked_data
+```

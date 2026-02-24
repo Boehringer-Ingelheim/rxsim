@@ -1,0 +1,115 @@
+---
+title: "Example 2: Two arm | Interim | Continuous | t-test"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rxsim)
+```
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 100
+arms <- c("pbo", "trt")
+allocation <- c(1,1)
+enrollment <- list(
+  end_time = c(4, 8, 12, 16),
+  rate = c(5, 10, 15, 20)
+)
+dropout <- list(
+  end_time = c(4, 8, 12, 16),
+  rate = c(1, 2, 4, 8)
+)
+```
+
+# Time points
+Get a list of time points where important events occur. Add time points to a timer.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout
+)
+
+t <- Timer$new(name = "trial_timer")
+add_timepoints(t, timepoints)
+```
+
+## Arms
+Generate populations and endpoint data.
+
+```{r population}
+control <- Population$new(
+  name = "pbo",
+  data = data.frame(
+    subject_id = 1:50,
+    value = rnorm(50)
+  )
+)
+
+treatment <- Population$new(
+  name = "trt",
+  data = data.frame(
+    subject_id = 1:50,
+    value = rnorm(50, 0.2)
+  )
+)
+```
+
+## Triggers & Analysis
+We want to do a t-test when 100 subjects have been enrolled. 
+
+```{r trigger}
+t$add_condition(
+  time %in% c(6, 12),
+  analysis = function(df, time){
+    df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
+    t.test(value ~ arm, data = df_enrolled)$p.value
+  },
+  name = "t-test_final"
+)
+```
+
+## Trial
+Make the trial object.
+
+```{r trial}
+trial <- Trial$new(
+  name = "test_trial",
+  timer = t,
+  population = list(control, treatment)
+)
+```
+
+## Simluate
+To simulate 1 replicate call:
+
+```{r sim}
+trial$run()
+```
+
+Get results.
+```{r results}
+trial$results
+```
+
+Get locked data.
+```{r locked}
+lapply(trial$locked_data, head)
+```

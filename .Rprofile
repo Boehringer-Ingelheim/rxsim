@@ -10,4 +10,4 @@ options(renv.config.pak.enabled = TRUE)
 source("renv/activate.R")
 
 # Use the most recent snapshot of the BI's PPM
-options(repos = c(BI = "https://pm.prod.copernicus.aws.boehringer.com/cran/latest"))
+options(repos = c(BI = "https://pm.prod.copernicus.aws.boehringer.com/cinema/latest"))
