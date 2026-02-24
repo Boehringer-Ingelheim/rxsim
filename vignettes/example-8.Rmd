@@ -239,11 +239,10 @@ tr_timer$add_condition(
       ) |>
       dplyr::arrange(dose)
 
-browser()
     # Order expected by BayesianMCPMod: Ctrl, DG_1 ...
     # with dose order 0, 5, 10, 20, 40.
-    n_vec <- as.numeric(summ$n)
-    mu_vec <- as.numeric(summ$mu_hat)
+    n_vec <- summ$n |> as.double()
+    mu_vec <- summ$mu_hat
 
     # covariance of mean estimates (independent groups here)
     S_hat <- diag((sigma / sqrt(n_vec))^2)
