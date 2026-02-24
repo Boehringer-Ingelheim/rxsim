@@ -1,0 +1,325 @@
+---
+title: "Example 8: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 8: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core simulation framework
+library(rxsim)
+
+# Bayesian utilities
+library(RBesT)
+library(BayesianMCPMod)
+library(DoseFinding)
+
+# Helpers
+library(dplyr)
+
+set.seed(8808)
+```
+
+## Scenario
+
+A **seamless Ph2a/2b** trial with one continuous endpoint:
+
+- **Ph2a** (early period): 2 arms (placebo + one active dose).
+- **Ph2b** (later period): expansion to multi-arm dose finding.
+- **Interim**: Bayesian Go/No-Go based on treatment effect for the Ph2a dose.
+- **Final**: Bayesian MCP-Mod across all doses.
+
+```{r scenario}
+# Dose levels and arm labels
+dose_map <- c(d0 = 0, d5 = 5, d10 = 10, d20 = 20, d40 = 40)
+arm_names <- names(dose_map)
+dose_levels <- as.numeric(dose_map)
+
+# Truth for data generation (Emax shape)
+e0    <- 0.0
+emax  <- 0.9
+ed50  <- 15
+sigma <- 1.0
+mean_fun <- function(d) e0 + emax * d / (ed50 + d)
+
+# Interim Go/No-Go thresholds
+delta_interim <- 0.1
+gamma_interim <- 0.8
+
+# Multiplicity level for final Bayesian MCP step
+alpha_final <- 0.05
+
+# Planned analysis times
+interim_time <- 4
+final_time   <- 12
+```
+
+## Seamless enrollment schedule (2-arm -> multi-arm)
+
+In this implementation, all arms are pre-defined, but enrollment switches from two-arm to multi-arm by time.
+
+```{r timepoints}
+time <- 1:12
+
+# Ph2a: only placebo + d20 active
+# Ph2b: expand to d5, d10, d40 while placebo/d20 continue per plan
+enroll_plan <- data.frame(
+  time = rep(time, times = length(arm_names)),
+  arm  = rep(arm_names, each = length(time)),
+  enroller = c(
+    # d0 placebo (total 80)
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+    # d5 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+    # d10 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+    # d20 (total 40)
+    8, 8, 8, 8, 2, 2, 2, 2, 0, 0, 0, 0,
+    # d40 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0
+  ),
+  dropper = 0L
+)
+
+enroll_plan$enroller <- as.integer(enroll_plan$enroller)
+enroll_plan$dropper  <- as.integer(enroll_plan$dropper)
+
+tr_timer <- Timer$new(name = "timer_example_8")
+add_timepoints(tr_timer, enroll_plan)
+
+tr_timer$get_end_timepoint()
+```
+
+## Populations
+
+```{r populations}
+# Planned max N by arm from enrollment schedule
+n_by_arm <- enroll_plan |>
+  group_by(arm) |>
+  summarise(n = sum(enroller), .groups = "drop")
+
+mk_pop <- function(arm, n) {
+  d <- dose_map[[arm]]
+  Population$new(
+    name = arm,
+    data = data.frame(
+      subject_id = seq_len(n),
+      dose = d,
+      y = rnorm(n, mean = mean_fun(d), sd = sigma)
+    )
+  )
+}
+
+pops <- lapply(seq_len(nrow(n_by_arm)), function(i) {
+  mk_pop(n_by_arm$arm[i], n_by_arm$n[i])
+})
+```
+
+## Priors
+
+For interim Go/No-Go, we use placebo borrowing from small historical placebo data and a non-informative prior for active.
+
+For final Bayesian MCP-Mod, we pass arm-wise priors to `BayesianMCPMod`.
+
+```{r priors}
+# Historical placebo summary data
+hist_placebo <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c(20, 24, 18),
+  mean  = c(-0.06, 0.00, 0.03)
+)
+
+n_hist <- sum(hist_placebo$n)
+m_hist <- weighted.mean(hist_placebo$mean, hist_placebo$n)
+
+# Base non-informative prior
+prior_noninf <- RBesT::mixnorm(c(1, 0, 1e-6), sigma = sigma, param = "mn")
+
+# Placebo borrowing prior for interim and final control arm
+prior_placebo_inf <- RBesT::postmix(prior_noninf, n = n_hist, m = m_hist)
+prior_placebo <- RBesT::robustify(
+  prior_placebo_inf,
+  weight = 0.2,
+  mean = 0,
+  n = 1,
+  sigma = sigma
+)
+
+# Prior list for Bayesian MCP-Mod (Ctrl + 4 active groups)
+prior_list_final <- list(
+  Ctrl = prior_placebo,
+  DG_1 = prior_noninf,
+  DG_2 = prior_noninf,
+  DG_3 = prior_noninf,
+  DG_4 = prior_noninf
+)
+```
+
+## Analyses
+
+We add two trigger conditions:
+
+1. `time == interim_time`: Bayesian Go/No-Go on d20 vs placebo.
+2. `time == final_time`: Bayesian MCP-Mod over all dose groups.
+
+```{r analyses}
+# shared state between interim and final trigger
+go_interim <- NA_integer_
+
+# Candidate dose-response models for Bayesian MCP-Mod
+mods <- DoseFinding::Mods(
+  linear      = NULL,
+  emax        = 20,
+  exponential = 20,
+  sigEmax     = c(20, 3),
+  doses       = dose_levels
+)
+
+# Interim: Bayesian Go/No-Go (d20 vs placebo)
+tr_timer$add_condition(
+  time == interim_time,
+  analysis = function(df, time) {
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
+
+    y_p <- dat$y[dat$arm == "d0"]
+    y_t <- dat$y[dat$arm == "d20"]
+
+    n_p <- length(y_p)
+    n_t <- length(y_t)
+    m_p <- mean(y_p)
+    m_t <- mean(y_t)
+
+    post_p <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+    post_t <- RBesT::postmix(prior_noninf,  n = n_t, m = m_t)
+
+    prob_delta <- RBesT::pmixdiff(post_t, post_p, delta_interim, lower.tail = FALSE)
+    delta_q <- RBesT::qmixdiff(post_t, post_p, c(0.025, 0.5, 0.975))
+
+    go_interim <<- as.integer(prob_delta >= gamma_interim)
+
+    list(
+      n_placebo = n_p,
+      n_d20 = n_t,
+      post_prob_delta = prob_delta,
+      delta_q025 = delta_q[1],
+      delta_q500 = delta_q[2],
+      delta_q975 = delta_q[3],
+      decision_go = go_interim
+    )
+  },
+  name = "interim_go_nogo"
+)
+
+# Final: Bayesian MCP-Mod across all dose groups
+tr_timer$add_condition(
+  time == final_time,
+  analysis = function(df, time) {
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time))
+
+    # Arm-wise summary at final
+    summ <- dat |>
+      dplyr::group_by(arm) |>
+      dplyr::summarise(
+        dose = unique(dose)[1],
+        n = dplyr::n(),
+        mu_hat = mean(y),
+        .groups = "drop"
+      ) |>
+      dplyr::arrange(dose)
+
+    # Order expected by BayesianMCPMod: Ctrl, DG_1 ...
+    # with dose order 0, 5, 10, 20, 40.
+    n_vec <- summ$n
+    mu_vec <- summ$mu_hat
+
+    # covariance of mean estimates (independent groups here)
+    S_hat <- diag((sigma / sqrt(n_vec))^2)
+
+    contr <- BayesianMCPMod::getContr(
+      mods = mods,
+      dose_levels = dose_levels,
+      cov_posterior = S_hat
+    )
+
+    crit_prob <- BayesianMCPMod::getCritProb(
+      mods = mods,
+      dose_levels = dose_levels,
+      dose_weights = n_vec |> as.numeric(),
+      alpha_crit_val = alpha_final
+    )
+
+    post_list <- BayesianMCPMod::getPosterior(
+      prior_list = prior_list_final,
+      mu_hat = mu_vec,
+      S_hat = S_hat,
+      calc_ess = TRUE
+    )
+
+    bmcp <- BayesianMCPMod::performBayesianMCPMod(
+      posterior_list = post_list,
+      contr = contr,
+      crit_prob_adj = crit_prob,
+      simple = TRUE,
+      avg_fit = TRUE
+    )
+
+    list(
+      interim_go = go_interim,
+      n_total_final = nrow(dat),
+      dose_means = summ,
+      crit_prob_adj = crit_prob,
+      bayesian_mcpmod = bmcp
+    )
+  },
+  name = "final_bayesian_mcpmod"
+)
+```
+
+## Trial
+
+```{r trial}
+trial <- Trial$new(
+  name = "example_8_seamless_ph2a2b",
+  seed = 8808,
+  timer = tr_timer,
+  population = pops
+)
+```
+
+## Simulate
+
+```{r simulate}
+trial$run()
+```
+
+## Results
+
+Interim and final analyses are stored under the corresponding time keys.
+
+```{r results}
+trial$results
+```
+
+```{r inspect-final}
+final_key <- paste0("time_", final_time)
+
+# top-level components returned by final analysis
+names(trial$results[[final_key]]$final_bayesian_mcpmod)
+
+# Bayesian MCP-Mod object class
+class(trial$results[[final_key]]$final_bayesian_mcpmod$bayesian_mcpmod)
+```
+
+This example demonstrates the seamless setup and analysis flow in one simulation run:
+2-arm Ph2a enrollment, interim Bayesian Go/No-Go check, then final Bayesian MCP-Mod after multi-arm expansion.
