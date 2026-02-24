@@ -82,6 +82,8 @@ pop$set_data(
 \item{\code{dropped}}{\code{numeric} Vector of dropout times for each subject.}
 
 \item{\code{n}}{\code{integer} Number of unique subjects in the population.}
+
+\item{\code{n_readouts}}{\code{integer} Number of readout_times in the population.}
 }
 \if{html}{\out{</div>}}
 }
@@ -101,7 +103,14 @@ pop$set_data(
 \subsection{Method \code{new()}}{
 Create a new `Population`` instance.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$new(name, data = NULL, enrolled = NULL, dropped = NULL, n = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Population$new(
+  name,
+  data = NULL,
+  enrolled = NULL,
+  dropped = NULL,
+  n = NULL,
+  n_readouts = NULL
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -118,7 +127,9 @@ automatically as \code{NA}.}
 \item{\code{dropped}}{\code{numeric} dropout times are always initialized
 automatically as \code{NA}.}
 
-\item{\code{n}}{\code{integer} \code{n} is automatically computed from data.}
+\item{\code{n}}{\code{integer} is automatically computed from data.}
+
+\item{\code{n_readouts}}{\code{integer} is automatically computed from data.}
 }
 \if{html}{\out{</div>}}
 }
