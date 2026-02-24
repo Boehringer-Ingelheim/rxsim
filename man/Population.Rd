@@ -58,9 +58,10 @@ pop$set_dropped(n = 2, time = 3)
 pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
 pop$set_data(
   data.frame(
-    subject_id = 1:8,
-    endpoint = rnorm(8),
-    population_name = "ResetDemo"
+    id = 1:8,
+    data = rnorm(8),
+    arm = "ResetDemo",
+    readout_time = 0
   )
 )
 }
@@ -71,9 +72,10 @@ pop$set_data(
 
 \item{\code{data}}{\code{data.frame} Subject-level data frame with columns:
 \itemize{
-\item \code{subject_id} \code{integer}
+\item \code{id} \code{integer}
+\item \code{arm} \code{character}
+\item \code{readout_time} \code{numeric}
 \item \code{data} \code{numeric}
-\item \code{population_name} \code{character}
 \item may contain more columns
 }}
 
@@ -119,7 +121,7 @@ Create a new `Population`` instance.
 \item{\code{name}}{\code{character} Unique identifier for the population.}
 
 \item{\code{data}}{\code{data.frame} Underlying subject data frame with columns
-\code{subject_id}, \code{data}, and \code{population_name}.}
+\code{id}, \code{arm}, \code{readout_time}, \code{data}, and optionally more columns.}
 
 \item{\code{enrolled}}{\code{numeric} enrollment times are always initialized
 automatically as \code{NA}.}
@@ -221,9 +223,11 @@ Replace the underlying subject data and reset enrollment/dropout status.
 \describe{
 \item{\code{data}}{\code{data.frame} Subject-level data frame with columns:
 \itemize{
-\item \code{subject_id} \code{integer}
+\item \code{id} \code{integer}
 \item \code{data} \code{numeric}
-\item \code{population_name} \code{character}
+\item \code{arm} \code{character}
+\item \code{readout_time} \code{numeric}
+\item \code{data} \code{numeric}
 \item may contain more columns
 }}
 }
@@ -234,9 +238,10 @@ Replace the underlying subject data and reset enrollment/dropout status.
 \preformatted{pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
 pop$set_data(
   data.frame(
-    subject_id = 1:8,
-    endpoint = rnorm(8),
-    population_name = "ResetDemo"
+    id = 1:8,
+    data = rnorm(8),
+    arm = "ResetDemo",
+    readout_time = 0
   )
 )
 }

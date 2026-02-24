@@ -202,15 +202,18 @@ Trial <- R6::R6Class(
         # Collect raw snapshots from all populations (as a list)
           locked_snapshot_list <- lapply(self$population, function(p) {
             keep <- !is.na(p$enrolled)
-            cbind(p$data[keep, , drop = FALSE],
-            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts) )
-
+            cbind(
+              subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
+              p$data[keep, , drop = FALSE],
+              enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
+              drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
+            )
           })
 
         combined <- do.call(rbind, locked_snapshot_list)
 
-        # Add current time column for predicates like time >= 1
+        # Add measurement and current time column
+        combined$measurement_time <- combined$readout_time + combined$enroll_time
         combined$time <- i
 
         # Check all conditions on the combined snapshot

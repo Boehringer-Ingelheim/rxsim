@@ -56,14 +56,11 @@ prettify_results <- function(results) {
 #' @returns `data.frame` population data that may be passed to [Population]
 
 #' @export
-vector_to_dataframe<-function(data)
-  if (is.vector(data)) {
-    data <- data.frame(
-      subject_id = seq_along(data),
-      data = data
-    )
-    return(data)
-  }
+vector_to_dataframe <- function(data) data.frame(
+      id = seq_along(data),
+      data = data,
+      readout_time = 0
+)
 
 #' Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout
 #'
