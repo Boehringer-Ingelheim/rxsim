@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
+        run: Rscript -e 'options(repos = c(RSPM = "https://packagemanager.posit.co/cran/latest"))'
         with:
           use-public-rspm: true
 
