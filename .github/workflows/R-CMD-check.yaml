@@ -2,7 +2,7 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [main, action]
+    branches: [main, action, col-names]
   pull_request:
 
 name: R-CMD-check.yaml
@@ -15,6 +15,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      R_REPOS: "https://packagemanager.posit.co/cran/latest"
     steps:
       - uses: actions/checkout@v4
 
@@ -22,10 +23,14 @@ jobs:
         with:
           use-public-rspm: true
 
+      - name: set mirror
+        run: Rscript -e 'install.packages("pak", repos = sprintf("https://r-lib.github.io/p/pak/%s/%s/%s/%s", "devel", .Platform$pkgType, R.Version()$os, R.Version()$arch))'
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck
           needs: check
+          cache: true
 
       - uses: r-lib/actions/check-r-package@v2
         with:
