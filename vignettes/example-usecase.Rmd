@@ -180,14 +180,13 @@ t$add_condition(
   name = "overall_mean"
 )
 
-t$add_condition(
-  time == 4,
-  # uses the 'time' column added by Trials$fit()
+trigger_by_calendar(
+  4, t,
   analysis = function(d, tt) {
     mean(d$value)
-  },
-  name = "time_mean"
+  }
 )
+
 t$add_condition(
   sum((value + time) > 45) > 10,
   analysis = function(d, tt) {

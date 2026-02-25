@@ -111,66 +111,62 @@ pop_treatment <- Population$new(
 ## Final analysis trigger
 
 ```{r analysis}
-tr_timer$add_condition(
-  time == final_time,
-  analysis = function(df, time) {
-    dat <- df |>
-      dplyr::filter(!is.na(enroll_time)) |>
-      dplyr::mutate(
-        arm = factor(arm, levels = c("placebo", "treatment")),
-        subgroup = factor(subgroup, levels = subgroup_levels)
-      )
-
-    # Overall analysis
-    fit_overall <- lm(y ~ arm, data = dat)
-    coef_overall <- summary(fit_overall)$coefficients
-
-    overall_est <- unname(coef_overall["armtreatment", "Estimate"])
-    overall_se  <- unname(coef_overall["armtreatment", "Std. Error"])
-    overall_p   <- unname(coef_overall["armtreatment", "Pr(>|t|)"])
-
-    # Exploratory subgroup analyses (within each subgroup)
-    subgroup_results <- lapply(levels(dat$subgroup), function(sg) {
-      dsg <- dat[dat$subgroup == sg, , drop = FALSE]
-      fit_sg <- lm(y ~ arm, data = dsg)
-      coef_sg <- summary(fit_sg)$coefficients
-
-      data.frame(
-        subgroup = sg,
-        n_total = nrow(dsg),
-        n_placebo = sum(dsg$arm == "placebo"),
-        n_treatment = sum(dsg$arm == "treatment"),
-        estimate = unname(coef_sg["armtreatment", "Estimate"]),
-        std_error = unname(coef_sg["armtreatment", "Std. Error"]),
-        p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"]),
-        stringsAsFactors = FALSE
-      )
-    })
-
-    subgroup_results <- do.call(rbind, subgroup_results)
-
-    # Exploratory interaction test
-    fit_interaction <- lm(y ~ arm * subgroup, data = dat)
-    coef_int <- summary(fit_interaction)$coefficients
-    int_term <- grep("^arm.*:subgroup", rownames(coef_int), value = TRUE)
-    p_interaction <- if (length(int_term) > 0) {
-      unname(coef_int[int_term[1], "Pr(>|t|)"])
-    } else {
-      NA_real_
-    }
-
-    list(
-      n_total = nrow(dat),
-      overall_estimate = overall_est,
-      overall_std_error = overall_se,
-      overall_p_value = overall_p,
-      subgroup_results = subgroup_results,
-      interaction_p_value = p_interaction,
-      note = "Subgroup and interaction analyses are exploratory and not multiplicity-adjusted."
+trigger_by_calendar(final_time, tr_timer, analysis = function(df, current_time) {
+  dat <- df |>
+    dplyr::filter(!is.na(enroll_time)) |>
+    dplyr::mutate(
+      arm = factor(arm, levels = c("placebo", "treatment")),
+      subgroup = factor(subgroup, levels = subgroup_levels)
     )
-  },
-  name = "final"
-)
+
+  # Overall analysis
+  fit_overall <- lm(y ~ arm, data = dat)
+  coef_overall <- summary(fit_overall)$coefficients
+
+  overall_est <- unname(coef_overall["armtreatment", "Estimate"])
+  overall_se  <- unname(coef_overall["armtreatment", "Std. Error"])
+  overall_p   <- unname(coef_overall["armtreatment", "Pr(>|t|)"])
+
+  # Exploratory subgroup analyses (within each subgroup)
+  subgroup_results <- lapply(levels(dat$subgroup), function(sg) {
+    dsg <- dat[dat$subgroup == sg, , drop = FALSE]
+    fit_sg <- lm(y ~ arm, data = dsg)
+    coef_sg <- summary(fit_sg)$coefficients
+
+    data.frame(
+      subgroup = sg,
+      n_total = nrow(dsg),
+      n_placebo = sum(dsg$arm == "placebo"),
+      n_treatment = sum(dsg$arm == "treatment"),
+      estimate = unname(coef_sg["armtreatment", "Estimate"]),
+      std_error = unname(coef_sg["armtreatment", "Std. Error"]),
+      p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"]),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  subgroup_results <- do.call(rbind, subgroup_results)
+
+  # Exploratory interaction test
+  fit_interaction <- lm(y ~ arm * subgroup, data = dat)
+  coef_int <- summary(fit_interaction)$coefficients
+  int_term <- grep("^arm.*:subgroup", rownames(coef_int), value = TRUE)
+  p_interaction <- if (length(int_term) > 0) {
+    unname(coef_int[int_term[1], "Pr(>|t|)"])
+  } else {
+    NA_real_
+  }
+
+  list(
+    n_total = nrow(dat),
+    overall_estimate = overall_est,
+    overall_std_error = overall_se,
+    overall_p_value = overall_p,
+    subgroup_results = subgroup_results,
+    interaction_p_value = p_interaction,
+    note = "Subgroup and interaction analyses are exploratory and not multiplicity-adjusted."
+  )
+})
 ```
 
 ## Trial

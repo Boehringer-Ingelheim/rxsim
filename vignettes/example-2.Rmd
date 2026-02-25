@@ -73,17 +73,15 @@ treatment <- Population$new(
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled. 
+Interim analysis at times 6 and 12. We perform t-tests at both timepoints.
 
 ```{r trigger}
-t$add_condition(
-  time %in% c(6, 12),
-  analysis = function(df, time){
+for (time_point in c(6, 12)) {
+  trigger_by_calendar(time_point, t, analysis = function(df, current_time){
     df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
     t.test(value ~ arm, data = df_enrolled)$p.value
-  },
-  name = "t-test_final"
-)
+  })
+}
 ```
 
 ## Trial

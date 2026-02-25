@@ -15,6 +15,10 @@ Use \code{add_timepoint()} to append timepoints, \code{get_timepoint()} for a lo
 and \code{check_conditions()} to filter a data frame based on a trigger condition
 and return either analysis results or the filtered data.
 }
+\details{
+Helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}} provide
+convenient shortcuts for common trigger patterns.
+}
 \examples{
 # Basic construction
 t <- Timer$new(name = "Timer")
@@ -30,7 +34,7 @@ t$get_n_arms()            # unique arms => 2
 t$get_unique_times()      # unique times => c(1, 2)
 t$get_timepoint("A", 1)   # returns a single timepoint
 
-# Add conditions using dplyr style
+# Add conditions using trigger helpers or dplyr style
 # Suppose you have a data.frame:
 df <- data.frame(
   id = 1:6,
@@ -46,14 +50,11 @@ my_analysis <- function(dat, current_time) {
   out
 }
 
-# Condition 1: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
-)
+# Using trigger helper for calendar time
+trigger_by_calendar(c(1), t, analysis = my_analysis)
 
-# Condition 2: arm A, visit >= 2, no analysis -> returns filtered df with warning
+# Or add conditions manually with dplyr style
+# Condition: arm A, visit >= 2, no analysis -> returns filtered df
 t$add_condition(
   arm == "A", visit >= 2,
   name = "armA_visit2plus"
@@ -62,8 +63,6 @@ t$add_condition(
 # Run checks
 res <- t$check_conditions(locked_data = df, current_time = 3)
 names(res)
-# c("active_only", "armA_visit2plus")
-res$active_only
 
 
 ## ------------------------------------------------

@@ -11,7 +11,8 @@
 #' - evaluates all conditions in the `Timer`
 #' - stores both the snapshot `locked_data` and the analysis outputs `results`
 #'
-#' Use `run()` to execute the simulation.
+#' Use `run()` to execute the simulation. Trigger conditions are best added with
+#' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
 #'
 #' @examples
 #' # Create two populations
@@ -24,6 +25,11 @@
 #' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+#'
+#' # Add trigger for final analysis at time 2
+#' trigger_by_calendar(2, t, analysis = function(df, current_time) {
+#'   nrow(df)
+#' })
 #'
 #' # Create a trial
 #' trial <- Trial$new(

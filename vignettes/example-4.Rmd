@@ -145,69 +145,65 @@ T_{obs} = \min\{	ext{tte\_true},\; 	ext{drop\_time} - 	ext{enroll\_time},\; t^* 
 \]
 
 ```{r trigger}
-t$add_condition(
-  time == final_time,
-  analysis = function(df, time) {
-    df_e <- df |> dplyr::filter(!is.na(enroll_time))
-    if (nrow(df_e) == 0) return(list(time = time, note = "no enrolled subjects"))
+trigger_by_calendar(final_time, t, analysis = function(df, current_time) {
+  df_e <- df |> dplyr::filter(!is.na(enroll_time))
+  if (nrow(df_e) == 0) return(list(time = current_time, note = "no enrolled subjects"))
 
-    # Build observed TTE with censoring
-    # If dropped is NA, set censor_drop to +Inf; admin censor is (time - enroll_time)
-    censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
-    censor_admin <- pmax(0, time - df_e$enroll_time)
+  # Build observed TTE with censoring
+  # If dropped is NA, set censor_drop to +Inf; admin censor is (time - enroll_time)
+  censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
+  censor_admin <- pmax(0, current_time - df_e$enroll_time)
 
-    tte_true <- df_e$tte_true
-    t_obs    <- pmin(tte_true, censor_drop, censor_admin)
-    status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
+  tte_true <- df_e$tte_true
+  t_obs    <- pmin(tte_true, censor_drop, censor_admin)
+  status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
 
-    # Continuous endpoint t-test
-    p_t <- tryCatch(
-      t.test(y ~ arm, data = df_e)$p.value,
-      error = function(e) NA_real_
-    )
+  # Continuous endpoint t-test
+  p_t <- tryCatch(
+    t.test(y ~ arm, data = df_e)$p.value,
+    error = function(e) NA_real_
+  )
 
-    # Survival analysis: log-rank and Cox
-    surv_p <- NA_real_
-    hr <- hr_lo <- hr_hi <- NA_real_
-    events <- sum(status)
+  # Survival analysis: log-rank and Cox
+  surv_p <- NA_real_
+  hr <- hr_lo <- hr_hi <- NA_real_
+  events <- sum(status)
 
-    # Only run if we have variation and at least one event
-    if (length(unique(df_e$arm)) == 2 && events > 0 && all(t_obs >= 0)) {
-      S <- Surv(time = t_obs, event = status)
+  # Only run if we have variation and at least one event
+  if (length(unique(df_e$arm)) == 2 && events > 0 && all(t_obs >= 0)) {
+    S <- Surv(time = t_obs, event = status)
 
-      # Log-rank
-      surv_p <- tryCatch({
-        sd <- survdiff(S ~ arm, data = df_e)
-        1 - pchisq(sd$chisq, df = length(sd$n) - 1)
-      }, error = function(e) NA_real_)
+    # Log-rank
+    surv_p <- tryCatch({
+      sd <- survdiff(S ~ arm, data = df_e)
+      1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+    }, error = function(e) NA_real_)
 
-      # Cox PH
-      cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
-      if (!is.null(cox)) {
-        s <- summary(cox)
-        # Assume armtrt vs armpbo; extract exp(coef) and CI
-        hr    <- unname(s$coef[1, "exp(coef)"])
-        hr_lo <- unname(s$conf.int[1, "lower .95"])
-        hr_hi <- unname(s$conf.int[1, "upper .95"])
-      }
+    # Cox PH
+    cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
+    if (!is.null(cox)) {
+      s <- summary(cox)
+      # Assume armtrt vs armpbo; extract exp(coef) and CI
+      hr    <- unname(s$coef[1, "exp(coef)"])
+      hr_lo <- unname(s$conf.int[1, "lower .95"])
+      hr_hi <- unname(s$conf.int[1, "upper .95"])
     }
+  }
 
-    list(
-      n_total    = nrow(df_e),
-      n_pbo      = sum(df_e$arm == "pbo"),
-      n_trt      = sum(df_e$arm == "trt"),
-      # continuous
-      p_ttest_y  = p_t,
-      # survival
-      logrank_p  = surv_p,
-      hr_cox     = hr,
-      hr_ci_lo   = hr_lo,
-      hr_ci_hi   = hr_hi,
-      events     = events
-    )
-  },
-  name = "final"
-)
+  list(
+    n_total    = nrow(df_e),
+    n_pbo      = sum(df_e$arm == "pbo"),
+    n_trt      = sum(df_e$arm == "trt"),
+    # continuous
+    p_ttest_y  = p_t,
+    # survival
+    logrank_p  = surv_p,
+    hr_cox     = hr,
+    hr_ci_lo   = hr_lo,
+    hr_ci_hi   = hr_hi,
+    events     = events
+  )
+})
 ```
 
 ## Trial
