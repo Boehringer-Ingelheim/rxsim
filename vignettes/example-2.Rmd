@@ -76,12 +76,11 @@ treatment <- Population$new(
 Interim analysis at times 6 and 12. We perform t-tests at both timepoints.
 
 ```{r trigger}
-for (time_point in c(6, 12)) {
-  trigger_by_calendar(time_point, t, analysis = function(df, current_time){
-    df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
-    t.test(value ~ arm, data = df_enrolled)$p.value
-  })
-}
+trigger_by_calendar(c(6, 12), t, analysis = function(df, current_time){
+  df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
+  t.test(value ~ arm, data = df_enrolled)$p.value
+})
+
 ```
 
 ## Trial
