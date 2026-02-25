@@ -208,3 +208,29 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     dplyr::ungroup()
 }
 
+#' Get a list of data column names
+#'
+#' @param populations `list` or `Population` Population object(s) to extract column names from
+#'
+#' @returns `vector` of column names
+#' 
+#' @export
+#' 
+#' @examples
+#' pop1 <- Population$new(name = "P1", data = data.frame(subject_id = 1:10, age = runif(10, 20, 60)))
+#' pop2 <- Population$new(name = "P2", data = data.frame(subject_id = 1:10, weight = runif(10, 150, 250)))
+#' get_col_names(list(pop1, pop2))
+get_col_names <- function(populations)
+{
+  col_names = NULL
+  if (is.list(populations)){
+    for (p in populations) {
+      col_names <- c(col_names, colnames(p$data))
+    }
+  } else {
+    col_names <- c(col_names, colnames(populations$data))
+  }
+    
+  col_names <- c(col_names, 'time', 'enroll_time', 'drop_time', 'measure_time')
+  return(unique(col_names))
+}
