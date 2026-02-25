@@ -17,7 +17,7 @@ trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
   timer$add_condition(
     .data$time %in% cal_time,
     analysis = analysis,
-    name = paste0("cal_time_", cal_time)
+    name = paste0("cal_time_", do.call(paste, c(cal_time, sep = "_") |> as.list()))
   )
 }
 

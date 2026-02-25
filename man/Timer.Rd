@@ -50,9 +50,6 @@ my_analysis <- function(dat, current_time) {
   out
 }
 
-# Using trigger helper for calendar time
-trigger_by_calendar(c(1), t, analysis = my_analysis)
-
 # Or add conditions manually with dplyr style
 # Condition: arm A, visit >= 2, no analysis -> returns filtered df
 t$add_condition(

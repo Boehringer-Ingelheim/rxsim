@@ -42,7 +42,8 @@ Suggests:
     multcomp,
     DoseFinding,
     RBesT,
-    BayesianMCPMod
+    BayesianMCPMod,
+    survival
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 Imports: 
