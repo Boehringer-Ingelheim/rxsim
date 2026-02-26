@@ -68,15 +68,15 @@ gen_plan <- function(sample_size, arms, allocation, enrollment, dropout) {
   df_enroll <- data.frame(
     time = cumsum(enroll_events),
     arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
-    enroller = 1,
-    dropper = 0
+    enroller = 1L,
+    dropper = 0L
   )
 
     df_drop <- data.frame(
     time = cumsum(drop_events),
     arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
-    enroller = 0,
-    dropper = 1
+    enroller = 0L,
+    dropper = 1L
   )
 
 rbind(df_enroll, df_drop) |> dplyr::arrange(.data$time)
