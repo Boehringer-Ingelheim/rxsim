@@ -1,4 +1,4 @@
-#' Replicate a Trial Object Multiple Times
+#' Clone a Trial Object Multiple Times
 #'
 #' Creates \code{n} deep copies of an existing \code{Trial} R6 object.
 #' Each replicated trial receives a modified name that appends the
@@ -21,21 +21,15 @@
 #' # replicated <- replicate_trial(trial, n = 5)
 #'
 #' @export
-replicate_trial <- function(trial, n = 1) {
-  trials <- list()
-  for (i in 1:n) {
-    temp <- Trial$new(
-      name = paste(trial$name, i),
+clone_trial <- function(trial, n = 1) {
+  lapply(seq_len(n), function(i) {
+    Trial$new(
+      name = paste(trial$name, i, sep="_"),
       timer = trial$timer$clone(),
-      population = lapply(trial$population, function(x) {
-        x$clone()
-      })
+      population = lapply(trial$population, function(x) x$clone())
     )
-    trials <- append(trials, temp)
-  }
-  return(trials)
+  })
 }
-
 
 #' Generate a Population Object from a Named Generator
 #'
@@ -51,12 +45,11 @@ replicate_trial <- function(trial, n = 1) {
 #' pop <- gen_population(name = "control", generator = gen_control)
 #'
 #' @export
-gen_population <- function(name = NULL, generator = NULL) {
-  population <- Population$new(
+gen_population <- function(name, generator, sample_size = 1) {
+  Population$new(
     name = name,
-    data = generator()
+    data = vector_to_dataframe(generator(sample_size))
   )
-  return(population)
 }
 
 #' Create Multiple Trials with Generated Populations
@@ -90,21 +83,20 @@ gen_population <- function(name = NULL, generator = NULL) {
 #'     \item a population generated using \code{data_gen_list}.
 #'   }
 #' @export
-create_multiple_trials_gen_pop <- function(trial_name = "name", data_gen_list = NULL, timer = timer, n = 1) {
-  trials <- list()
-  for (i in 1:n) {
-    # Create a cloned trial with updated name and cloned components
-    temp <- Trial$new(
-      name = paste(trial_name, i),
-      timer = timer$clone(),
-      population = lapply(data_gen_list, function(x) {
-        gen_population(x[[1]], x[[2]])
+replicate_trial <- function(trial_name = "name", population_generators, plan_generator) {
+  trial <- lapply(seq_len(n), function(i) {
+    Trial$new(
+      name = paste(trial_name, i, sep="_"),
+      timer = Timer$new(name = paste("timer", i, sep="_")),
+      population = lapply(names(population_generators), function(name) {
+        gen_population(name, population_generators[[name]])
       })
     )
-    trials <- append(trials, list(temp))
-  }
-  return(trials)
+  })
+
+  # TODO: for each trial generate a plan using the provided plan generator
 }
+
 #' Run Multiple Trial Objects
 #'
 #' Applies the \code{$run()} method to each \code{Trial} object in a list.
@@ -125,8 +117,4 @@ create_multiple_trials_gen_pop <- function(trial_name = "name", data_gen_list = 
 #' @export
 
 
-run_multiple_trial <- function(trials = NULL) {
-  lapply(trials, function(x) {
-    x$run()
-  })
-}
+run_trials <- function(trials) lapply(trials, function(trial) trial$run())
