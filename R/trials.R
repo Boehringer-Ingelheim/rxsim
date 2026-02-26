@@ -84,12 +84,14 @@ gen_population <- function(name, generator, sample_size = 1) {
 #'   }
 #' @export
 replicate_trial <- function(trial_name = "name", population_generators, plan_generator) {
+# TODO: acquire sample_size
+
   trial <- lapply(seq_len(n), function(i) {
     Trial$new(
       name = paste(trial_name, i, sep="_"),
       timer = Timer$new(name = paste("timer", i, sep="_")),
       population = lapply(names(population_generators), function(name) {
-        gen_population(name, population_generators[[name]])
+        gen_population(name, population_generators[[name]], sample_size)
       })
     )
   })
