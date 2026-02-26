@@ -21,17 +21,19 @@
 #' # replicated <- replicate_trial(trial, n = 5)
 #'
 #' @export
-replicate_trial<- function(trial,n=1)
-{
-trials<-list()
-for(i in 1:n){
-temp<- Trial$new(
-name = paste(trial$name, i),
-timer = trial$timer$clone(),
-population = lapply(trial$population,function(x){x$clone()}))
-trials <- append(trials, temp)
-}
-return(trials)
+replicate_trial <- function(trial, n = 1) {
+  trials <- list()
+  for (i in 1:n) {
+    temp <- Trial$new(
+      name = paste(trial$name, i),
+      timer = trial$timer$clone(),
+      population = lapply(trial$population, function(x) {
+        x$clone()
+      })
+    )
+    trials <- append(trials, temp)
+  }
+  return(trials)
 }
 
 
@@ -49,13 +51,12 @@ return(trials)
 #' pop <- gen_population(name = "control", generator = gen_control)
 #'
 #' @export
-gen_population <-function(name=NULL,generator=NULL)
-{
-population<-Population$new(
-name = name,
-data = generator()
-)
-return(population)
+gen_population <- function(name = NULL, generator = NULL) {
+  population <- Population$new(
+    name = name,
+    data = generator()
+  )
+  return(population)
 }
 
 #' Create Multiple Trials with Generated Populations
@@ -89,19 +90,20 @@ return(population)
 #'     \item a population generated using \code{data_gen_list}.
 #'   }
 #' @export
-create_multiple_trials_gen_pop<- function(trial_name='name',data_gen_list=NULL, timer=timer, n = 1)
-{
-trials <- list()
-for (i in 1:n) {
-# Create a cloned trial with updated name and cloned components
-temp <- Trial$new(
-name       = paste(trial_name, i),
-timer      = timer$clone(),
-population = lapply(data_gen_list, function(x) {gen_population(x[[1]],x[[2]]) })
-)
-trials <- append(trials, list(temp))
-}
-return(trials)
+create_multiple_trials_gen_pop <- function(trial_name = "name", data_gen_list = NULL, timer = timer, n = 1) {
+  trials <- list()
+  for (i in 1:n) {
+    # Create a cloned trial with updated name and cloned components
+    temp <- Trial$new(
+      name = paste(trial_name, i),
+      timer = timer$clone(),
+      population = lapply(data_gen_list, function(x) {
+        gen_population(x[[1]], x[[2]])
+      })
+    )
+    trials <- append(trials, list(temp))
+  }
+  return(trials)
 }
 #' Run Multiple Trial Objects
 #'
@@ -123,9 +125,8 @@ return(trials)
 #' @export
 
 
-run_multiple_trial<-function(trials=NULL)
-{
-lapply(trials,function(x){ x$run()})
+run_multiple_trial <- function(trials = NULL) {
+  lapply(trials, function(x) {
+    x$run()
+  })
 }
-
-

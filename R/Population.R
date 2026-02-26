@@ -11,8 +11,8 @@
 #' # Basic example: vector input
 #' pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
 #'
-#' pop$n              # number of subjects
-#' head(pop$data)     # generated subject-level data
+#' pop$n # number of subjects
+#' head(pop$data) # generated subject-level data
 #'
 #' # Set enrollment for 5 subjects at time = 1
 #' pop$set_enrolled(n = 5, time = 1)
@@ -74,16 +74,16 @@ Population <- R6::R6Class(
     #' @examples
     #' Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
     initialize = function(
-    name,
-    data = NULL,
-    enrolled = NULL,
-    dropped = NULL,
-    n=NULL,
-    n_readouts=NULL
+      name,
+      data = NULL,
+      enrolled = NULL,
+      dropped = NULL,
+      n = NULL,
+      n_readouts = NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
-      if(!("arm" %in% names(data))){
+      if (!("arm" %in% names(data))) {
         data$arm <- name
       }
       self$data <- data
@@ -158,14 +158,13 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-      if(!("arm" %in% names(data))){
+      if (!("arm" %in% names(data))) {
         data$arm <- self$name
       }
       self$data <- data
       self$n <- nrow(self$data)
-      self$dropped  <- rep(NA, self$n)
+      self$dropped <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)
     }
-
   ) # end public
 ) # end class

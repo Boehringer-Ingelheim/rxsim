@@ -56,16 +56,16 @@ Trial <- R6::R6Class(
 
 
     #' @field timer `Timer` A `Timer` object describing timepoints and conditions.
-    timer = NULL,        # a Timers object
+    timer = NULL, # a Timers object
 
     #' @field population `list` A list of `Population` objects, one per arm.
-    population = NULL,   # list of Population objects
+    population = NULL, # list of Population objects
 
     #' @field locked_data `list` Snapshots of  subject‑level data at each timepoint.
-    locked_data = NULL,  # list of snapshots per time
+    locked_data = NULL, # list of snapshots per time
 
     #' @field results (`list`) Analysis outputs for each condition.
-    results = NULL,      # list of results per time
+    results = NULL, # list of results per time
 
     # --- constructorc ---
     #' @description
@@ -90,12 +90,12 @@ Trial <- R6::R6Class(
     #' pop$set_enrolled(5, 1)
     #' Trial$new(name = "simple_trial", timer=t, population = list(pop))
     initialize = function(
-    name,
-    seed = NULL,
-    timer = NULL,
-    population = list(),   # default empty list
-    locked_data = list(),
-    results = list()
+      name,
+      seed = NULL,
+      timer = NULL,
+      population = list(), # default empty list
+      locked_data = list(),
+      results = list()
     ) {
       stopifnot(is.character(name))
       self$name <- name
@@ -103,13 +103,12 @@ Trial <- R6::R6Class(
       if (!is.null(seed)) set.seed(seed)
 
 
-      stopifnot(is.list(population))   # enforce list of Population objects
+      stopifnot(is.list(population)) # enforce list of Population objects
 
-      if (length(timer$timelist) == 0){
+      if (length(timer$timelist) == 0) {
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
-        }
-        else {
+        } else {
           timepoints <- data.frame(
             time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
             arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
@@ -119,14 +118,15 @@ Trial <- R6::R6Class(
           add_timepoints(timer, timepoints)
           self$timer <- timer
         }
-      } else self$timer <- timer
+      } else {
+        self$timer <- timer
+      }
 
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
 
       # routine for empty time list
-
     },
 
     # --- methods ---
@@ -178,35 +178,38 @@ Trial <- R6::R6Class(
       #
       # }
 
-        for (i in  sort(self$timer$get_unique_times())){
-
+      for (i in sort(self$timer$get_unique_times())) {
         # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
-          #add an error statement if the time/population dne
+          # add an error statement if the time/population dne
           tp <- self$timer$get_timepoint(p$name, i)
           if (!is.null(tp)) {
             # check whether any one left to enroll?
             if (
               !is.null(tp$enroller) &
-              any(is.na(p$enrolled))
-              ) p$set_enrolled(tp$enroller, time = i)
+                any(is.na(p$enrolled))
+            ) {
+              p$set_enrolled(tp$enroller, time = i)
+            }
             # check whether anyone left to drop
             if (
               !is.null(tp$dropper) &
-              any(!is.na(p$enrolled)) &
-              any(is.na(p$dropped))
-              )p$set_dropped(tp$dropper,  time = i)
+                any(!is.na(p$enrolled)) &
+                any(is.na(p$dropped))
+            ) {
+              p$set_dropped(tp$dropper, time = i)
+            }
           }
         }
 
         # Collect raw snapshots from all populations (as a list)
-          locked_snapshot_list <- lapply(self$population, function(p) {
-            keep <- !is.na(p$enrolled)
-            cbind(p$data[keep, , drop = FALSE],
-            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts) )
-
-          })
+        locked_snapshot_list <- lapply(self$population, function(p) {
+          keep <- !is.na(p$enrolled)
+          cbind(p$data[keep, , drop = FALSE],
+            enroll_time = rep(x = p$enrolled[keep], times = p$n_readouts),
+            drop_time   = rep(x = p$dropped[keep], times = p$n_readouts)
+          )
+        })
 
         combined <- do.call(rbind, locked_snapshot_list)
 
@@ -225,7 +228,6 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
-        }
-
+    }
   ) # end public
 ) # end class
