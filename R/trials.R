@@ -48,7 +48,7 @@ clone_trial <- function(trial, n = 1) {
 gen_population <- function(name, generator, sample_size = 1) {
   Population$new(
     name = name,
-    data = vector_to_dataframe(generator(sample_size))
+    data = generator(sample_size)
   )
 }
 
@@ -83,20 +83,46 @@ gen_population <- function(name, generator, sample_size = 1) {
 #'     \item a population generated using \code{data_gen_list}.
 #'   }
 #' @export
-replicate_trial <- function(trial_name = "name", population_generators, plan_generator) {
-# TODO: acquire sample_size
+replicate_trial <- function(
+  trial_name = "name",
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout,
+  analysis_generators,
+  population_generators,
+  n
+) {
+
+  timers <- lapply(seq_len(n), function(i) {
+    t <- Timer$new(name = paste("timer", i, sep="_"))
+    plan <- gen_plan(sample_size, arms, allocation, enrollment, dropout)
+    add_timepoints(t, plan)
+    lapply(names(analysis_generators), function(name) {
+      t$add_condition(
+        !!!analysis_generators[[name]]$trigger,
+        analysis = analysis_generators[[name]]$analysis,
+        name = name
+      )
+    })
+    return(t)
+  })
+  
+n_target <- lapply(timers, function(t) {
+  table(dplyr::bind_rows(t$timelist) |>
+    dplyr::select(c(arm, enroller)))[, "1"]
+})
 
   trial <- lapply(seq_len(n), function(i) {
     Trial$new(
       name = paste(trial_name, i, sep="_"),
-      timer = Timer$new(name = paste("timer", i, sep="_")),
+      timer = timers[[i]],
       population = lapply(names(population_generators), function(name) {
-        gen_population(name, population_generators[[name]], sample_size)
+        gen_population(name, population_generators[[name]], n_target[[i]][[name]])
       })
     )
   })
-
-  # TODO: for each trial generate a plan using the provided plan generator
 }
 
 #' Run Multiple Trial Objects

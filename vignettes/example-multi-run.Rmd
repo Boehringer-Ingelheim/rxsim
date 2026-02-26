@@ -22,29 +22,12 @@ library(rxsim)
 Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
-sample_size <- 100
+sample_size <- 10
 arms        <- c("pbo", "trt")
 allocation  <- c(1, 1)
-enrollment  <- list(end_time = c(4, 8, 12, 16), rate = c(5, 10, 15, 20))
-dropout     <- list(end_time = c(4, 8, 12, 16), rate = c(1, 2, 4, 8))
+enrollment  <- function(n) rexp(n, rate = 0.75)
+dropout     <- function(n) rexp(n, rate = 0.05)
 
-
-```
-
-# Time points
-Get a list of time points where important events occur. Add time points to a timer.
-
-```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size,
-  arms,
-  allocation,
-  enrollment,
-  dropout
-)
-
-t <- Timer$new(name = "trial_timer")
-add_timepoints(t, timepoints)
 ```
 
 ## Arms
@@ -52,23 +35,10 @@ Generate populations and endpoint data using generators (functions).
 
 ```{r population}
 #update the generators to have sample size 50
-gen_control <- function() {
-  data.frame(
-    subject_id = 1:50,
-    value = stats::rnorm(50)
-  )
-}
 
-gen_trt <- function() {
-  data.frame(
-    subject_id = 1:50,
-    value = stats::rnorm(50, mean = 0.2)
-  )
-}
-
-pops_gen <- list(
-  list("pbo", gen_control),
-  list("trt", gen_trt,parms=..)
+population_generators <- list(
+  pbo = function(n) vector_to_dataframe(stats::rnorm(n)),
+  trt = function(n) vector_to_dataframe(stats::rnorm(n, mean = 2, sd = 3.14))
 )
 
 ```
@@ -77,13 +47,15 @@ pops_gen <- list(
 We want to do a t-test when 100 subjects have been enrolled. 
 
 ```{r trigger}
-t$add_condition(
-  time %in% c(6, 12),
-  analysis = function(df, time){
-    df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
-    t.test(value ~ arm, data = df_enrolled)$p.value
-  },
-  name = "t-test_final"
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= 95
+    ), #can hold 1+ filter conditions
+    analysis = function(df, timer) {
+      df %>% dplyr::group_by(arm) %>% dplyr::summarise(avg = mean(data))
+    }
+  )
 )
 ```
 
@@ -91,11 +63,16 @@ t$add_condition(
 Make the trial objects for when data is using generators.
 
 ```{r trial}
-trials <- create_multiple_trials_gen_pop(
+trials <- replicate_trial(
   trial_name    = "trial",
-  data_gen_list = pops_gen,
-  timer         = t,
-  n             = 100
+  sample_size   = sample_size,
+  arms          = arms,
+  allocation    = allocation,
+  enrollment    = enrollment,
+  dropout       = dropout,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n             = 3
 )
 ```
 
@@ -103,12 +80,12 @@ trials <- create_multiple_trials_gen_pop(
 To run a list of trial objects us the run_multiple_trial function
 
 ```{r sim}
- run_multiple_trial(trials)
+ run_trials(trials)
 ```
 
 Get results of first trial.
 ```{r results}
-trials[[1]]$results
+results <- trials[[1]]$results
 ```
 
 Get locked data of first trial.
