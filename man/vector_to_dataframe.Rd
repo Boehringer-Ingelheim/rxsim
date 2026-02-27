@@ -2,16 +2,19 @@
 % Please edit documentation in R/helpers.R
 \name{vector_to_dataframe}
 \alias{vector_to_dataframe}
-\title{Convert vector to our dataframe format}
+\title{Convert Vector to Population Data Frame}
 \usage{
 vector_to_dataframe(data)
 }
 \arguments{
-\item{data}{\code{numeric} population data in vector format}
+\item{data}{\code{numeric} vector of population values.}
 }
 \value{
-\code{data.frame} population data that may be passed to \link{Population}
+\code{data.frame} with columns: \code{id}, \code{data}, \code{readout_time}.
 }
 \description{
-Convert vector to our dataframe format
+Formats a numeric vector as a population data frame.
+}
+\seealso{
+\link{Population}.
 }

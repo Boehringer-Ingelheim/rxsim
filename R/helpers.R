@@ -1,10 +1,15 @@
-#' Trigger analysis at a specific calendar time
+#' Trigger Analysis at a Calendar Time
 #'
-#' @param cal_time `numeric` Calendar time to trigger at
-#' @param timer `Timer` Timer instance to add condition to
-#' @param analysis `function` or `NULL` Analysis function to apply
+#' Adds an analysis trigger at a specified calendar time.
 #'
-#' @returns returns `timer` for chaining.
+#' @param cal_time `numeric` Calendar time(s) to trigger.
+#' @param timer [`Timer`] instance to update.
+#' @param analysis `function` or `NULL` Optional function to apply.
+#'
+#' @returns Invisible [`Timer`].
+#'
+#' @seealso [Timer], [trigger_by_fraction()].
+#'
 #' @export
 #'
 #' @examples
@@ -21,14 +26,19 @@ trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
   )
 }
 
-#' Trigger analysis when sample fractionof enrolled subjects is reached
+#' Trigger Analysis at a Sample Fraction
 #'
-#' @param fraction `numeric` Fraction of target sample (0 < fraction <= 1)
-#' @param timer `Timer` Timer instance to add condition to
-#' @param sample_size `integer` Target sample size
-#' @param analysis `function` or `NULL` Analysis function to apply
+#' Adds an analysis trigger when a fraction of the target sample enrolls.
 #'
-#' @returns returns `timer` for chaining.
+#' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
+#' @param timer [`Timer`] instance to update.
+#' @param sample_size `integer` Target sample size.
+#' @param analysis `function` or `NULL` Optional function to apply.
+#'
+#' @returns Invisible [`Timer`].
+#'
+#' @seealso [Timer], [trigger_by_calendar()].
+#'
 #' @export
 #'
 #' @examples
@@ -47,14 +57,15 @@ trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
   )
 }
 
-#' Add multiple timepoints from a data frame
+#' Add Timepoints to a Timer
 #'
-#' @param timer an instance of [Timer]
-#' @param df data frame with following columns:
-#' - time (`numeric`) calendar time
-#' - arm (`character`) unique arm key
-#' - dropper (`integer`) # of subjects to drop
-#' - enroller (`integer`) # of subjects to enroll
+#' Adds multiple enrollment and dropout events from a data frame.
+#'
+#' @param timer [`Timer`] instance.
+#' @param df `data.frame` with columns: `time` (numeric), `arm` (character),
+#'   `enroller` (integer), `dropper` (integer).
+#'
+#' @seealso [Timer], [gen_plan()], [gen_timepoints()].
 #'
 #' @export
 #'
@@ -79,9 +90,15 @@ add_timepoints <- function(timer, df) {
 }
 
 
-#' Print trial results as a data.frame
+#' Format Trial Results as a Data Frame
 #'
-#' @param results pass results data field of your `Trial`
+#' Converts trial results to a single data frame with all measurements.
+#'
+#' @param results `list` Trial results (nested by time).
+#'
+#' @returns `data.frame` with columns: `time` and measurement columns.
+#'
+#' @seealso [Trial] for generating results.
 #'
 #' @export
 prettify_results <- function(results) {
@@ -98,12 +115,16 @@ prettify_results <- function(results) {
   df[c("time", setdiff(names(df), "time"))]
 }
 
-#' Convert vector to our dataframe format
+#' Convert Vector to Population Data Frame
 #'
-#' @param data `numeric` population data in vector format
+#' Formats a numeric vector as a population data frame.
 #'
-#' @returns `data.frame` population data that may be passed to [Population]
-
+#' @param data `numeric` vector of population values.
+#'
+#' @returns `data.frame` with columns: `id`, `data`, `readout_time`.
+#'
+#' @seealso [Population].
+#'
 #' @export
 vector_to_dataframe <- function(data) data.frame(
       id = seq_along(data),
@@ -111,19 +132,21 @@ vector_to_dataframe <- function(data) data.frame(
       readout_time = 0
 )
 
-#' Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout
+#' Generate Piecewise-Linear Enrollment and Dropout Plan
 #'
-#' @param sample_size `integer` trial sample size
-#' @param arms `character` vector of unique identifier of arms
-#' @param allocation `numeric` vector of arm allocations
-#' @param enrollment `list` named list with enrollment parameters
-#' - `end_time` vector of end times of duration
-#' - `rate` # of subjects to enroll per unit time within that duration
-#' @param dropout `list` named list with dropout parameters
-#' - `end_time` vector of end times of duration
-#' - `rate` # of subjects to enroll per unit time within that duration
+#' Creates a time-indexed plan with piecewise constant enrollment and dropout rates.
 #'
-#' @returns `data.frame` timepoints that may be passed to [add_timepoints()]
+#' @param sample_size `integer` Trial sample size.
+#' @param arms `character` vector of arm identifiers.
+#' @param allocation `numeric` vector of allocation ratios.
+#' @param enrollment `list` with `end_time` (numeric endpoints) and
+#'   `rate` (numeric subjects/unit time for each period).
+#' @param dropout `list` with `end_time` and `rate` (same structure).
+#'
+#' @returns `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
+#'
+#' @seealso [gen_plan()] for random inter-event times, [add_timepoints()].
+#'
 #' @export
 #'
 #' @examples
@@ -151,18 +174,19 @@ vector_to_dataframe <- function(data) data.frame(
 #' @importFrom dplyr select
 #' @importFrom dplyr arrange
 gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
-  # determine number of arms
+  # Calculate arm allocation ratios
   n_arms <- length(arms)
-  # get valid weights
   ratio <- allocation / sum(allocation)
   names(ratio) <- arms
-  # get the end of timeline
+
+  # Define timeline endpoint
   end <- max(utils::tail(enrollment$end_time, 1), utils::tail(dropout$end_time, 1))
-  # get enrollment targets
+
+  # Calculate target enrollment per arm
   target <- as.integer(round(ratio * sample_size))
   names(target) <- arms
 
-  # handle additions
+  # Adjust for rounding: add missing subjects
   if (sample_size - sum(target) > 0) {
     addition <- table(sample(
       seq_len(n_arms),
@@ -173,7 +197,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     target <- target + addition
   }
 
-  # handle removal
+  # Adjust for rounding: remove excess subjects
   if (sample_size - sum(target) < 0) {
     remove <- table(sample(
       seq_len(n_arms),
@@ -184,7 +208,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     target <- target - remove
   }
 
-  # pad with 0 rates when necessary
+  # Pad rate vectors to match timeline endpoint
   pad <- function(x, end) {
     if (tail(x$end_time, 1) != end) {
       x$end_time <- c(x$end_time, end)
@@ -198,10 +222,10 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
   enrollment <- pad(enrollment, end)
   dropout <- pad(dropout, end)
 
-  # get duration from end times
+  # Calculate duration of each time period
   get_durations <- function(x) (c(0, x) - dplyr::lag(c(0, x)))[-1]
 
-  # first pass at result, may over-enroll
+  # Create base schedule (may exceed target enrollment)
   df <- data.frame(
     time = rep(seq_len(end), n_arms),
     arm = rep(arms, each = end),
@@ -215,14 +239,14 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     ) |> as.integer()
   )
 
-  # check for over-enrollment
+  # Identify undershooting periods (cumulative < target)
   checks <- df |>
     dplyr::group_by(.data$arm) |>
     dplyr::mutate(cum = cumsum(.data$enroller)) |>
     dplyr::ungroup() |>
     dplyr::mutate(under = .data$cum < target[.data$arm])
 
-  # find next time point to add
+  # Find final undershooting timepoint per arm
   next_t <- checks |>
     dplyr::group_by(.data$arm) |>
     dplyr::filter(.data$under) |>
@@ -232,7 +256,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
   next_t <- as.vector(next_t$time) + rep(1, n_arms)
   names(next_t) <- arms
 
-  # find how many to enroll
+  # Calculate enrollment gap per arm
   next_enroll <- checks |>
     dplyr::group_by(.data$arm) |>
     dplyr::filter(.data$under) |>
@@ -242,7 +266,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
   next_enroll <- target - as.vector(next_enroll$cum)
   names(next_enroll) <- arms
 
-  # bottom entries of df
+  # Create correction row(s) to reach target enrollment
   df_add <- data.frame(
     time = next_t,
     arm = arms,
@@ -250,7 +274,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     dropper = as.integer(round(dropout$rate[findInterval(next_t, dropout$end_time)] * ratio))
   )
 
-  # 2nd pass at result
+  # Combine schedule and corrections, sort by arm and time
   checks |>
     dplyr::filter(.data$under) |>
     dplyr::bind_rows(df_add) |>
@@ -260,17 +284,29 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
     dplyr::ungroup()
 }
 
-#' Get a list of data column names
+#' Extract Column Names from Populations
 #'
-#' @param populations `list` or `Population` Population object(s) to extract column names from
+#' Collects all data frame column names from one or more populations.
 #'
-#' @returns `vector` of column names
+#' @param populations [`Population`] object or `list` of [`Population`] objects.
+#'
+#' @returns `character` vector of unique column names.
+#'
+#' @seealso [Population].
 #'
 #' @export
 #'
 #' @examples
-#' pop1 <- Population$new(name = "P1", data = data.frame(subject_id = 1:10, age = runif(10, 20, 60)))
-#' pop2 <- Population$new(name = "P2", data = data.frame(subject_id = 1:10, weight = runif(10, 150, 250)))
+#' pop1 <- Population$new(name = "P1", data = data.frame(
+#' id = 1:10,
+#' age = runif(10, 20, 60),
+#' readout_time = 0
+#' ))
+#' pop2 <- Population$new(name = "P2", data = data.frame(
+#' id = 1:10,
+#' weight = runif(10, 150, 250),
+#' readout_time = 0
+#' ))
 #' get_col_names(list(pop1, pop2))
 get_col_names <- function(populations) {
   col_names <- NULL

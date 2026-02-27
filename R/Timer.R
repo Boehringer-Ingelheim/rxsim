@@ -13,6 +13,9 @@
 #' Helper functions [trigger_by_calendar()] and [trigger_by_fraction()] provide
 #' convenient shortcuts for common trigger patterns.
 #'
+#' @seealso [Trial] to coordinate simulations with populations, [add_timepoints()]
+#'   to attach multiple timepoints, [dplyr::filter()] for condition syntax.
+#'
 #' @examples
 #' # Basic construction
 #' t <- Timer$new(name = "Timer")
@@ -80,20 +83,13 @@ Timer <- R6::R6Class(
 
     # --- constructor ---
     #' @description
-    #' Creates a new instance of [Timer] class.
+    #' Create a new \code{Timer} instance.
     #'
-    #' @param name `character` Unique identifier for the `Timer` instance.
-    #' @param timelist `list` A list of timepoints. Each timepoint is a list with keys:
-    #' - `time` `numeric` Calendar time
-    #' - `arm` `character` Unique identifier of an arm
-    #' - `dropper` `integer` # of subjects dropped at `time`
-    #' - `enroller` `integer` # of subjects enrolled at `time`
-    #' @param conditions `list` A list of condition entries. Each entry is a list with keys:
-    #' - `where` `expr` filter conditions in [dplyr::filter()] style
-    #' - `analysis` `function` or `NULL` analysis applied to filtered data
-    #' - `name` `character` or `NULL` unique key for the condition
+    #' @param name \code{character} Unique identifier.
+    #' @param timelist \code{list} Optional list of timepoints.
+    #' @param conditions \code{list} Optional list of condition entries.
     #'
-    #' @returns An instance of `Timer` class.
+    #' @returns A new \code{Timer} instance.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -110,12 +106,12 @@ Timer <- R6::R6Class(
 
     # --- methods ---
     #' @description
-    #' Add a timepoint to existing `Timer` instance
+    #' Add a timepoint to a timer.
     #'
-    #' @param time `numeric` Calendat time
-    #' @param arm `character` Unique identifier of an arm
-    #' @param dropper `integer` # of subjects dropped at `time`
-    #' @param enroller `integer` # of subjects dropped at `time`
+    #' @param time \code{numeric} Calendar time.
+    #' @param arm \code{character} Arm identifier.
+    #' @param dropper \code{integer} Count of subjects to drop.
+    #' @param enroller \code{integer} Count of subjects to enroll.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -132,11 +128,11 @@ Timer <- R6::R6Class(
     },
 
     #' @description
-    #' Add a trigger condition to existing `Timer` instance
+    #' Add a trigger condition to a timer.
     #'
-    #' @param ... `expr` boolean expression for [dplyr::filter()]
-    #' @param analysis `function` analysis function to apply to filtered data
-    #' @param name `character` unique key for the condition
+    #' @param ... \code{expression} Boolean expression(s) for \code{dplyr::filter()}.
+    #' @param analysis \code{function} or \code{NULL} Optional function to apply.
+    #' @param name \code{character} Unique condition identifier.
     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
@@ -197,7 +193,9 @@ Timer <- R6::R6Class(
     },
 
     #' @description
-    #' Determine the # of unique arms for a given instance of `Timer` class.
+    #' Get number of unique arms.
+    #'
+    #' @returns \code{integer} Number of unique arms.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -207,7 +205,9 @@ Timer <- R6::R6Class(
     get_n_arms = function() length(unique(sapply(self$timelist, function(x) x$arm))),
 
     #' @description
-    #' Determine unique timepoints for a given instance of `Timer` class.
+    #' Get unique timepoints.
+    #'
+    #' @returns \code{numeric} vector of unique times.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -217,10 +217,12 @@ Timer <- R6::R6Class(
     get_unique_times = function() unique(sapply(self$timelist, function(x) x$time)),
 
     #' @description
-    #' Get i-th timepoint of an arm of interest.
+    #' Get a timepoint by arm and index.
     #'
-    #' @param arm `character` identifier of arm of interest
-    #' @param i `integer` index of the timepoint
+    #' @param arm \code{character} Arm identifier.
+    #' @param i \code{integer} Timepoint index.
+    #'
+    #' @returns \code{list} timepoint or \code{NULL} if not found.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -252,11 +254,12 @@ Timer <- R6::R6Class(
     },
 
     #' @description
-    #' Get a filtered data frame based on a trigger condition and optionally
-    #' apply analysis.
+    #' Check conditions and return filtered data or analysis results.
     #'
-    #' @param locked_data `data.frame` trial data
-    #' @param current_time `numeric` calendar time of subsetting
+    #' @param locked_data \code{data.frame} Trial data.
+    #' @param current_time \code{numeric} Calendar time.
+    #'
+    #' @returns \code{list} of filtered data or analysis results per condition.
     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")

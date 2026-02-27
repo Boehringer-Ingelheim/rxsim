@@ -2,33 +2,31 @@
 % Please edit documentation in R/helpers.R
 \name{add_timepoints}
 \alias{add_timepoints}
-\title{Add multiple timepoints from a data frame}
+\title{Add Timepoints to a Timer}
 \usage{
 add_timepoints(timer, df)
 }
 \arguments{
-\item{timer}{an instance of \link{Timer}}
+\item{timer}{\code{\link{Timer}} instance.}
 
-\item{df}{data frame with following columns:
-\itemize{
-\item time (\code{numeric}) calendar time
-\item arm (\code{character}) unique arm key
-\item dropper (\code{integer}) # of subjects to drop
-\item enroller (\code{integer}) # of subjects to enroll
-}}
+\item{df}{\code{data.frame} with columns: \code{time} (numeric), \code{arm} (character),
+\code{enroller} (integer), \code{dropper} (integer).}
 }
 \description{
-Add multiple timepoints from a data frame
+Adds multiple enrollment and dropout events from a data frame.
 }
 \examples{
 t <- Timer$new(name = "Timer")
 
 timepoints <- data.frame(
-time = c(1,2,3.1,4,5,6),
-arm = rep("Arm A", 6),
-dropper = c(2L, rep(1L, 5)),
-enroller = rep(3L, 6)
+  time = c(1, 2, 3.1, 4, 5, 6),
+  arm = rep("Arm A", 6),
+  dropper = c(2L, rep(1L, 5)),
+  enroller = rep(3L, 6)
 )
 
 add_timepoints(t, timepoints)
+}
+\seealso{
+\link{Timer}, \code{\link[=gen_plan]{gen_plan()}}, \code{\link[=gen_timepoints]{gen_timepoints()}}.
 }

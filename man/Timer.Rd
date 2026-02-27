@@ -4,7 +4,15 @@
 \alias{Timer}
 \title{Timer: Track timed events and apply condition-triggered analyses}
 \value{
-An instance of \code{Timer} class.
+A new \code{Timer} instance.
+
+\code{integer} Number of unique arms.
+
+\code{numeric} vector of unique times.
+
+\code{list} timepoint or \code{NULL} if not found.
+
+\code{list} of filtered data or analysis results per condition.
 }
 \description{
 A class to collect and query \emph{timepoints}, time-based events, across arms.
@@ -29,18 +37,18 @@ t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
 t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
 
 # Query
-t$get_end_timepoint()     # max time => 2
-t$get_n_arms()            # unique arms => 2
-t$get_unique_times()      # unique times => c(1, 2)
-t$get_timepoint("A", 1)   # returns a single timepoint
+t$get_end_timepoint() # max time => 2
+t$get_n_arms() # unique arms => 2
+t$get_unique_times() # unique times => c(1, 2)
+t$get_timepoint("A", 1) # returns a single timepoint
 
 # Add conditions using trigger helpers or dplyr style
 # Suppose you have a data.frame:
 df <- data.frame(
   id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
-  visit = c(1,2,1,3,3,2)
+  arm = c("A", "A", "B", "B", "A", "B"),
+  status = c("active", "inactive", "active", "active", "inactive", "active"),
+  visit = c(1, 2, 1, 3, 3, 2)
 )
 
 # Analysis function: count rows at/after a given visit, per arm
@@ -188,6 +196,10 @@ t$add_condition(
   name = "active_only"
 )
 }
+\seealso{
+\link{Trial} to coordinate simulations with populations, \code{\link[=add_timepoints]{add_timepoints()}}
+to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for condition syntax.
+}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
@@ -228,7 +240,7 @@ t$add_condition(
 \if{html}{\out{<a id="method-Timer-new"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-new}{}}}
 \subsection{Method \code{new()}}{
-Creates a new instance of \link{Timer} class.
+Create a new \code{Timer} instance.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$new(name, timelist = NULL, conditions = NULL)}\if{html}{\out{</div>}}
 }
@@ -236,22 +248,11 @@ Creates a new instance of \link{Timer} class.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
+\item{\code{name}}{\code{character} Unique identifier.}
 
-\item{\code{timelist}}{\code{list} A list of timepoints. Each timepoint is a list with keys:
-\itemize{
-\item \code{time} \code{numeric} Calendar time
-\item \code{arm} \code{character} Unique identifier of an arm
-\item \code{dropper} \code{integer} # of subjects dropped at \code{time}
-\item \code{enroller} \code{integer} # of subjects enrolled at \code{time}
-}}
+\item{\code{timelist}}{\code{list} Optional list of timepoints.}
 
-\item{\code{conditions}}{\code{list} A list of condition entries. Each entry is a list with keys:
-\itemize{
-\item \code{where} \code{expr} filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
-\item \code{analysis} \code{function} or \code{NULL} analysis applied to filtered data
-\item \code{name} \code{character} or \code{NULL} unique key for the condition
-}}
+\item{\code{conditions}}{\code{list} Optional list of condition entries.}
 }
 \if{html}{\out{</div>}}
 }
@@ -268,7 +269,7 @@ Creates a new instance of \link{Timer} class.
 \if{html}{\out{<a id="method-Timer-add_timepoint"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-add_timepoint}{}}}
 \subsection{Method \code{add_timepoint()}}{
-Add a timepoint to existing \code{Timer} instance
+Add a timepoint to a timer.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, dropper, enroller)}\if{html}{\out{</div>}}
 }
@@ -276,13 +277,13 @@ Add a timepoint to existing \code{Timer} instance
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{time}}{\code{numeric} Calendat time}
+\item{\code{time}}{\code{numeric} Calendar time.}
 
-\item{\code{arm}}{\code{character} Unique identifier of an arm}
+\item{\code{arm}}{\code{character} Arm identifier.}
 
-\item{\code{dropper}}{\code{integer} # of subjects dropped at \code{time}}
+\item{\code{dropper}}{\code{integer} Count of subjects to drop.}
 
-\item{\code{enroller}}{\code{integer} # of subjects dropped at \code{time}}
+\item{\code{enroller}}{\code{integer} Count of subjects to enroll.}
 }
 \if{html}{\out{</div>}}
 }
@@ -305,7 +306,7 @@ t$add_timepoint(
 \if{html}{\out{<a id="method-Timer-add_condition"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-add_condition}{}}}
 \subsection{Method \code{add_condition()}}{
-Add a trigger condition to existing \code{Timer} instance
+Add a trigger condition to a timer.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$add_condition(..., analysis = NULL, name = NULL)}\if{html}{\out{</div>}}
 }
@@ -313,11 +314,11 @@ Add a trigger condition to existing \code{Timer} instance
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{\code{expr} boolean expression for \code{\link[dplyr:filter]{dplyr::filter()}}}
+\item{\code{...}}{\code{expression} Boolean expression(s) for \code{dplyr::filter()}.}
 
-\item{\code{analysis}}{\code{function} analysis function to apply to filtered data}
+\item{\code{analysis}}{\code{function} or \code{NULL} Optional function to apply.}
 
-\item{\code{name}}{\code{character} unique key for the condition}
+\item{\code{name}}{\code{character} Unique condition identifier.}
 }
 \if{html}{\out{</div>}}
 }
@@ -380,7 +381,7 @@ t$get_end_timepoint()
 \if{html}{\out{<a id="method-Timer-get_n_arms"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_n_arms}{}}}
 \subsection{Method \code{get_n_arms()}}{
-Determine the # of unique arms for a given instance of \code{Timer} class.
+Get number of unique arms.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_n_arms()}\if{html}{\out{</div>}}
 }
@@ -401,7 +402,7 @@ t$get_n_arms()
 \if{html}{\out{<a id="method-Timer-get_unique_times"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_unique_times}{}}}
 \subsection{Method \code{get_unique_times()}}{
-Determine unique timepoints for a given instance of \code{Timer} class.
+Get unique timepoints.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_unique_times()}\if{html}{\out{</div>}}
 }
@@ -422,7 +423,7 @@ t$get_unique_times()
 \if{html}{\out{<a id="method-Timer-get_timepoint"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_timepoint}{}}}
 \subsection{Method \code{get_timepoint()}}{
-Get i-th timepoint of an arm of interest.
+Get a timepoint by arm and index.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_timepoint(arm, i)}\if{html}{\out{</div>}}
 }
@@ -430,9 +431,9 @@ Get i-th timepoint of an arm of interest.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{arm}}{\code{character} identifier of arm of interest}
+\item{\code{arm}}{\code{character} Arm identifier.}
 
-\item{\code{i}}{\code{integer} index of the timepoint}
+\item{\code{i}}{\code{integer} Timepoint index.}
 }
 \if{html}{\out{</div>}}
 }
@@ -453,8 +454,7 @@ t$get_timepoint("A", 1)
 \if{html}{\out{<a id="method-Timer-check_conditions"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-check_conditions}{}}}
 \subsection{Method \code{check_conditions()}}{
-Get a filtered data frame based on a trigger condition and optionally
-apply analysis.
+Check conditions and return filtered data or analysis results.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$check_conditions(locked_data, current_time)}\if{html}{\out{</div>}}
 }
@@ -462,9 +462,9 @@ apply analysis.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{locked_data}}{\code{data.frame} trial data}
+\item{\code{locked_data}}{\code{data.frame} Trial data.}
 
-\item{\code{current_time}}{\code{numeric} calendar time of subsetting}
+\item{\code{current_time}}{\code{numeric} Calendar time.}
 }
 \if{html}{\out{</div>}}
 }

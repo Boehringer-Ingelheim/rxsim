@@ -7,6 +7,8 @@
 #' Use `set_enrolled()` and `set_dropped()` to assign enrollment and dropout
 #' times to random subsets of subjects.
 #'
+#' @seealso [Trial] for multi-arm simulations, [Timer] for managing timepoints.
+#'
 #' @examples
 #' # Basic example: vector input
 #' pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
@@ -53,22 +55,15 @@ Population <- R6::R6Class(
 
     # --- constructor ---
     #' @description
-    #' Create a new `Population`` instance.
+    #' Create a new `Population` instance.
     #'
     #' @param name `character` Unique identifier for the population.
-    #'
-    #' @param data `data.frame` Underlying subject data frame with columns
-    #' `id`, `arm`, `readout_time`, `data`, and optionally more columns.
-    #'
-    #' @param enrolled `numeric` enrollment times are always initialized
-    #' automatically as `NA`.
-    #'
-    #' @param dropped `numeric` dropout times are always initialized
-    #' automatically as `NA`.
-    #'
-    #' @param n `integer` is automatically computed from data.
-    #'
-    #' @param n_readouts `integer` is automatically computed from data.
+    #' @param data `data.frame` with columns: `id`, `arm`, `readout_time`,
+    #'   `data`, and optionally more columns.
+    #' @param enrolled `numeric` Optional enrollment times (auto-initialized if `NULL`).
+    #' @param dropped `numeric` Optional dropout times (auto-initialized if `NULL`).
+    #' @param n `integer` Auto-computed from data (optional).
+    #' @param n_readouts `integer` Auto-computed from data (optional).
     #'
     #' @returns A new `Population` instance.
     #'
@@ -88,7 +83,7 @@ Population <- R6::R6Class(
         data$arm <- name
       }
 
-      # Validate columns in data frame 
+      # Check required data frame columns
       col_names <- c("id", "arm", "readout_time")
       missing_cols <- setdiff(col_names, names(data))
       if (length(missing_cols) > 0) {
@@ -102,7 +97,7 @@ Population <- R6::R6Class(
       self$n <- length(unique(self$data$id))
       self$n_readouts <- (dim(self$data)[1] / self$n)
 
-      # accept enrolled and dropped it passed
+      # Initialize enrollment/dropout status if not provided
       ifelse(
         is.null(enrolled),
         self$enrolled <- rep(NA, self$n),
@@ -117,12 +112,14 @@ Population <- R6::R6Class(
 
     # --- methods ---
     #' @description
-    #' Mark `n` enrolled subjects at a given time.
+    #' Mark subjects as enrolled at a given time.
     #'
-    #' Enrollment applies to subjects who are not yet enrolled `NA`.
+    #' Enrollment applies only to unenrolled subjects (`NA`).
     #'
     #' @param n `integer` Number of subjects to enroll.
     #' @param time `numeric` Enrollment time.
+    #'
+    #' @seealso [Population], [Trial].
     #'
     #' @examples
     #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
@@ -134,7 +131,7 @@ Population <- R6::R6Class(
         stop("`n` must be a single non-negative integer.")
       }
 
-      # dont't sample more than available
+      # Don't enroll more subjects than available
       idx <- which(is.na(self$enrolled))
       n_use <- min(n, length(idx))
       if (n_use == 0L) return(invisible(self))
@@ -144,14 +141,14 @@ Population <- R6::R6Class(
     },
 
     #' @description
-    #' Mark `n` subjects as dropped at a given time.
+    #' Mark subjects as dropped at a given time.
     #'
-    #' Dropout applies only to subjects who:
-    #' - have enrolled, and
-    #' - have not already dropped.
+    #' Dropout applies only to enrolled, not-yet-dropped subjects.
     #'
-    #' @param n `integer` # of subjects to drop
-    #' @param time `numeric` Dropout time
+    #' @param n `integer` Number of subjects to drop.
+    #' @param time `numeric` Dropout time.
+    #'
+    #' @seealso [Population], [Trial].
     #'
     #' @examples
     #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
@@ -164,7 +161,7 @@ Population <- R6::R6Class(
         stop("`n` must be a single non-negative integer.")
       }
 
-      # don't sample more than available
+      # Don't drop more subjects than eligible (enrolled and not yet dropped)
       idx <- which(is.na(self$dropped) & !is.na(self$enrolled))
       n_use <- min(n, length(idx))
       if (n_use == 0L) return(invisible(self))
@@ -174,15 +171,12 @@ Population <- R6::R6Class(
     },
 
     #' @description
-    #' Replace the underlying subject data and reset enrollment/dropout status.
+    #' Replace underlying subject data and reset enrollment/dropout status.
     #'
-    #' @param data `data.frame` Subject-level data frame with columns:
-    #' - `id` `integer`
-    #' - `data` `numeric`
-    #' - `arm` `character`
-    #' - `readout_time` `numeric`
-    #' - `data` `numeric`
-    #' - may contain more columns
+    #' @param data `data.frame` with columns: `id`, `data`, `arm`,
+    #'   `readout_time`, and optionally more columns.
+    #'
+    #' @seealso [Population].
     #'
     #' @examples
     #' pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
