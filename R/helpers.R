@@ -1,3 +1,52 @@
+#' Trigger analysis at a specific calendar time
+#'
+#' @param cal_time `numeric` Calendar time to trigger at
+#' @param timer `Timer` Timer instance to add condition to
+#' @param analysis `function` or `NULL` Analysis function to apply
+#'
+#' @returns returns `timer` for chaining.
+#' @export
+#'
+#' @examples
+#' t <- Timer$new("timer")
+#' trigger_by_calendar(2, t, analysis = function(df, current_time) nrow(df))
+#' 
+#' @importFrom rlang :=
+#' @importFrom dplyr .data
+trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
+  timer$add_condition(
+    .data$time %in% cal_time,
+    analysis = analysis,
+    name = paste0("cal_time_", do.call(paste, c(cal_time, sep = "_") |> as.list()))
+  )
+}
+
+#' Trigger analysis when sample fractionof enrolled subjects is reached
+#'
+#' @param fraction `numeric` Fraction of target sample (0 < fraction <= 1)
+#' @param timer `Timer` Timer instance to add condition to
+#' @param sample_size `integer` Target sample size
+#' @param analysis `function` or `NULL` Analysis function to apply
+#'
+#' @returns returns `timer` for chaining.
+#' @export
+#'
+#' @examples
+#' t <- Timer$new("timer")
+#' trigger_by_fraction(0.5, t, sample_size = 100, analysis = function(df, current_time) nrow(df))
+#' 
+#' @importFrom rlang :=
+#' @importFrom dplyr .data
+trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
+  stopifnot(fraction > 0 && fraction <= 1)
+
+  timer$add_condition(
+    sum(!is.na(.data$enroll_time)) >= fraction * sample_size,
+    analysis = analysis,
+    name = paste0("frac_", fraction)
+  )
+}
+
 #' Add multiple timepoints from a data frame
 #'
 #' @param timer an instance of [Timer]
@@ -56,13 +105,11 @@ prettify_results <- function(results) {
 #' @returns `data.frame` population data that may be passed to [Population]
 
 #' @export
-vector_to_dataframe <- function(data) {
-  data.frame(
-    subject_id = seq_along(data),
-    data = data,
-    readout_time = 0
-  )
-}
+vector_to_dataframe <- function(data) data.frame(
+      id = seq_along(data),
+      data = data,
+      readout_time = 0
+)
 
 #' Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout
 #'

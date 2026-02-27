@@ -9,6 +9,10 @@
 #' and `check_conditions()` to filter a data frame based on a trigger condition
 #' and return either analysis results or the filtered data.
 #'
+#' @details
+#' Helper functions [trigger_by_calendar()] and [trigger_by_fraction()] provide
+#' convenient shortcuts for common trigger patterns.
+#'
 #' @examples
 #' # Basic construction
 #' t <- Timer$new(name = "Timer")
@@ -24,7 +28,7 @@
 #' t$get_unique_times() # unique times => c(1, 2)
 #' t$get_timepoint("A", 1) # returns a single timepoint
 #'
-#' # Add conditions using dplyr style
+#' # Add conditions using trigger helpers or dplyr style
 #' # Suppose you have a data.frame:
 #' df <- data.frame(
 #'   id = 1:6,
@@ -40,14 +44,8 @@
 #'   out
 #' }
 #'
-#' # Condition 1: active only
-#' t$add_condition(
-#'   status == "active",
-#'   analysis = my_analysis,
-#'   name = "active_only"
-#' )
-#'
-#' # Condition 2: arm A, visit >= 2, no analysis -> returns filtered df with warning
+#' # Or add conditions manually with dplyr style
+#' # Condition: arm A, visit >= 2, no analysis -> returns filtered df
 #' t$add_condition(
 #'   arm == "A", visit >= 2,
 #'   name = "armA_visit2plus"
@@ -56,8 +54,6 @@
 #' # Run checks
 #' res <- t$check_conditions(locked_data = df, current_time = 3)
 #' names(res)
-#' # c("active_only", "armA_visit2plus")
-#' res$active_only
 #'
 #' @importFrom rlang enquos
 #' @importFrom dplyr filter

@@ -112,9 +112,10 @@ mk_pop <- function(arm, n) {
   Population$new(
     name = arm,
     data = data.frame(
-      subject_id = seq_len(n),
+      id = seq_len(n),
       dose = d,
-      y = rnorm(n, mean = mean_fun(d), sd = sigma)
+      y = rnorm(n, mean = mean_fun(d), sd = sigma),
+      readout_time = 1
     )
   )
 }
@@ -185,40 +186,36 @@ mods <- DoseFinding::Mods(
 )
 
 # Interim: Bayesian Go/No-Go (d20 vs placebo)
-tr_timer$add_condition(
-  time == interim_time,
-  analysis = function(df, time) {
-    dat <- df |>
-      dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
+trigger_by_calendar(interim_time, tr_timer, analysis = function(df, current_time) {
+  dat <- df |>
+    dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
 
-    y_p <- dat$y[dat$arm == "d0"]
-    y_t <- dat$y[dat$arm == "d20"]
+  y_p <- dat$y[dat$arm == "d0"]
+  y_t <- dat$y[dat$arm == "d20"]
 
-    n_p <- length(y_p)
-    n_t <- length(y_t)
-    m_p <- mean(y_p)
-    m_t <- mean(y_t)
+  n_p <- length(y_p)
+  n_t <- length(y_t)
+  m_p <- mean(y_p)
+  m_t <- mean(y_t)
 
-    post_p <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
-    post_t <- RBesT::postmix(prior_noninf,  n = n_t, m = m_t)
+  post_p <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+  post_t <- RBesT::postmix(prior_noninf,  n = n_t, m = m_t)
 
-    prob_delta <- RBesT::pmixdiff(post_t, post_p, delta_interim, lower.tail = FALSE)
-    delta_q <- RBesT::qmixdiff(post_t, post_p, c(0.025, 0.5, 0.975))
+  prob_delta <- RBesT::pmixdiff(post_t, post_p, delta_interim, lower.tail = FALSE)
+  delta_q <- RBesT::qmixdiff(post_t, post_p, c(0.025, 0.5, 0.975))
 
-    go_interim <<- as.integer(prob_delta >= gamma_interim)
+  go_interim <<- as.integer(prob_delta >= gamma_interim)
 
-    list(
-      n_placebo = n_p,
-      n_d20 = n_t,
-      post_prob_delta = prob_delta,
-      delta_q025 = delta_q[1],
-      delta_q500 = delta_q[2],
-      delta_q975 = delta_q[3],
-      decision_go = go_interim
-    )
-  },
-  name = "interim_go_nogo"
-)
+  list(
+    n_placebo = n_p,
+    n_d20 = n_t,
+    post_prob_delta = prob_delta,
+    delta_q025 = delta_q[1],
+    delta_q500 = delta_q[2],
+    delta_q975 = delta_q[3],
+    decision_go = go_interim
+  )
+})
 
 # Final: Bayesian MCP-Mod across all dose groups
 tr_timer$add_condition(
@@ -240,46 +237,32 @@ tr_timer$add_condition(
 
     # Order expected by BayesianMCPMod: Ctrl, DG_1 ...
     # with dose order 0, 5, 10, 20, 40.
-    n_vec <- summ$n
+    n_vec <- summ$n |> as.double()
     mu_vec <- summ$mu_hat
 
     # covariance of mean estimates (independent groups here)
     S_hat <- diag((sigma / sqrt(n_vec))^2)
 
-    contr <- BayesianMCPMod::getContr(
-      mods = mods,
-      dose_levels = dose_levels,
-      cov_posterior = S_hat
+    # Prepare estimates from observed data for assessDesign
+    estimates_sim <- list(
+      mu_hats = list(mu_vec),
+      S_hats = list(S_hat)
     )
 
-    crit_prob <- BayesianMCPMod::getCritProb(
+    # Run Bayesian MCP-Mod assessment with observed data
+    bmcp <- BayesianMCPMod::assessDesign(
+      n_patients = n_vec,
       mods = mods,
-      dose_levels = dose_levels,
-      dose_weights = n_vec |> as.numeric(),
-      alpha_crit_val = alpha_final
-    )
-
-    post_list <- BayesianMCPMod::getPosterior(
       prior_list = prior_list_final,
-      mu_hat = mu_vec,
-      S_hat = S_hat,
-      calc_ess = TRUE
+      estimates_sim = estimates_sim,
+      alpha_crit_val = alpha_final,
+      n_sim = 1
     )
 
-    bmcp <- BayesianMCPMod::performBayesianMCPMod(
-      posterior_list = post_list,
-      contr = contr,
-      crit_prob_adj = crit_prob,
-      simple = TRUE,
-      avg_fit = TRUE
-    )
-
-    list(
-      interim_go = go_interim,
+    # Extract key results into row-bindable format
+    data.frame(
       n_total_final = nrow(dat),
-      dose_means = summ,
-      crit_prob_adj = crit_prob,
-      bayesian_mcpmod = bmcp
+      max_eff = attr(bmcp, "maxEff")
     )
   },
   name = "final_bayesian_mcpmod"

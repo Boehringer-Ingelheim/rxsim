@@ -58,16 +58,18 @@ Generate populations and endpoint data.
 control <- Population$new(
   name = "pbo",
   data = data.frame(
-    subject_id = 1:50,
-    value = rnorm(50)
+    id = 1:50,
+    value = rnorm(50),
+    readout_time = 1
   )
 )
 
 treatment <- Population$new(
   name = "trt",
   data = data.frame(
-    subject_id = 1:50,
-    value = rnorm(50, 0.2)
+    id = 1:50,
+    value = rnorm(50, 0.2),
+    readout_time = 1
   )
 )
 ```
@@ -76,14 +78,10 @@ treatment <- Population$new(
 We want to do a t-test when 100 subjects have been enrolled. 
 
 ```{r trigger}
-t$add_condition(
-  time == 12,
-  analysis = function(df, time){
-    df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
-    t.test(value ~ arm, data = df_enrolled)$p.value
-  },
-  name = "t-test_final"
-)
+trigger_by_calendar(12, t, analysis = function(df, current_time){
+  df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
+  t.test(value ~ arm, data = df_enrolled)$p.value
+})
 ```
 
 ## Trial
