@@ -113,9 +113,10 @@ gen_arm <- function(n, mu_y, lambda_arm) {
   tte_true <- rexp(n, rate = rate_i)  # true time-to-event from enrollment
 
   data.frame(
-    subject_id = seq_len(n),
+    id = seq_len(n),
     y  = y,
-    tte_true = tte_true
+    tte_true = tte_true,
+    readout_time = 1
   )
 }
 

@@ -91,9 +91,10 @@ mk_arm_data <- function(n, mean_A, mean_B) {
   mu <- ifelse(subgroup == "A", mean_A, mean_B)
 
   data.frame(
-    subject_id = seq_len(n),
+    id = seq_len(n),
     subgroup = subgroup,
-    y = rnorm(n, mean = mu, sd = sigma)
+    y = rnorm(n, mean = mu, sd = sigma),
+    readout_time = 1
   )
 }
 

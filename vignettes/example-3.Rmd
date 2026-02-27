@@ -109,9 +109,10 @@ xy_pbo <- MASS::mvrnorm(
   Sigma = Sigma
 )
 control_df <- data.frame(
-  subject_id = seq_len(n_per_arm),
+  id = seq_len(n_per_arm),
   y1 = xy_pbo[, 1],
-  y2 = xy_pbo[, 2]
+  y2 = xy_pbo[, 2],
+  readout_time = 1
 )
 
 # Treatment population data (shifted means, same covariance)
@@ -121,9 +122,10 @@ xy_trt <- MASS::mvrnorm(
   Sigma = Sigma
 )
 treatment_df <- data.frame(
-  subject_id = seq_len(n_per_arm),
+  id = seq_len(n_per_arm),
   y1 = xy_trt[, 1],
-  y2 = xy_trt[, 2]
+  y2 = xy_trt[, 2],
+  readout_time = 1
 )
 
 # Build Population objects

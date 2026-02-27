@@ -58,16 +58,18 @@ Generate populations and endpoint data.
 control <- Population$new(
   name = "pbo",
   data = data.frame(
-    subject_id = 1:50,
-    value = rnorm(50)
+    id = 1:50,
+    value = rnorm(50),
+    readout_time = 1
   )
 )
 
 treatment <- Population$new(
   name = "trt",
   data = data.frame(
-    subject_id = 1:50,
-    value = rnorm(50, 0.2)
+    id = 1:50,
+    value = rnorm(50, 0.2),
+    readout_time = 1
   )
 )
 ```

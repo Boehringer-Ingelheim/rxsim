@@ -142,16 +142,18 @@ n_per_arm <- sample_size / 2
 pop_placebo <- Population$new(
   name = "placebo",
   data = data.frame(
-    subject_id = seq_len(n_per_arm),
-    y = rnorm(n_per_arm, mean = mu_placebo_true, sd = sigma_known)
+    id = seq_len(n_per_arm),
+    y = rnorm(n_per_arm, mean = mu_placebo_true, sd = sigma_known),
+    readout_time = 1
   )
 )
 
 pop_treatment <- Population$new(
   name = "treatment",
   data = data.frame(
-    subject_id = seq_len(n_per_arm),
-    y = rnorm(n_per_arm, mean = mu_treat_true, sd = sigma_known)
+    id = seq_len(n_per_arm),
+    y = rnorm(n_per_arm, mean = mu_treat_true, sd = sigma_known),
+    readout_time = 1
   )
 )
 ```
