@@ -57,7 +57,7 @@ prettify_results <- function(results) {
 
 #' @export
 vector_to_dataframe <- function(data) data.frame(
-      subject_id = seq_along(data),
+      id = seq_along(data),
       data = data,
       readout_time = 0
 )

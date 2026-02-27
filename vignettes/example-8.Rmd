@@ -112,9 +112,10 @@ mk_pop <- function(arm, n) {
   Population$new(
     name = arm,
     data = data.frame(
-      subject_id = seq_len(n),
+      id = seq_len(n),
       dose = d,
-      y = rnorm(n, mean = mean_fun(d), sd = sigma)
+      y = rnorm(n, mean = mean_fun(d), sd = sigma),
+      readout_time = 1
     )
   )
 }
@@ -240,46 +241,32 @@ tr_timer$add_condition(
 
     # Order expected by BayesianMCPMod: Ctrl, DG_1 ...
     # with dose order 0, 5, 10, 20, 40.
-    n_vec <- summ$n
+    n_vec <- summ$n |> as.double()
     mu_vec <- summ$mu_hat
 
     # covariance of mean estimates (independent groups here)
     S_hat <- diag((sigma / sqrt(n_vec))^2)
 
-    contr <- BayesianMCPMod::getContr(
-      mods = mods,
-      dose_levels = dose_levels,
-      cov_posterior = S_hat
+    # Prepare estimates from observed data for assessDesign
+    estimates_sim <- list(
+      mu_hats = list(mu_vec),
+      S_hats = list(S_hat)
     )
 
-    crit_prob <- BayesianMCPMod::getCritProb(
+    # Run Bayesian MCP-Mod assessment with observed data
+    bmcp <- BayesianMCPMod::assessDesign(
+      n_patients = n_vec,
       mods = mods,
-      dose_levels = dose_levels,
-      dose_weights = n_vec |> as.numeric(),
-      alpha_crit_val = alpha_final
-    )
-
-    post_list <- BayesianMCPMod::getPosterior(
       prior_list = prior_list_final,
-      mu_hat = mu_vec,
-      S_hat = S_hat,
-      calc_ess = TRUE
+      estimates_sim = estimates_sim,
+      alpha_crit_val = alpha_final,
+      n_sim = 1
     )
 
-    bmcp <- BayesianMCPMod::performBayesianMCPMod(
-      posterior_list = post_list,
-      contr = contr,
-      crit_prob_adj = crit_prob,
-      simple = TRUE,
-      avg_fit = TRUE
-    )
-
-    list(
-      interim_go = go_interim,
+    # Extract key results into row-bindable format
+    data.frame(
       n_total_final = nrow(dat),
-      dose_means = summ,
-      crit_prob_adj = crit_prob,
-      bayesian_mcpmod = bmcp
+      max_eff = attr(bmcp, "maxEff")
     )
   },
   name = "final_bayesian_mcpmod"

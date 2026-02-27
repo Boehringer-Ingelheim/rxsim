@@ -98,9 +98,10 @@ mk_pop <- function(d){
   mu <- mean_fun(d)
   y  <- rnorm(n_per_arm, mean = mu, sd = sigma)
   data.frame(
-    subject_id = seq_len(n_per_arm),
+    id = seq_len(n_per_arm),
     dose       = d,
-    y          = y
+    y          = y,
+    readout_time = 1
   )
 }
 
