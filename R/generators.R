@@ -42,32 +42,46 @@ gen_plan <- function(sample_size, arms, allocation, enrollment, dropout) {
 
   # handle removal
   if (sample_size - sum(target) < 0) {
-    remove <- table(sample(
+    remove_idx <- sample(
       seq_len(n_arms),
       sum(target) - sample_size,
       replace = TRUE,
       prob = ratio
-    )) |> as.vector()
+    )
+    remove <- tabulate(remove_idx, nbins = n_arms)
+    names(remove) <- arms
     target <- target - remove
   }
 
     # handle additions
   if (sample_size - sum(target) > 0) {
-    addition <- table(sample(
+    add_idx <- sample(
       seq_len(n_arms),
       sample_size - sum(target),
       replace = TRUE,
       prob = ratio
-    )) |> as.vector()
-  target <- target + addition
+    )
+    addition <- tabulate(add_idx, nbins = n_arms)
+    names(addition) <- arms
+    target <- target + addition
   }
 
-    enroll_events <- enrollment(sample_size)
-    drop_events <- dropout(sample_size)
+  if (any(target < 0L) || sum(target) != sample_size) {
+    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
+  }
+
+  enroll_events <- enrollment(sample_size)
+  drop_events <- dropout(sample_size)
+
+  shuffled_arms <- sample(
+    rep(arms, times = target),
+    sample_size,
+    replace = FALSE
+  )
 
   df_enroll <- data.frame(
     time = cumsum(enroll_events),
-    arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
+    arm = shuffled_arms,
     enroller = 1L,
     dropper = 0L
   )
@@ -79,5 +93,5 @@ gen_plan <- function(sample_size, arms, allocation, enrollment, dropout) {
     dropper = 1L
   )
 
-rbind(df_enroll, df_drop) |> dplyr::arrange(.data$time)
+rbind(df_enroll, df_drop) |> dplyr::arrange(time)
 }

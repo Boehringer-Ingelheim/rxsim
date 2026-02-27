@@ -108,13 +108,46 @@ replicate_trial <- function(
     })
     return(t)
   })
-  
-n_target <- lapply(timers, function(t) {
-  table(dplyr::bind_rows(t$timelist) |>
-    dplyr::select(c(arm, enroller)))[, "1"]
-})
 
-  trial <- lapply(seq_len(n), function(i) {
+  pop_names <- names(population_generators)
+  if (is.null(pop_names) || any(pop_names == "")) {
+    stop("`population_generators` must be a named list.")
+  }
+
+  n_target <- lapply(timers, function(t) {
+    plan_df <- dplyr::bind_rows(t$timelist)
+    planned_arms <- unique(plan_df$arm)
+    plan_missing_arms <- setdiff(pop_names, planned_arms)
+    pop_missing_arms <- setdiff(planned_arms, pop_names)
+    if (length(plan_missing_arms) > 0L) {
+      stop(sprintf(
+        "Population generator names not found in plan arms: %s",
+        paste(plan_missing_arms, collapse = ", ")
+      ))
+    }
+    if (length(pop_missing_arms) > 0L) {
+      stop(sprintf(
+        "Plan contains arms not found in population_generators: %s",
+        paste(pop_missing_arms, collapse = ", ")
+      ))
+    }
+    vapply(
+      pop_names,
+      function(a) as.integer(sum(plan_df$enroller[plan_df$arm == a], na.rm = TRUE)),
+      integer(1)
+    )
+  })
+
+  bad_trials <- which(vapply(n_target, function(x) sum(x) != sample_size, logical(1)))
+  if (length(bad_trials) > 0L) {
+    stop(sprintf(
+      "Planned enrollment mismatch in trial(s): %s. Expected total %s enrolled subjects.",
+      paste(bad_trials, collapse = ", "),
+      as.character(sample_size)
+    ))
+  }
+
+  trials <- lapply(seq_len(n), function(i) {
     Trial$new(
       name = paste(trial_name, i, sep="_"),
       timer = timers[[i]],
@@ -123,6 +156,23 @@ n_target <- lapply(timers, function(t) {
       })
     )
   })
+
+  for (i in seq_along(trials)) {
+    pop_actual <- vapply(trials[[i]]$population, function(p) as.integer(p$n), integer(1))
+    names(pop_actual) <- vapply(trials[[i]]$population, function(p) p$name, character(1))
+
+    pop_actual <- pop_actual[pop_names]
+    pop_plan <- as.integer(n_target[[i]][pop_names])
+    names(pop_plan) <- pop_names
+
+    if (!identical(pop_actual, pop_plan)) {
+      mismatch <- pop_names[pop_actual != pop_plan]
+      detail <- paste(sprintf("%s planned=%s actual=%s", mismatch, pop_plan[mismatch], pop_actual[mismatch]), collapse = "; ")
+      stop(sprintf("Population size mismatch in trial %s: %s", i, detail))
+    }
+  }
+
+  return(trials)
 }
 
 #' Run Multiple Trial Objects

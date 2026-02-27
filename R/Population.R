@@ -128,8 +128,19 @@ Population <- R6::R6Class(
     #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
     #' pop$set_enrolled(n = 4, time = 2)
     set_enrolled = function(n, time) {
+      # input validation
+      n <- as.integer(n)
+      if (length(n) != 1L || is.na(n) || n < 0L) {
+        stop("`n` must be a single non-negative integer.")
+      }
+
+      # dont't sample more than available
       idx <- which(is.na(self$enrolled))
-      self$enrolled[sample(idx, n, replace = FALSE)] <- time
+      n_use <- min(n, length(idx))
+      if (n_use == 0L) return(invisible(self))
+
+      pick <- idx[sample.int(length(idx), n_use, replace = FALSE)]
+      self$enrolled[pick] <- time
     },
 
     #' @description
@@ -147,8 +158,19 @@ Population <- R6::R6Class(
     #' pop$set_enrolled(n = 5, time = 1)
     #' pop$set_dropped(n = 2, time = 3)
     set_dropped = function(n, time) {
+      # input validation
+      n <- as.integer(n)
+      if (length(n) != 1L || is.na(n) || n < 0L) {
+        stop("`n` must be a single non-negative integer.")
+      }
+
+      # don't sample more than available
       idx <- which(is.na(self$dropped) & !is.na(self$enrolled))
-      self$dropped[sample(idx, n, replace = FALSE)] <- time
+      n_use <- min(n, length(idx))
+      if (n_use == 0L) return(invisible(self))
+
+      pick <- idx[sample.int(length(idx), n_use, replace = FALSE)]
+      self$dropped[pick] <- time
     },
 
     #' @description

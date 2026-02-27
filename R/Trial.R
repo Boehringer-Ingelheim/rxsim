@@ -178,32 +178,31 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
+      plan_df <- dplyr::bind_rows(self$timer$timelist)
+      if (nrow(plan_df) == 0L) {
+        return(invisible(self))
+      }
+
       # if( self$timer$get_n_arms() != length(self$population))
       # {
       #   stop("Need timers for the same amount of arms run()")
       #
       # }
 
-      for (i in sort(self$timer$get_unique_times())) {
+      for (i in sort(unique(plan_df$time))) {
         # apply enrollment/dropout to each Population object in the list
         for (p in self$population) {
-          # add an error statement if the time/population dne
-          tp <- self$timer$get_timepoint(p$name, i)
-          if (!is.null(tp)) {
-            # check whether any one left to enroll?
-            if (
-              !is.null(tp$enroller) &
-                any(is.na(p$enrolled))
-            ) {
-              p$set_enrolled(tp$enroller, time = i)
+          idx <- which(plan_df$arm == p$name & plan_df$time == i)
+          if (length(idx) > 0L) {
+            enroller_n <- as.integer(sum(plan_df$enroller[idx], na.rm = TRUE))
+            dropper_n <- as.integer(sum(plan_df$dropper[idx], na.rm = TRUE))
+
+            if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
+              p$set_enrolled(enroller_n, time = i)
             }
-            # check whether anyone left to drop
-            if (
-              !is.null(tp$dropper) &
-                any(!is.na(p$enrolled)) &
-                any(is.na(p$dropped))
-            ) {
-              p$set_dropped(tp$dropper, time = i)
+
+            if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
+              p$set_dropped(dropper_n, time = i)
             }
           }
         }
@@ -221,9 +220,13 @@ Trial <- R6::R6Class(
 
         combined <- do.call(rbind, locked_snapshot_list)
 
+        if (is.null(combined) || nrow(combined) == 0L) {
+          next
+        }
+
         # Add measurement and current time column
         combined$measurement_time <- combined$readout_time + combined$enroll_time
-        combined$time <- i
+        combined$time <- rep(i, nrow(combined))
 
         # Check all conditions on the combined snapshot
         results <- self$timer$check_conditions(

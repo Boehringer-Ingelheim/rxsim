@@ -22,11 +22,12 @@ library(rxsim)
 Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
-sample_size <- 10
+set.seed(123)
+sample_size <- 6
 arms        <- c("pbo", "trt")
 allocation  <- c(1, 1)
-enrollment  <- function(n) rexp(n, rate = 0.75)
-dropout     <- function(n) rexp(n, rate = 0.05)
+enrollment  <- function(n) rexp(n, rate = 1)
+dropout     <- function(n) rexp(n, rate = 0.01)
 
 ```
 
@@ -50,10 +51,10 @@ We want to do a t-test when 100 subjects have been enrolled.
 analysis_generators <- list(
   final = list(
     trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= 95
+      sum(!is.na(enroll_time)) >= !!sample_size
     ), #can hold 1+ filter conditions
     analysis = function(df, timer) {
-      df %>% dplyr::group_by(arm) %>% dplyr::summarise(avg = mean(data))
+      df |> dplyr::group_by(arm) |> dplyr::summarise(avg = mean(data))
     }
   )
 )
