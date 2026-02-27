@@ -98,76 +98,73 @@ For each arm we simulate **two correlated endpoints** per subject using `MASS::m
 We keep **50** subjects per arm (consistent with `sample_size = 100` and equal allocation).
 
 ```{r population}
-set.seed(2026)  # Seed local to data simulation; Trial also allows its own seed
+# Create closure to capture parameters
+mk_population_generator <- function(mu_y1, mu_y2) {
+  function(n) {
+    xy <- MASS::mvrnorm(
+      n     = n,
+      mu    = c(mu_y1, mu_y2),
+      Sigma = Sigma
+    )
+    data.frame(
+      id = seq_len(n),
+      y1 = xy[, 1],
+      y2 = xy[, 2],
+      readout_time = 1
+    )
+  }
+}
 
-n_per_arm <- sample_size / length(arms)  # 50 per arm
+population_generators <- list(
+  pbo = mk_population_generator(mu1_pbo, mu2_pbo),
+  trt = mk_population_generator(mu1_trt, mu2_trt)
+)
+```
 
-# Control population data (two correlated endpoints)
-xy_pbo <- MASS::mvrnorm(
-  n     = n_per_arm,
-  mu    = c(mu1_pbo, mu2_pbo),
-  Sigma = Sigma
-)
-control_df <- data.frame(
-  id = seq_len(n_per_arm),
-  y1 = xy_pbo[, 1],
-  y2 = xy_pbo[, 2],
-  readout_time = 1
-)
+## Trial Parameters
 
-# Treatment population data (shifted means, same covariance)
-xy_trt <- MASS::mvrnorm(
-  n     = n_per_arm,
-  mu    = c(mu1_trt, mu2_trt),
-  Sigma = Sigma
-)
-treatment_df <- data.frame(
-  id = seq_len(n_per_arm),
-  y1 = xy_trt[, 1],
-  y2 = xy_trt[, 2],
-  readout_time = 1
-)
+Define enrollment/dropout profiles and parameters.
 
-# Build Population objects
-control <- Population$new(
-  name = "pbo",
-  data = control_df
-)
-
-treatment <- Population$new(
-  name = "trt",
-  data = treatment_df
-)
+```{r trial_params}
+arms <- c("pbo", "trt")
+allocation <- c(1, 1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
 ```
 
 ## Trigger & Analysis
 
-This is a **fixed design**: perform analysis **once at the final timepoint**.  
-We run two independent two-sample t-tests (one per endpoint).  
-(If you want multiplicity control, you can add `p.adjust` below.)
+This is a **fixed design**: perform analysis **once**.  
+We run two independent two-sample t-tests (one per endpoint).
 
 ```{r trigger}
-trigger_by_calendar(final_time, t, analysis = function(df, current_time) {
-  df_e <- df |> dplyr::filter(!is.na(enroll_time))
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer) {
+      df_e <- df |> dplyr::filter(!is.na(enroll_time))
 
-  # Two-sample t-tests by arm for each endpoint
-  p1 <- t.test(y1 ~ arm, data = df_e)$p.value
-  p2 <- t.test(y2 ~ arm, data = df_e)$p.value
+      # Two-sample t-tests by arm for each endpoint
+      p1 <- t.test(y1 ~ arm, data = df_e)$p.value
+      p2 <- t.test(y2 ~ arm, data = df_e)$p.value
 
-  # Optional: simple multiplicity adjustment (Holm)
-  padj <- p.adjust(c(p1, p2), method = "holm")
+      # Optional: simple multiplicity adjustment (Holm)
+      padj <- p.adjust(c(p1, p2), method = "holm")
 
-  # Return a named, row-like object (list or data.frame both fine)
-  list(
-    p_y1      = unname(p1),
-    p_y2      = unname(p2),
-    p_holm_y1 = unname(padj[1]),
-    p_holm_y2 = unname(padj[2]),
-    n_total   = nrow(df_e),
-    n_pbo     = sum(df_e$arm == "pbo"),
-    n_trt     = sum(df_e$arm == "trt")
+      list(
+        p_y1      = unname(p1),
+        p_y2      = unname(p2),
+        p_holm_y1 = unname(padj[1]),
+        p_holm_y2 = unname(padj[2]),
+        n_total   = nrow(df_e),
+        n_pbo     = sum(df_e$arm == "pbo"),
+        n_trt     = sum(df_e$arm == "trt")
+      )
+    }
   )
-})
+)
 ```
 
 ## Trial
@@ -176,18 +173,23 @@ Create and run the trial.
 (We supply a `seed` for reproducibility inside the trial engine—e.g., enrollment/dropout sampling.)
 
 ```{r trial}
-trial <- Trial$new(
-  name       = "two_endpoints_fixed_design",
-  seed       = 123,
-  timer      = t,
-  population = list(control, treatment)
+trials <- replicate_trial(
+  trial_name = "two_endpoints_fixed_design",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
 )
 ```
 
 ## Simulate
 
 ```{r sim}
-trial$run()
+run_trials(trials)
 ```
 
 ## Results
@@ -195,13 +197,13 @@ trial$run()
 The analysis results at the final timepoint:
 
 ```{r results}
-trial$results
+trials[[1]]$results
 ```
 
-If you prefer a flat frame (when returning lists/records), you can prettify:
+Prettified results:
 
 ```{r results_pretty}
-prettify_results(trial$results)
+prettify_results(trials[[1]]$results)
 ```
 
 ## Locked data (snapshot)
@@ -209,7 +211,7 @@ prettify_results(trial$results)
 Inspect the data that was “locked” at analysis time:
 
 ```{r locked}
-lapply(trial$locked_data, head)
+lapply(trials[[1]]$locked_data, head)
 ```
 
 ## (Optional) Check realized correlation by arm among enrolled

@@ -25,89 +25,75 @@ Capture scenario parameters. We will assume piece-wise linear enrollment.
 sample_size <- 100
 arms <- c("pbo", "trt")
 allocation <- c(1,1)
-enrollment <- list(
-  end_time = c(4, 8, 12, 16),
-  rate = c(5, 10, 15, 20)
-)
-dropout <- list(
-  end_time = c(4, 8, 12, 16),
-  rate = c(1, 2, 4, 8)
-)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
 ```
 
-# Time points
-Get a list of time points where important events occur. Add time points to a timer.
-
-```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size,
-  arms,
-  allocation,
-  enrollment,
-  dropout
-)
-
-t <- Timer$new(name = "trial_timer")
-add_timepoints(t, timepoints)
-```
-
-## Arms
-Generate populations and endpoint data.
+## Populations
+Define population generators.
 
 ```{r population}
-control <- Population$new(
-  name = "pbo",
-  data = data.frame(
-    id = 1:50,
-    value = rnorm(50),
+population_generators <- list(
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rnorm(n),
     readout_time = 1
-  )
-)
-
-treatment <- Population$new(
-  name = "trt",
-  data = data.frame(
-    id = 1:50,
-    value = rnorm(50, 0.2),
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rnorm(n, 0.2),
     readout_time = 1
   )
 )
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled. 
+We want to do a t-test when 100 subjects have been enrolled.
 
 ```{r trigger}
-trigger_by_calendar(12, t, analysis = function(df, current_time){
-  df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
-  t.test(value ~ arm, data = df_enrolled)$p.value
-})
-```
-
-## Trial
-Make the trial object.
-
-```{r trial}
-trial <- Trial$new(
-  name = "test_trial",
-  timer = t,
-  population = list(control, treatment)
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer){
+      df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
+      t.test(value ~ arm, data = df_enrolled)$p.value
+    }
+  )
 )
 ```
 
-## Simluate
-To simulate 1 replicate call:
+## Trial
+Make multiple trial replicates.
+
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
+```
+
+## Simulate
+To simulate all replicates:
 
 ```{r sim}
-trial$run()
+run_trials(trials)
 ```
 
-Get results.
+Get results from first replicate.
 ```{r results}
-trial$results
+trials[[1]]$results
 ```
 
-Get locked data.
+Get locked data from first replicate.
 ```{r locked}
-lapply(trial$locked_data, head)
+lapply(trials[[1]]$locked_data, head)
 ```

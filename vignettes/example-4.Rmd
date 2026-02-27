@@ -96,41 +96,33 @@ Per arm we simulate subject-level latent bivariate normals `(Z1, Z2)` with corre
   Event time `T_i ~ Exponential(rate = hazard_i)`.
 
 ```{r population}
-set.seed(2026)
+# Create generator function for arm-specific data
+mk_population_generator <- function(mu_y, lambda_arm) {
+  function(n) {
+    Z <- MASS::mvrnorm(n, mu = c(0, 0), Sigma = SigmaZ)
+    Z1 <- Z[, 1]
+    Z2 <- Z[, 2]
+    y  <- mu_y + sd_y * Z1
+    eta <- sigma_frailty * Z2
+    rate_i <- lambda_arm * exp(eta)
+    tte_true <- rexp(n, rate = rate_i)
 
-n_per_arm <- sample_size / length(arms)
-
-# helper to simulate per arm
-gen_arm <- function(n, mu_y, lambda_arm) {
-  Z <- MASS::mvrnorm(n, mu = c(0, 0), Sigma = SigmaZ)
-  Z1 <- Z[, 1]
-  Z2 <- Z[, 2]
-  # Continuous endpoint
-  y  <- mu_y + sd_y * Z1
-  # Frailty -> event time
-  eta <- sigma_frailty * Z2
-  rate_i <- lambda_arm * exp(eta)
-  tte_true <- rexp(n, rate = rate_i)  # true time-to-event from enrollment
-
-  data.frame(
-    id = seq_len(n),
-    y  = y,
-    tte_true = tte_true,
-    readout_time = 1
-  )
+    data.frame(
+      id = seq_len(n),
+      y  = y,
+      tte_true = tte_true,
+      readout_time = 1
+    )
+  }
 }
 
-# Control
 lambda_pbo <- lambda0
-control_df <- gen_arm(n_per_arm, mu_y = mu_pbo, lambda_arm = lambda_pbo)
-
-# Treatment
 lambda_trt <- lambda0 * HR_trt
-trt_df     <- gen_arm(n_per_arm, mu_y = mu_trt, lambda_arm = lambda_trt)
 
-# Build Population objects
-control <- Population$new(name = "pbo", data = control_df)
-treatment <- Population$new(name = "trt", data = trt_df)
+population_generators <- list(
+  pbo = mk_population_generator(mu_y = mu_pbo, lambda_arm = lambda_pbo),
+  trt = mk_population_generator(mu_y = mu_trt, lambda_arm = lambda_trt)
+)
 ```
 
 ## Trigger & Analysis
@@ -138,154 +130,110 @@ treatment <- Population$new(name = "trt", data = trt_df)
 This is a **fixed design**: analyze **once at the final timepoint**.
 We run a **two-sample t-test** for the continuous endpoint and a **log-rank test** plus **Cox PH** for the TTE endpoint.
 
-Observed follow-up per subject at current time `t*` is:
-
-\[
-T_{obs} = \min\{	ext{tte\_true},\; 	ext{drop\_time} - 	ext{enroll\_time},\; t^* - 	ext{enroll\_time}\},\quad
-\delta = \mathbf{1}\{	ext{tte\_true} = T_{obs}\}.
-\]
-
 ```{r trigger}
-trigger_by_calendar(final_time, t, analysis = function(df, current_time) {
-  df_e <- df |> dplyr::filter(!is.na(enroll_time))
-  if (nrow(df_e) == 0) return(list(time = current_time, note = "no enrolled subjects"))
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer) {
+      df_e <- df |> dplyr::filter(!is.na(enroll_time))
+      if (nrow(df_e) == 0) return(list(note = "no enrolled subjects"))
 
-  # Build observed TTE with censoring
-  # If dropped is NA, set censor_drop to +Inf; admin censor is (time - enroll_time)
-  censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
-  censor_admin <- pmax(0, current_time - df_e$enroll_time)
+      # Build observed TTE with censoring
+      censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
+      censor_admin <- pmax(0, max(df_e$enroll_time) + 100 - df_e$enroll_time)
 
-  tte_true <- df_e$tte_true
-  t_obs    <- pmin(tte_true, censor_drop, censor_admin)
-  status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
+      tte_true <- df_e$tte_true
+      t_obs    <- pmin(tte_true, censor_drop, censor_admin)
+      status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
 
-  # Continuous endpoint t-test
-  p_t <- tryCatch(
-    t.test(y ~ arm, data = df_e)$p.value,
-    error = function(e) NA_real_
-  )
+      # Continuous endpoint t-test
+      p_t <- tryCatch(
+        t.test(y ~ arm, data = df_e)$p.value,
+        error = function(e) NA_real_
+      )
 
-  # Survival analysis: log-rank and Cox
-  surv_p <- NA_real_
-  hr <- hr_lo <- hr_hi <- NA_real_
-  events <- sum(status)
+      # Survival analysis: log-rank and Cox
+      surv_p <- NA_real_
+      hr <- hr_lo <- hr_hi <- NA_real_
+      events <- sum(status)
 
-  # Only run if we have variation and at least one event
-  if (length(unique(df_e$arm)) == 2 && events > 0 && all(t_obs >= 0)) {
-    S <- Surv(time = t_obs, event = status)
+      if (length(unique(df_e$arm)) == 2 && events > 0 && all(t_obs >= 0)) {
+        S <- Surv(time = t_obs, event = status)
 
-    # Log-rank
-    surv_p <- tryCatch({
-      sd <- survdiff(S ~ arm, data = df_e)
-      1 - pchisq(sd$chisq, df = length(sd$n) - 1)
-    }, error = function(e) NA_real_)
+        surv_p <- tryCatch({
+          sd <- survdiff(S ~ arm, data = df_e)
+          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+        }, error = function(e) NA_real_)
 
-    # Cox PH
-    cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
-    if (!is.null(cox)) {
-      s <- summary(cox)
-      # Assume armtrt vs armpbo; extract exp(coef) and CI
-      hr    <- unname(s$coef[1, "exp(coef)"])
-      hr_lo <- unname(s$conf.int[1, "lower .95"])
-      hr_hi <- unname(s$conf.int[1, "upper .95"])
+        cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
+        if (!is.null(cox)) {
+          s <- summary(cox)
+          hr    <- unname(s$coef[1, "exp(coef)"])
+          hr_lo <- unname(s$conf.int[1, "lower .95"])
+          hr_hi <- unname(s$conf.int[1, "upper .95"])
+        }
+      }
+
+      list(
+        n_total    = nrow(df_e),
+        n_pbo      = sum(df_e$arm == "pbo"),
+        n_trt      = sum(df_e$arm == "trt"),
+        p_ttest_y  = p_t,
+        logrank_p  = surv_p,
+        hr_cox     = hr,
+        hr_ci_lo   = hr_lo,
+        hr_ci_hi   = hr_hi,
+        events     = events
+      )
     }
-  }
-
-  list(
-    n_total    = nrow(df_e),
-    n_pbo      = sum(df_e$arm == "pbo"),
-    n_trt      = sum(df_e$arm == "trt"),
-    # continuous
-    p_ttest_y  = p_t,
-    # survival
-    logrank_p  = surv_p,
-    hr_cox     = hr,
-    hr_ci_lo   = hr_lo,
-    hr_ci_hi   = hr_hi,
-    events     = events
   )
-})
+)
 ```
 
 ## Trial
 
-Create and run the trial.
+Create and run multiple trial replicates.
 
 ```{r trial}
-trial <- Trial$new(
-  name       = "two_endpoints_continuous_tte_fixed",
-  seed       = 123,
-  timer      = t,
-  population = list(control, treatment)
+trials <- replicate_trial(
+  trial_name = "two_endpoints_continuous_tte_fixed",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
 )
 ```
 
 ## Simulate
 
 ```{r sim}
-trial$run()
+run_trials(trials)
 ```
 
 ## Results
 
-Analysis results at the final look:
+Analysis results from the first replicate:
 
 ```{r results}
-trial$results
+trials[[1]]$results
 ```
 
-Flatten to a tidy frame if desired:
+Prettified results:
 
 ```{r results_pretty}
-prettify_results(trial$results)
+prettify_results(trials[[1]]$results)
 ```
 
-## Locked data (snapshot)
+## Locked data
 
-Inspect the snapshot used for analysis:
+Snapshot from the first replicate:
 
 ```{r locked}
-lapply(trial$locked_data, head)
-```
-
-## (Optional) Sanity checks
-
-### Realized correlation between *Y* and (log TTE) among enrolled
-
-This will typically be weaker than the design `rho` due to censoring and sampling variation.
-
-```{r correlation_check}
-locked_final <- trial$locked_data[[paste0("time_", final_time)]]
-
-locked_final |>
-  filter(!is.na(enroll_time)) |>
-  mutate(log_tte_true = log(tte_true)) |>
-  group_by(arm) |>
-  summarise(
-    n = n(),
-    cor_y_logtte = cor(y, log_tte_true)
-  )
-```
-
-### KM curves (illustrative)
-
-```{r km_plot, message=FALSE, warning=FALSE}
-locked_final <- trial$locked_data[[paste0("time_", final_time)]]
-
-# Build observed times/status at final time for KM
-if (!is.null(locked_final)) {
-  df_e <- locked_final |> filter(!is.na(enroll_time))
-  if (nrow(df_e) > 0) {
-    censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
-    censor_admin <- pmax(0, final_time - df_e$enroll_time)
-    tte_true <- df_e$tte_true
-    t_obs    <- pmin(tte_true, censor_drop, censor_admin)
-    status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
-
-    S <- Surv(time = t_obs, event = status)
-    fit <- survfit(S ~ arm, data = df_e)
-    plot(fit, col = c("black", "steelblue"), lwd = 2, xlab = "Follow-up time", ylab = "Survival")
-    legend("bottomleft", legend = levels(factor(df_e$arm)), col = c("black", "steelblue"), lwd = 2, bty = "n")
-  }
-}
+lapply(trials[[1]]$locked_data, head)
 ```

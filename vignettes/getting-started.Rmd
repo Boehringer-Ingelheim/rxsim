@@ -30,67 +30,61 @@ sample_size <- 15
 Let's assume a continuous endpoint that follows a normal distribution.
 
 ```{r population}
-control <- Population$new(
-  name = "control",
-  data = vector_to_dataframe(rnorm(sample_size))
+population_generators <- list(
+  control = function(n) vector_to_dataframe(rnorm(n))
 )
 ```
 
-## Time points
-Record all time points where we expect important events to occur like:
+## Trial Parameters
+Define enrollment and dropout profiles.
 
-- enrollment
-- dropout
-- interim analysis
-- final analysis
-- futility
-- measurements 
-
-```{r timepoints}
-timepoints <- tibble::tribble(
- ~time,      ~arm, ~enroller, ~dropper,
-     1, "control",         5L,        0L,
-     2, "control",         5L,        1L,
-     3, "control",         5L,        1L
-)
-
-t <- Timer$new(name = "timer")
-add_timepoints(t, timepoints)
+```{r trial_params}
+arms <- c("control")
+allocation <- c(1)
+enrollment <- function(n) rexp(n, rate = 1)
+dropout <- function(n) rexp(n, rate = 0.1)
 ```
 
 ## Event Triggers
-Specify event triggers using helper functions. For example, analyze at time = 3:
+Define analysis conditions.
 
-```{r timer}
-trigger_by_calendar(3, t, analysis = function(df, current_time) mean(df$data))
-```
-
-Or trigger when 50% of target (15) subjects are enrolled:
-
-```{r alt_trigger}
-trigger_by_fraction(0.5, t, sample_size, analysis = function(df, current_time) mean(df$data))
-```
-
-## Collect & Run
-Collect everything in the `Trial` object:
-
-```{r trial}
-trial <- Trial$new(
-  name = "test_trial",
-  timer = t,
-  population = list(control)
+```{r triggers}
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer) mean(df$data)
+  )
 )
 ```
 
-That's it now we can run a single replicate using
+## Collect & Run
+Create multiple replicates of the trial:
 
-```{r run}
-trial$run()
-prettify_results(trial$results)
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment,
+  dropout = dropout,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
 ```
 
-You can of course also get the raw data at the specified milestone.
+Run all replicates:
+
+```{r run}
+run_trials(trials)
+prettify_results(trials[[1]]$results)
+```
+
+You can also get the raw data from any replicate:
 
 ```{r data}
-trial$locked_data
+lapply(trials[[1]]$locked_data, head)
 ```
