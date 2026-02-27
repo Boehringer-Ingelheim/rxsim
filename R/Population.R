@@ -32,9 +32,10 @@ Population <- R6::R6Class(
     name = NULL,
 
     #' @field data `data.frame` Subject-level data frame with columns:
-    #' - `subject_id` `integer`
+    #' - `id` `integer`
+    #' - `arm` `character`
+    #' - `readout_time` `numeric`
     #' - `data` `numeric`
-    #' - `population_name` `character`
     #' - may contain more columns
     data = NULL,
 
@@ -57,7 +58,7 @@ Population <- R6::R6Class(
     #' @param name `character` Unique identifier for the population.
     #'
     #' @param data `data.frame` Underlying subject data frame with columns
-    #' `subject_id`, `data`, and `population_name`.
+    #' `id`, `arm`, `readout_time`, `data`, and optionally more columns.
     #'
     #' @param enrolled `numeric` enrollment times are always initialized
     #' automatically as `NA`.
@@ -86,8 +87,19 @@ Population <- R6::R6Class(
       if(!("arm" %in% names(data))){
         data$arm <- name
       }
+
+      # Validate columns in data frame 
+      col_names <- c("id", "arm", "readout_time")
+      missing_cols <- setdiff(col_names, names(data))
+      if (length(missing_cols) > 0) {
+        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
+      }
+      if (length(names(data)) < 4) {
+        stop(sprintf("Data frame is missing endpoint data."))
+      }
+
       self$data <- data
-      self$n <- length(unique(self$data$subject_id))
+      self$n <- length(unique(self$data$id))
       self$n_readouts <- (dim(self$data)[1] / self$n)
 
       # accept enrolled and dropped it passed
@@ -143,18 +155,21 @@ Population <- R6::R6Class(
     #' Replace the underlying subject data and reset enrollment/dropout status.
     #'
     #' @param data `data.frame` Subject-level data frame with columns:
-    #' - `subject_id` `integer`
+    #' - `id` `integer`
     #' - `data` `numeric`
-    #' - `population_name` `character`
+    #' - `arm` `character`
+    #' - `readout_time` `numeric`
+    #' - `data` `numeric`
     #' - may contain more columns
     #'
     #' @examples
     #' pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
     #' pop$set_data(
     #'   data.frame(
-    #'     subject_id = 1:8,
-    #'     endpoint = rnorm(8),
-    #'     population_name = "ResetDemo"
+    #'     id = 1:8,
+    #'     data = rnorm(8),
+    #'     arm = "ResetDemo",
+    #'     readout_time = 0
     #'   )
     #' )
     set_data = function(data) {

@@ -11,7 +11,8 @@
 #' - evaluates all conditions in the `Timer`
 #' - stores both the snapshot `locked_data` and the analysis outputs `results`
 #'
-#' Use `run()` to execute the simulation.
+#' Use `run()` to execute the simulation. Trigger conditions are best added with
+#' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
 #'
 #' @examples
 #' # Create two populations
@@ -24,6 +25,11 @@
 #' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+#'
+#' # Add trigger for final analysis at time 2
+#' trigger_by_calendar(2, t, analysis = function(df, current_time) {
+#'   nrow(df)
+#' })
 #'
 #' # Create a trial
 #' trial <- Trial$new(
@@ -202,15 +208,18 @@ Trial <- R6::R6Class(
         # Collect raw snapshots from all populations (as a list)
           locked_snapshot_list <- lapply(self$population, function(p) {
             keep <- !is.na(p$enrolled)
-            cbind(p$data[keep, , drop = FALSE],
-            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts) )
-
+            cbind(
+              subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
+              p$data[keep, , drop = FALSE],
+              enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
+              drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
+            )
           })
 
         combined <- do.call(rbind, locked_snapshot_list)
 
-        # Add current time column for predicates like time >= 1
+        # Add measurement and current time column
+        combined$measurement_time <- combined$readout_time + combined$enroll_time
         combined$time <- i
 
         # Check all conditions on the combined snapshot
