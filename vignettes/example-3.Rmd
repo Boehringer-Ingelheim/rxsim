@@ -147,31 +147,27 @@ We run two independent two-sample t-tests (one per endpoint).
 (If you want multiplicity control, you can add `p.adjust` below.)
 
 ```{r trigger}
-t$add_condition(
-  time == final_time,
-  analysis = function(df, time) {
-    df_e <- df |> dplyr::filter(!is.na(enroll_time))
+trigger_by_calendar(final_time, t, analysis = function(df, current_time) {
+  df_e <- df |> dplyr::filter(!is.na(enroll_time))
 
-    # Two-sample t-tests by arm for each endpoint
-    p1 <- t.test(y1 ~ arm, data = df_e)$p.value
-    p2 <- t.test(y2 ~ arm, data = df_e)$p.value
+  # Two-sample t-tests by arm for each endpoint
+  p1 <- t.test(y1 ~ arm, data = df_e)$p.value
+  p2 <- t.test(y2 ~ arm, data = df_e)$p.value
 
-    # Optional: simple multiplicity adjustment (Holm)
-    padj <- p.adjust(c(p1, p2), method = "holm")
+  # Optional: simple multiplicity adjustment (Holm)
+  padj <- p.adjust(c(p1, p2), method = "holm")
 
-    # Return a named, row-like object (list or data.frame both fine)
-    list(
-      p_y1      = unname(p1),
-      p_y2      = unname(p2),
-      p_holm_y1 = unname(padj[1]),
-      p_holm_y2 = unname(padj[2]),
-      n_total   = nrow(df_e),
-      n_pbo     = sum(df_e$arm == "pbo"),
-      n_trt     = sum(df_e$arm == "trt")
-    )
-  },
-  name = "final"
-)
+  # Return a named, row-like object (list or data.frame both fine)
+  list(
+    p_y1      = unname(p1),
+    p_y2      = unname(p2),
+    p_holm_y1 = unname(padj[1]),
+    p_holm_y2 = unname(padj[2]),
+    n_total   = nrow(df_e),
+    n_pbo     = sum(df_e$arm == "pbo"),
+    n_trt     = sum(df_e$arm == "trt")
+  )
+})
 ```
 
 ## Trial

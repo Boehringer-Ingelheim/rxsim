@@ -131,42 +131,38 @@ mods <- Mods(
   doses      = doses
 )
 
-tr_timer$add_condition(
-  time == final_time,
-  analysis = function(df, time){
-    df_e <- df |>
-      dplyr::filter(!is.na(enroll_time)) |>
-      dplyr::mutate(
-        arm  = factor(arm, levels = paste0("d", doses)),
-        dose = as.numeric(dose)
-      )
-
-    # 1) Dunnett (active vs placebo)
-    fit <- lm(y ~ arm, data = df_e)
-    dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
-    summ <- summary(dun)
-
-    # 2) MCP-Mod (one-step): model-based multiple contrast tests + model fit
-    mm <- DoseFinding::MCPMod(
-        dose   = df_e$dose,
-        resp   = df_e$y,
-        models = mods,
-        type   = "normal",
-        Delta  = delta,
-        alpha  = alpha,
-        selModel = "aveAIC"
+trigger_by_calendar(final_time, tr_timer, analysis = function(df, current_time){
+  df_e <- df |>
+    dplyr::filter(!is.na(enroll_time)) |>
+    dplyr::mutate(
+      arm  = factor(arm, levels = paste0("d", doses)),
+      dose = as.numeric(dose)
     )
 
-    mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
+  # 1) Dunnett (active vs placebo)
+  fit <- lm(y ~ arm, data = df_e)
+  dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
+  summ <- summary(dun)
 
-    list(
-      n_total      = nrow(df_e),
-      dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
-      mcpmod_min_p = mct_min_p
-    )
-  },
-  name = "final"
-)
+  # 2) MCP-Mod (one-step): model-based multiple contrast tests + model fit
+  mm <- DoseFinding::MCPMod(
+      dose   = df_e$dose,
+      resp   = df_e$y,
+      models = mods,
+      type   = "normal",
+      Delta  = delta,
+      alpha  = alpha,
+      selModel = "aveAIC"
+  )
+
+  mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
+
+  list(
+    n_total      = nrow(df_e),
+    dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
+    mcpmod_min_p = mct_min_p
+  )
+})
 ```
 
 ## Trial

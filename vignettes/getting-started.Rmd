@@ -59,16 +59,16 @@ add_timepoints(t, timepoints)
 ```
 
 ## Event Triggers
-Specify event triggers; for example: when do we do interim analysis. These are 
-dplyr::filter() expressions for data frames and tables.
+Specify event triggers using helper functions. For example, analyze at time = 3:
 
-For example, at time = 3 units we want to find the mean of the endpoint.
 ```{r timer}
-t$add_condition(
-  time == 3,
-  analysis = function(df, t) mean(df$data),
-  name = "endpoint_mean"
-)
+trigger_by_calendar(3, t, analysis = function(df, current_time) mean(df$data))
+```
+
+Or trigger when 50% of target (15) subjects are enrolled:
+
+```{r alt_trigger}
+trigger_by_fraction(0.5, t, sample_size, analysis = function(df, current_time) mean(df$data))
 ```
 
 ## Collect & Run
