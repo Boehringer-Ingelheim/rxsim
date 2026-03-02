@@ -7,8 +7,8 @@
 inst/doc
 docs
 renv/profile
-renv/profiles
 /*.R
+.copilot-tracking
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=r,windows,macos,linux

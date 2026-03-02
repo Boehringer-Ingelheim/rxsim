@@ -16,7 +16,15 @@ get_col_names(populations)
 Get a list of data column names
 }
 \examples{
-pop1 <- Population$new(name = "P1", data = data.frame(subject_id = 1:10, age = runif(10, 20, 60)))
-pop2 <- Population$new(name = "P2", data = data.frame(subject_id = 1:10, weight = runif(10, 150, 250)))
+pop1 <- Population$new(name = "P1", data = data.frame(
+id = 1:10,
+age = runif(10, 20, 60),
+readout_time = 0)
+)
+pop2 <- Population$new(name = "P2", data = data.frame(
+id = 1:10,
+weight = runif(10, 150, 250),
+readout_time = 0)
+)
 get_col_names(list(pop1, pop2))
 }
