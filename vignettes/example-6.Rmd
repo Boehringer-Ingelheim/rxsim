@@ -59,6 +59,13 @@ dropout <- list(
   end_time = c(4, 8),
   rate     = c(0, 0)
 )
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  p_subgroup_A = subgroup_prob[1],
+  p_subgroup_B = subgroup_prob[2]
+)
 ```
 
 ## Time points
@@ -132,35 +139,25 @@ analysis_generators <- list(
           subgroup = factor(subgroup, levels = subgroup_levels)
         )
 
-      # Overall analysis
       fit_overall <- lm(y ~ arm, data = dat)
       coef_overall <- summary(fit_overall)$coefficients
 
       overall_est <- unname(coef_overall["armtreatment", "Estimate"])
-      overall_se  <- unname(coef_overall["armtreatment", "Std. Error"])
       overall_p   <- unname(coef_overall["armtreatment", "Pr(>|t|)"])
 
-      # Exploratory subgroup analyses
-      subgroup_results <- lapply(levels(dat$subgroup), function(sg) {
+      subgroup_stats <- lapply(levels(dat$subgroup), function(sg) {
         dsg <- dat[dat$subgroup == sg, , drop = FALSE]
         fit_sg <- lm(y ~ arm, data = dsg)
         coef_sg <- summary(fit_sg)$coefficients
 
-        data.frame(
-          subgroup = sg,
+        c(
           n_total = nrow(dsg),
-          n_placebo = sum(dsg$arm == "placebo"),
-          n_treatment = sum(dsg$arm == "treatment"),
           estimate = unname(coef_sg["armtreatment", "Estimate"]),
-          std_error = unname(coef_sg["armtreatment", "Std. Error"]),
-          p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"]),
-          stringsAsFactors = FALSE
+          p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"])
         )
       })
+      names(subgroup_stats) <- levels(dat$subgroup)
 
-      subgroup_results <- do.call(rbind, subgroup_results)
-
-      # Exploratory interaction test
       fit_interaction <- lm(y ~ arm * subgroup, data = dat)
       coef_int <- summary(fit_interaction)$coefficients
       int_term <- grep("^arm.*:subgroup", rownames(coef_int), value = TRUE)
@@ -170,14 +167,19 @@ analysis_generators <- list(
         NA_real_
       }
 
-      list(
+      data.frame(
+        scenario,
         n_total = nrow(dat),
         overall_estimate = overall_est,
-        overall_std_error = overall_se,
         overall_p_value = overall_p,
-        subgroup_results = subgroup_results,
+        subgroup_A_n = unname(subgroup_stats[["A"]]["n_total"]),
+        subgroup_A_estimate = unname(subgroup_stats[["A"]]["estimate"]),
+        subgroup_A_p_value = unname(subgroup_stats[["A"]]["p_value"]),
+        subgroup_B_n = unname(subgroup_stats[["B"]]["n_total"]),
+        subgroup_B_estimate = unname(subgroup_stats[["B"]]["estimate"]),
+        subgroup_B_p_value = unname(subgroup_stats[["B"]]["p_value"]),
         interaction_p_value = p_interaction,
-        note = "Subgroup and interaction analyses are exploratory and not multiplicity-adjusted."
+        stringsAsFactors = FALSE
       )
     }
   )
@@ -209,5 +211,13 @@ run_trials(trials)
 ## Results
 
 ```{r results}
-head(prettify_results(trials[[1]]$results), 5)
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```

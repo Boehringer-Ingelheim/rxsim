@@ -65,6 +65,13 @@ dropout <- list(
 # Bayesian decision thresholds
 delta <- 0.1
 gamma <- 0.8
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  delta = delta,
+  gamma = gamma
+)
 ```
 
 ## Historical placebo dataset and priors
@@ -176,18 +183,18 @@ analysis_generators <- list(
       # Posterior summaries for Delta = mu_T - mu_P
       delta_ci <- RBesT::qmixdiff(post_treat, post_placebo, c(0.025, 0.5, 0.975))
 
-      list(
+      data.frame(
+        scenario,
         n_placebo = n_p,
         n_treatment = n_t,
         mean_placebo = m_p,
         mean_treatment = m_t,
-        threshold_delta = delta,
-        threshold_gamma = gamma,
         post_prob_delta = prob_delta,
         delta_q025 = delta_ci[1],
         delta_q500 = delta_ci[2],
         delta_q975 = delta_ci[3],
-        decision_go = as.integer(prob_delta >= gamma)
+        decision_go = as.integer(prob_delta >= gamma),
+        stringsAsFactors = FALSE
       )
     }
   )
@@ -219,7 +226,15 @@ run_trials(trials)
 ## Results
 
 ```{r results}
-head(prettify_results(trials[[1]]$results), 5)
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```
 
 `decision_go = 1` indicates **Go**, and `decision_go = 0` indicates **No-Go** under the criterion

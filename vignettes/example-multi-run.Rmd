@@ -28,6 +28,10 @@ arms        <- c("pbo", "trt")
 allocation  <- c(1, 1)
 enrollment  <- function(n) rexp(n, rate = 1)
 dropout     <- function(n) rexp(n, rate = 0.01)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation)
+)
 
 ```
 
@@ -45,16 +49,25 @@ population_generators <- list(
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled. 
+Run one final analysis at full enrollment.
 
 ```{r trigger}
 analysis_generators <- list(
   final = list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
-    ), #can hold 1+ filter conditions
+    ),
     analysis = function(df, timer) {
-      df |> dplyr::group_by(arm) |> dplyr::summarise(avg = mean(data))
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      mean_pbo <- df_enrolled |> subset(arm == "pbo") |> with(mean(data))
+      mean_trt <- df_enrolled |> subset(arm == "trt") |> with(mean(data))
+      data.frame(
+        scenario,
+        mean_pbo = mean_pbo,
+        mean_trt = mean_trt,
+        n_total = nrow(df_enrolled),
+        stringsAsFactors = FALSE
+      )
     }
   )
 )
@@ -77,19 +90,19 @@ trials <- replicate_trial(
 )
 ```
 
-## Simluate
-To run a list of trial objects us the run_multiple_trial function
+## Simulate
+Run all replicates and bind one row per replicate.
 
 ```{r sim}
- run_trials(trials)
-```
+run_trials(trials)
 
-Get results of first trial.
-```{r results}
-results <- trials[[1]]$results
-```
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
 
-Get locked data of first trial.
-```{r locked}
-lapply(trials[[1]]$locked_data, head)
+replicate_results
 ```

@@ -70,6 +70,14 @@ Sigma <- matrix(
     rho*sd1*sd2, sd2^2),
   nrow = 2, byrow = TRUE
 )
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  rho = rho,
+  delta1 = delta1,
+  delta2 = delta2
+)
 ```
 
 ## Time points
@@ -144,23 +152,22 @@ analysis_generators <- list(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
     analysis = function(df, timer) {
-      df_e <- df |> dplyr::filter(!is.na(enroll_time))
+      df_e <- df |> subset(!is.na(enroll_time))
 
-      # Two-sample t-tests by arm for each endpoint
       p1 <- t.test(y1 ~ arm, data = df_e)$p.value
       p2 <- t.test(y2 ~ arm, data = df_e)$p.value
-
-      # Optional: simple multiplicity adjustment (Holm)
       padj <- p.adjust(c(p1, p2), method = "holm")
 
-      list(
+      data.frame(
+        scenario,
         p_y1      = unname(p1),
         p_y2      = unname(p2),
         p_holm_y1 = unname(padj[1]),
         p_holm_y2 = unname(padj[2]),
         n_total   = nrow(df_e),
         n_pbo     = sum(df_e$arm == "pbo"),
-        n_trt     = sum(df_e$arm == "trt")
+        n_trt     = sum(df_e$arm == "trt"),
+        stringsAsFactors = FALSE
       )
     }
   )
@@ -194,18 +201,16 @@ run_trials(trials)
 
 ## Results
 
-The analysis results at the final timepoint:
+One row per replicate, row-bound across all replicates:
 
 ```{r results}
-trials[[1]]$results
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```
-
-Prettified results:
-
-```{r results_pretty}
-head(prettify_results(trials[[1]]$results), 5)
-```
-
-### Notes
-- This example uses **independent two-sample t-tests** for each endpoint. You can adapt the `analysis` function to use **multivariate** methods (e.g., Hotelling’s T^2 via `HotellingsT2::HotellingsT2`) or to implement different **multiplicity adjustments** depending on your program’s control strategy.
-- The `MASS::mvrnorm` generation ensures **correlated endpoints** per subject with correlation `rho`. Realized sample correlations will vary around `rho` due to sampling and enrollment patterns with dropout.

@@ -27,6 +27,10 @@ arms <- c("pbo", "trt")
 allocation <- c(1,1)
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation)
+)
 ```
 
 ## Populations
@@ -48,7 +52,7 @@ population_generators <- list(
 ```
 
 ## Triggers & Analysis
-Interim analysis at times 6 and 12. We perform t-tests at both timepoints.
+Final analysis at full enrollment.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -57,8 +61,16 @@ analysis_generators <- list(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
     analysis = function(df, timer){
-      df_enrolled <- df |> dplyr::filter(!is.na(enroll_time))
-      t.test(value ~ arm, data = df_enrolled)$p.value
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      tt <- t.test(value ~ arm, data = df_enrolled)
+      data.frame(
+        scenario,
+        n_total = nrow(df_enrolled),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
+        p_value = unname(tt$p.value),
+        stringsAsFactors = FALSE
+      )
     }
   )
 )
@@ -88,7 +100,15 @@ To simulate all replicates:
 run_trials(trials)
 ```
 
-Get results from first replicate.
+Bind one row per replicate into one data frame.
 ```{r results}
-head(prettify_results(trials[[1]]$results), 5)
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$interim_final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```

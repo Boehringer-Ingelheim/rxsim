@@ -57,6 +57,13 @@ sigma_frailty <- 0.6
 
 # Covariance of (Z1, Z2)
 SigmaZ <- matrix(c(1, rho, rho, 1), nrow = 2)
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  rho = rho,
+  hr_trt_true = HR_trt
+)
 ```
 
 ## Time points
@@ -123,8 +130,10 @@ analysis_generators <- list(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
     analysis = function(df, timer) {
-      df_e <- df |> dplyr::filter(!is.na(enroll_time))
-      if (nrow(df_e) == 0) return(list(note = "no enrolled subjects"))
+      df_e <- df[!is.na(df$enroll_time), , drop = FALSE]
+      if (nrow(df_e) == 0) {
+        return(data.frame(scenario, note = "no enrolled subjects", stringsAsFactors = FALSE))
+      }
 
       # Build observed TTE with censoring
       censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
@@ -162,7 +171,8 @@ analysis_generators <- list(
         }
       }
 
-      list(
+      data.frame(
+        scenario,
         n_total    = nrow(df_e),
         n_pbo      = sum(df_e$arm == "pbo"),
         n_trt      = sum(df_e$arm == "trt"),
@@ -171,7 +181,8 @@ analysis_generators <- list(
         hr_cox     = hr,
         hr_ci_lo   = hr_lo,
         hr_ci_hi   = hr_hi,
-        events     = events
+        events     = events,
+        stringsAsFactors = FALSE
       )
     }
   )
@@ -204,8 +215,16 @@ run_trials(trials)
 
 ## Results
 
-Analysis results from the first replicate:
+One row per replicate, row-bound across all replicates:
 
 ```{r results}
-head(prettify_results(trials[[1]]$results), 5)
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```

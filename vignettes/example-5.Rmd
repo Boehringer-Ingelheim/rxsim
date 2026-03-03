@@ -65,6 +65,14 @@ mean_fun <- function(d) e0 + emax * d / (ed50 + d)
 # operating characteristics
 alpha <- 0.05
 delta <- 0.1
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  n_arms = length(doses),
+  alpha = alpha,
+  delta = delta
+)
 ```
 
 ## Time points
@@ -168,10 +176,12 @@ analysis_generators <- list(
 
       mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
 
-      list(
+      data.frame(
+        scenario,
         n_total      = nrow(df_e),
         dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
-        mcpmod_min_p = mct_min_p
+        mcpmod_min_p = mct_min_p,
+        stringsAsFactors = FALSE
       )
     }
   )
@@ -202,8 +212,16 @@ run_trials(trials)
 
 ## Results
 
-Full results from the first replicate:
+One row per replicate, row-bound across all replicates:
 
 ```{r results}
-head(prettify_results(trials[[1]]$results), 5)
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```

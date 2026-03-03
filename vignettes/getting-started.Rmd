@@ -24,6 +24,11 @@ Capture essential trial parameters. These will form scenarios.
 
 ```{r scenario}
 sample_size <- 15
+allocation <- c(1)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation)
+)
 ```
 
 ## Arm / Population / Cohort
@@ -40,7 +45,6 @@ Define enrollment and dropout profiles.
 
 ```{r trial_params}
 arms <- c("control")
-allocation <- c(1)
 enrollment <- function(n) rexp(n, rate = 1)
 dropout <- function(n) rexp(n, rate = 0.1)
 ```
@@ -54,7 +58,14 @@ analysis_generators <- list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
-    analysis = function(df, timer) mean(df$data)
+    analysis = function(df, timer) {
+      data.frame(
+        scenario,
+        n_enrolled = sum(!is.na(df$enroll_time)),
+        mean_data = mean(df$data),
+        stringsAsFactors = FALSE
+      )
+    }
   )
 )
 ```
@@ -80,11 +91,20 @@ Run all replicates:
 
 ```{r run}
 run_trials(trials)
-prettify_results(trials[[1]]$results)
+
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
 ```
 
-You can also get the raw data from any replicate:
+You can also inspect locked data from any replicate:
 
 ```{r data}
-lapply(trials[[1]]$locked_data, head)
+trials[[1]]$locked_data |> lapply(head)
 ```
