@@ -50,3 +50,4 @@ Imports:
     dplyr,
     rlang
 Roxygen: list(markdown = TRUE)
+URL: https://saumil-sh.github.io/rxsim
