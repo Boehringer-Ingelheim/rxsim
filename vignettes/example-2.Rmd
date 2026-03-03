@@ -90,10 +90,5 @@ run_trials(trials)
 
 Get results from first replicate.
 ```{r results}
-trials[[1]]$results
-```
-
-Get locked data from first replicate.
-```{r locked}
-lapply(trials[[1]]$locked_data, head)
+head(prettify_results(trials[[1]]$results), 5)
 ```

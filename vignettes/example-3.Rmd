@@ -203,31 +203,7 @@ trials[[1]]$results
 Prettified results:
 
 ```{r results_pretty}
-prettify_results(trials[[1]]$results)
-```
-
-## Locked data (snapshot)
-
-Inspect the data that was “locked” at analysis time:
-
-```{r locked}
-lapply(trials[[1]]$locked_data, head)
-```
-
-## (Optional) Check realized correlation by arm among enrolled
-
-This verifies the simulated correlation structure **among those enrolled** (pooled across all time up to final):
-
-```{r correlation_check, message=FALSE}
-locked_final <- trial$locked_data[[paste0("time_", final_time)]]
-
-locked_final |>
-  filter(!is.na(enroll_time)) |>
-  group_by(arm) |>
-  summarise(
-    n         = n(),
-    cor_y1_y2 = cor(y1, y2)
-  )
+head(prettify_results(trials[[1]]$results), 5)
 ```
 
 ### Notes

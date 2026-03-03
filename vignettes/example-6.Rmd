@@ -209,9 +209,5 @@ run_trials(trials)
 ## Results
 
 ```{r results}
-trials[[1]]$results
-```
-
-```{r results-pretty}
-prettify_results(trials[[1]]$results)
+head(prettify_results(trials[[1]]$results), 5)
 ```

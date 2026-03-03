@@ -37,16 +37,8 @@ sample_size <- 1200
 arms       <- c("pbo", "trt")
 allocation <- c(1, 1)
 
-# Piece-wise linear enrollment and dropout rates (per unit time)
-# (Tune these to your development plan.)
-enrollment <- list(
-  end_time = c(6, 12, 18, 24),
-  rate     = c(4,  8, 12, 16)
-)
-dropout <- list(
-  end_time = c(6, 12, 18, 24),
-  rate     = c(1,  2,  4,  6)
-)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
 
 # Correlation between continuous endpoint driver (Z1) and frailty for TTE (Z2)
 rho <- 0.50
@@ -72,19 +64,13 @@ SigmaZ <- matrix(c(1, rho, rho, 1), nrow = 2)
 Generate the discrete timepoints and add them to a `Timer`.
 
 ```{r timepoints}
-timepoints <- gen_timepoints(
+plan <- gen_plan(
   sample_size = sample_size,
   arms        = arms,
   allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
+  enrollment  = enrollment_fn,
+  dropout     = dropout_fn
 )
-
-t <- Timer$new(name = "trial_timer_cont_tte_two_endpoints")
-add_timepoints(t, timepoints)
-
-final_time <- t$get_end_timepoint()
-final_time
 ```
 
 ## Arms (Populations)
@@ -221,19 +207,5 @@ run_trials(trials)
 Analysis results from the first replicate:
 
 ```{r results}
-trials[[1]]$results
-```
-
-Prettified results:
-
-```{r results_pretty}
-prettify_results(trials[[1]]$results)
-```
-
-## Locked data
-
-Snapshot from the first replicate:
-
-```{r locked}
-lapply(trials[[1]]$locked_data, head)
+head(prettify_results(trials[[1]]$results), 5)
 ```

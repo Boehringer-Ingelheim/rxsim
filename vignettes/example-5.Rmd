@@ -205,11 +205,5 @@ run_trials(trials)
 Full results from the first replicate:
 
 ```{r results}
-trials[[1]]$results
-```
-
-Flattened for quick inspection:
-
-```{r results_pretty}
-prettify_results(trials[[1]]$results)
+head(prettify_results(trials[[1]]$results), 5)
 ```
