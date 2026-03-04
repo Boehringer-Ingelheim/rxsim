@@ -54,36 +54,36 @@ Trial <- R6::R6Class(
     # --- fields ---
 
 
-    #' @field name \code{character} Unique trial identifier.
+    #' @field name `character` Unique trial identifier.
     name = NULL,
 
-    #' @field seed \code{numeric} or \code{NULL} Random seed for reproducibility.
+    #' @field seed `numeric` or `NULL` Random seed for reproducibility.
     seed = NULL,
 
-    #' @field timer \code{Timer} object with timepoints and conditions.
+    #' @field timer `Timer` object with timepoints and conditions.
     timer = NULL,
 
-    #' @field population \code{list} of \code{Population} objects, one per arm.
+    #' @field population `list` of [Population] objects, one per arm.
     population = NULL,
 
-    #' @field locked_data \code{list} Snapshots at each timepoint.
+    #' @field locked_data `list` Snapshots at each timepoint.
     locked_data = NULL,
 
-    #' @field results \code{list} Analysis outputs per condition.
+    #' @field results `list` Analysis outputs per condition.
     results = NULL,
 
     # --- constructor ---
     #' @description
     #' Create a new `Trial` instance.
     #'
-    #' @param name \code{character} Unique identifier for the trial.
-    #' @param seed \code{numeric} or \code{NULL} Optional random seed for reproducibility.
-    #' @param timer \code{Timer} object defining timepoints and conditions.
-    #' @param population \code{list} of \code{Population} objects, one per arm.
-    #' @param locked_data \code{list} Generated at each \code{$run()} call.
-    #' @param results \code{list} Analysis outputs generated at each \code{$run()} call.
+    #' @param name `character` Unique identifier for the trial.
+    #' @param seed `numeric` or `NULL` Optional random seed for reproducibility.
+    #' @param timer `Timer` object defining timepoints and conditions.
+    #' @param population `list` of [Population] objects, one per arm.
+    #' @param locked_data `list` Generated at each `$run()` call.
+    #' @param results `list` Analysis outputs generated at each `$run()` call.
     #'
-    #' @returns A new \code{Trial} instance.
+    #' @return A new `Trial` instance.
     #'
     #' @examples
     #' t <- Timer$new(name="simple_timer")
@@ -105,14 +105,15 @@ Trial <- R6::R6Class(
       self$name <- name
       self$seed <- seed
       if (!is.null(seed)) set.seed(seed)
-
+      if (!is.null(timer) && !inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
       stopifnot(is.list(population))
 
-      if (length(timer$timelist) == 0) {
+      if (is.null(timer) || length(timer$timelist) == 0) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
         } else {
+          if (is.null(timer)) timer <- Timer$new(name = paste0(name, "_timer"))
           timepoints <- data.frame(
             time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
             arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
@@ -144,7 +145,7 @@ Trial <- R6::R6Class(
     #' - Evaluate all condition readers via `Timer$check_conditions()`
     #' - Store snapshots and condition outputs under time‑indexed list keys
     #'
-    #' @returns Updates `locked_data` and `results` fields.
+    #' @return Updates `locked_data` and `results` fields.
     #'
     #' @seealso [Timer], [prettify_results()].
     #'

@@ -83,13 +83,13 @@ Timer <- R6::R6Class(
 
     # --- constructor ---
     #' @description
-    #' Create a new \code{Timer} instance.
+    #' Create a new `Timer` instance.
     #'
-    #' @param name \code{character} Unique identifier.
-    #' @param timelist \code{list} Optional list of timepoints.
-    #' @param conditions \code{list} Optional list of condition entries.
+    #' @param name `character` Unique identifier.
+    #' @param timelist `list` Optional list of timepoints.
+    #' @param conditions `list` Optional list of condition entries.
     #'
-    #' @returns A new \code{Timer} instance.
+    #' @return A new `Timer` instance.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -108,10 +108,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Add a timepoint to a timer.
     #'
-    #' @param time \code{numeric} Calendar time.
-    #' @param arm \code{character} Arm identifier.
-    #' @param dropper \code{integer} Count of subjects to drop.
-    #' @param enroller \code{integer} Count of subjects to enroll.
+    #' @param time `numeric` Calendar time.
+    #' @param arm `character` Arm identifier.
+    #' @param dropper `integer` Count of subjects to drop.
+    #' @param enroller `integer` Count of subjects to enroll.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -130,17 +130,17 @@ Timer <- R6::R6Class(
     #' @description
     #' Add a trigger condition to a timer.
     #'
-    #' @param ... \code{expression} Boolean expression(s) for \code{dplyr::filter()}.
-    #' @param analysis \code{function} or \code{NULL} Optional function to apply.
-    #' @param name \code{character} Unique condition identifier.
-    #'
+    #' @param ... `expression` Boolean expression(s) for `dplyr::filter()`.
+    #' @param analysis `function` or `NULL` Optional function to apply.
+    #' @param name `character` Unique condition identifier.
+     #' 
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
     #'
     #' # Add timepoints
     #' t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
     #'
-    #' # Add conditions using dplyr style
+    #' # Add conditions using `dplyr` style
     #' # Suppose you have a data.frame:
     #' df <- data.frame(
     #'   id = 1:6,
@@ -195,10 +195,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Get number of unique arms.
     #'
-    #' @returns \code{integer} Number of unique arms.
+    #' @return `integer` Number of unique arms.
     #'
     #' @examples
-    #' t <- Timer$new(name = "Timer")
+     #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
     #' t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
     #' t$get_n_arms()
@@ -207,10 +207,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Get unique timepoints.
     #'
-    #' @returns \code{numeric} vector of unique times.
+    #' @return `numeric` vector of unique times.
     #'
     #' @examples
-    #' t <- Timer$new(name = "Timer")
+     #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
     #' t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
     #' t$get_unique_times()
@@ -219,10 +219,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Get a timepoint by arm and index.
     #'
-    #' @param arm \code{character} Arm identifier.
-    #' @param i \code{integer} Timepoint index.
+    #' @param arm `character` Arm identifier.
+    #' @param i `integer` Timepoint index.
     #'
-    #' @returns \code{list} timepoint or \code{NULL} if not found.
+     #' @return `list` timepoint or `NULL` if not found.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
@@ -256,10 +256,10 @@ Timer <- R6::R6Class(
     #' @description
     #' Check conditions and return filtered data or analysis results.
     #'
-    #' @param locked_data \code{data.frame} Trial data.
-    #' @param current_time \code{numeric} Calendar time.
+    #' @param locked_data `data.frame` Trial data.
+    #' @param current_time `numeric` Calendar time.
     #'
-    #' @returns \code{list} of filtered data or analysis results per condition.
+     #' @return `list` of filtered data or analysis results per condition.
     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
@@ -280,7 +280,7 @@ Timer <- R6::R6Class(
     #' df <- data.frame(
     #'   id = 1:6,
     #'   arm = c("A","A","B","B","A","B"),
-    #'   status = c("active","inactive","active","active","inactive","active"),
+     #'   status = c("active", "inactive", "active", "active", "inactive", "active"),
     #'   visit = c(1,2,1,3,3,2)
     #' )
     #'
@@ -294,7 +294,7 @@ Timer <- R6::R6Class(
     #' # Condition: active only
     #' t$add_condition(
     #'   status == "active",
-    #'   analysis = my_analysis,
+     #'   analysis = my_analysis,
     #'   name = "active_only"
     #' )
     check_conditions = function(
@@ -322,7 +322,7 @@ Timer <- R6::R6Class(
         }
 
         if (nrow(df_i) == 0L) {
-          # warning(sprintf(" skipping check as filtered is empty \n"), call. = FALSE)
+          warning(sprintf("Skipping condition '%s' at time %s: filtered data is empty", key, as.character(current_time)), call. = FALSE)
           next
         }
 

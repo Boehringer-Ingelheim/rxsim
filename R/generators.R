@@ -8,7 +8,7 @@
 #' @param enrollment `function` generating inter-enrollment times (PDF).
 #' @param dropout `function` generating inter-dropout times (PDF).
 #'
-#' @returns `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
+#' @return `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
 #'
 #' @seealso [gen_timepoints()] for piecewise-constant rates, [add_timepoints()]
 #'   to attach generated plans to a `Timer`.
@@ -33,6 +33,20 @@
 #' @importFrom dplyr select
 #' @importFrom dplyr arrange
 gen_plan <- function(sample_size, arms, allocation, enrollment, dropout) {
+
+  # Input validation
+  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
+    stop("`sample_size` must be a single positive number.")
+  }
+  if (!is.character(arms) || length(arms) == 0L) {
+    stop("`arms` must be a non-empty character vector.")
+  }
+  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
+    stop("`allocation` must be a numeric vector with same length as `arms`.")
+  }
+  if (!is.function(enrollment) || !is.function(dropout)) {
+    stop("`enrollment` and `dropout` must be functions.")
+  }
 
   # Calculate arm allocation ratios
   n_arms <- length(arms)
