@@ -2,13 +2,19 @@
 % Please edit documentation in R/helpers.R
 \name{prettify_results}
 \alias{prettify_results}
-\title{Print trial results as a data.frame}
+\title{Format Trial Results as a Data Frame}
 \usage{
 prettify_results(results)
 }
 \arguments{
-\item{results}{pass results data field of your \code{Trial}}
+\item{results}{\code{list} Trial results (nested by time).}
+}
+\value{
+\code{data.frame} with columns: \code{time} and measurement columns.
 }
 \description{
-Print trial results as a data.frame
+Converts trial results to a single data frame with all measurements.
+}
+\seealso{
+\link{Trial} for generating results.
 }

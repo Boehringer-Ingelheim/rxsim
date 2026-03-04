@@ -2,27 +2,30 @@
 % Please edit documentation in R/helpers.R
 \name{trigger_by_fraction}
 \alias{trigger_by_fraction}
-\title{Trigger analysis when sample fractionof enrolled subjects is reached}
+\title{Trigger Analysis at a Sample Fraction}
 \usage{
 trigger_by_fraction(fraction, timer, sample_size, analysis = NULL)
 }
 \arguments{
-\item{fraction}{\code{numeric} Fraction of target sample (0 < fraction <= 1)}
+\item{fraction}{\code{numeric} Sample fraction (0 < fraction <= 1).}
 
-\item{timer}{\code{Timer} Timer instance to add condition to}
+\item{timer}{\code{\link{Timer}} instance to update.}
 
-\item{sample_size}{\code{integer} Target sample size}
+\item{sample_size}{\code{integer} Target sample size.}
 
-\item{analysis}{\code{function} or \code{NULL} Analysis function to apply}
+\item{analysis}{\code{function} or \code{NULL} Optional function to apply.}
 }
 \value{
-returns \code{timer} for chaining.
+Invisible \code{\link{Timer}}.
 }
 \description{
-Trigger analysis when sample fractionof enrolled subjects is reached
+Adds an analysis trigger when a fraction of the target sample enrolls.
 }
 \examples{
 t <- Timer$new("timer")
 trigger_by_fraction(0.5, t, sample_size = 100, analysis = function(df, current_time) nrow(df))
 
+}
+\seealso{
+\link{Timer}, \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}.
 }

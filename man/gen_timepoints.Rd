@@ -2,48 +2,44 @@
 % Please edit documentation in R/helpers.R
 \name{gen_timepoints}
 \alias{gen_timepoints}
-\title{Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout}
+\title{Generate Piecewise-Linear Enrollment and Dropout Plan}
 \usage{
 gen_timepoints(sample_size, arms, allocation, enrollment, dropout)
 }
 \arguments{
-\item{sample_size}{\code{integer} trial sample size}
+\item{sample_size}{\code{integer} Trial sample size.}
 
-\item{arms}{\code{character} vector of unique identifier of arms}
+\item{arms}{\code{character} vector of arm identifiers.}
 
-\item{allocation}{\code{numeric} vector of arm allocations}
+\item{allocation}{\code{numeric} vector of allocation ratios.}
 
-\item{enrollment}{\code{list} named list with enrollment parameters
-\itemize{
-\item \code{end_time} vector of end times of duration
-\item \code{rate} # of subjects to enroll per unit time within that duration
-}}
+\item{enrollment}{\code{list} with \code{end_time} (numeric endpoints) and
+\code{rate} (numeric subjects/unit time for each period).}
 
-\item{dropout}{\code{list} named list with dropout parameters
-\itemize{
-\item \code{end_time} vector of end times of duration
-\item \code{rate} # of subjects to enroll per unit time within that duration
-}}
+\item{dropout}{\code{list} with \code{end_time} and \code{rate} (same structure).}
 }
 \value{
-\code{data.frame} timepoints that may be passed to \code{\link[=add_timepoints]{add_timepoints()}}
+\code{data.frame} with columns: \code{time}, \code{arm}, \code{enroller}, \code{dropper}.
 }
 \description{
-Generate timepoints for trial with allocation, piece-wise linear enrollment and dropout
+Creates a time-indexed plan with piecewise constant enrollment and dropout rates.
 }
 \examples{
 gen_timepoints(
   sample_size = 100,
   arms = c("A", "B"),
-  allocation = c(2,1),
+  allocation = c(2, 1),
   enrollment = list(
-    end_time = c(4,8,12),
-    rate = c(6,12,18)
+    end_time = c(4, 8, 12),
+    rate = c(6, 12, 18)
   ),
   dropout = list(
-    end_time = c(5,9,13),
-    rate = c(0,3,6)
+    end_time = c(5, 9, 13),
+    rate = c(0, 3, 6)
   )
 )
 
+}
+\seealso{
+\code{\link[=gen_plan]{gen_plan()}} for random inter-event times, \code{\link[=add_timepoints]{add_timepoints()}}.
 }

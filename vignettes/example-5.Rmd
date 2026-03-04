@@ -65,6 +65,14 @@ mean_fun <- function(d) e0 + emax * d / (ed50 + d)
 # operating characteristics
 alpha <- 0.05
 delta <- 0.1
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  n_arms = length(doses),
+  alpha = alpha,
+  delta = delta
+)
 ```
 
 ## Time points
@@ -89,26 +97,33 @@ final_time
 
 ## Populations
 
-Simulate subject-level responses for each arm according to the Emax model.
+Define population generators for each dose level using the Emax model.
 
 ```{r population}
-n_per_arm <- sample_size / length(doses)
-
-mk_pop <- function(d){
-  mu <- mean_fun(d)
-  y  <- rnorm(n_per_arm, mean = mu, sd = sigma)
-  data.frame(
-    id = seq_len(n_per_arm),
-    dose       = d,
-    y          = y,
-    readout_time = 1
-  )
+mk_pop_gen <- function(d) {
+  function(n) {
+    mu <- mean_fun(d)
+    y  <- rnorm(n, mean = mu, sd = sigma)
+    data.frame(
+      id = seq_len(n),
+      dose = d,
+      y = y,
+      readout_time = 1
+    )
+  }
 }
 
-pops <- lapply(seq_along(doses), function(i){
-  nm <- paste0("d", doses[i])
-  Population$new(name = nm, data = mk_pop(doses[i]))
+population_generators <- lapply(seq_along(doses), function(i) {
+  mk_pop_gen(doses[i])
 })
+names(population_generators) <- arm_names
+```
+
+## Trial Parameters
+
+```{r trial_params}
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
 ```
 
 ## Triggers & Analyses
@@ -120,78 +135,93 @@ At the **final time**, run:
 2) **MCP-Mod** using `DoseFinding::MCPMod` with a candidate model set (`Mods`).
 
 ```{r trigger}
-# Candidate model set for MCP-Mod (tweak to your compound)
-# We pass shape parameters on the original dose scale via 'doses = doses'.
+# Candidate model set for MCP-Mod
 mods <- Mods(
   linear     = NULL,
-  emax       = 20,           # ED50 ~ 20
-  exponential= 50,           # delta ~ 50
-  sigEmax    = c(20, 3),     # ED50 ~ 20, Hill ~ 3
-  quadratic  = -0.2,         # standardized curvature; see help(drmodels)
+  emax       = 20,
+  exponential= 50,
+  sigEmax    = c(20, 3),
+  quadratic  = -0.2,
   doses      = doses
 )
 
-trigger_by_calendar(final_time, tr_timer, analysis = function(df, current_time){
-  df_e <- df |>
-    dplyr::filter(!is.na(enroll_time)) |>
-    dplyr::mutate(
-      arm  = factor(arm, levels = paste0("d", doses)),
-      dose = as.numeric(dose)
-    )
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer){
+      df_e <- df |>
+        dplyr::filter(!is.na(enroll_time)) |>
+        dplyr::mutate(
+          arm  = factor(arm, levels = paste0("d", doses)),
+          dose = as.numeric(dose)
+        )
 
-  # 1) Dunnett (active vs placebo)
-  fit <- lm(y ~ arm, data = df_e)
-  dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
-  summ <- summary(dun)
+      # 1) Dunnett (active vs placebo)
+      fit <- lm(y ~ arm, data = df_e)
+      dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
+      summ <- summary(dun)
 
-  # 2) MCP-Mod (one-step): model-based multiple contrast tests + model fit
-  mm <- DoseFinding::MCPMod(
-      dose   = df_e$dose,
-      resp   = df_e$y,
-      models = mods,
-      type   = "normal",
-      Delta  = delta,
-      alpha  = alpha,
-      selModel = "aveAIC"
+      # 2) MCP-Mod (one-step)
+      mm <- DoseFinding::MCPMod(
+          dose   = df_e$dose,
+          resp   = df_e$y,
+          models = mods,
+          type   = "normal",
+          Delta  = delta,
+          alpha  = alpha,
+          selModel = "aveAIC"
+      )
+
+      mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
+
+      data.frame(
+        scenario,
+        n_total      = nrow(df_e),
+        dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
+        mcpmod_min_p = mct_min_p,
+        stringsAsFactors = FALSE
+      )
+    }
   )
-
-  mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
-
-  list(
-    n_total      = nrow(df_e),
-    dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
-    mcpmod_min_p = mct_min_p
-  )
-})
+)
 ```
 
 ## Trial
 
 ```{r trial}
-trial <- Trial$new(
-  name       = "multiarm_dunnett_mcpmod",
-  seed       = 456,
-  timer      = tr_timer,
-  population = pops
+trials <- replicate_trial(
+  trial_name = "multiarm_dunnett_mcpmod",
+  sample_size = sample_size,
+  arms = arm_names,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
 )
 ```
 
 ## Simulate
 
 ```{r sim}
-trial$run()
+run_trials(trials)
 ```
 
 ## Results
 
-The full result list (Dunnett table + MCP-Mod summary elements):
+One row per replicate, row-bound across all replicates:
 
 ```{r results}
-trial$results
-```
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
 
-Flatten for quick inspection:
-
-```{r results_pretty}
-prettify_results(trial$results)
+replicate_results
 ```

@@ -17,8 +17,8 @@ times to random subsets of subjects.
 # Basic example: vector input
 pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
 
-pop$n              # number of subjects
-head(pop$data)     # generated subject-level data
+pop$n # number of subjects
+head(pop$data) # generated subject-level data
 
 # Set enrollment for 5 subjects at time = 1
 pop$set_enrolled(n = 5, time = 1)
@@ -65,6 +65,15 @@ pop$set_data(
   )
 )
 }
+\seealso{
+\link{Trial} for multi-arm simulations, \link{Timer} for managing timepoints.
+
+\link{Population}, \link{Trial}.
+
+\link{Population}, \link{Trial}.
+
+\link{Population}.
+}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
@@ -103,7 +112,7 @@ pop$set_data(
 \if{html}{\out{<a id="method-Population-new"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-new}{}}}
 \subsection{Method \code{new()}}{
-Create a new `Population`` instance.
+Create a new \code{Population} instance.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Population$new(
   name,
@@ -120,18 +129,16 @@ Create a new `Population`` instance.
 \describe{
 \item{\code{name}}{\code{character} Unique identifier for the population.}
 
-\item{\code{data}}{\code{data.frame} Underlying subject data frame with columns
-\code{id}, \code{arm}, \code{readout_time}, \code{data}, and optionally more columns.}
+\item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{arm}, \code{readout_time},
+\code{data}, and optionally more columns.}
 
-\item{\code{enrolled}}{\code{numeric} enrollment times are always initialized
-automatically as \code{NA}.}
+\item{\code{enrolled}}{\code{numeric} Optional enrollment times (auto-initialized if \code{NULL}).}
 
-\item{\code{dropped}}{\code{numeric} dropout times are always initialized
-automatically as \code{NA}.}
+\item{\code{dropped}}{\code{numeric} Optional dropout times (auto-initialized if \code{NULL}).}
 
-\item{\code{n}}{\code{integer} is automatically computed from data.}
+\item{\code{n}}{\code{integer} Auto-computed from data (optional).}
 
-\item{\code{n_readouts}}{\code{integer} is automatically computed from data.}
+\item{\code{n_readouts}}{\code{integer} Auto-computed from data (optional).}
 }
 \if{html}{\out{</div>}}
 }
@@ -148,9 +155,9 @@ automatically as \code{NA}.}
 \if{html}{\out{<a id="method-Population-set_enrolled"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_enrolled}{}}}
 \subsection{Method \code{set_enrolled()}}{
-Mark \code{n} enrolled subjects at a given time.
+Mark subjects as enrolled at a given time.
 
-Enrollment applies to subjects who are not yet enrolled \code{NA}.
+Enrollment applies only to unenrolled subjects (\code{NA}).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Population$set_enrolled(n, time)}\if{html}{\out{</div>}}
 }
@@ -178,13 +185,9 @@ pop$set_enrolled(n = 4, time = 2)
 \if{html}{\out{<a id="method-Population-set_dropped"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_dropped}{}}}
 \subsection{Method \code{set_dropped()}}{
-Mark \code{n} subjects as dropped at a given time.
+Mark subjects as dropped at a given time.
 
-Dropout applies only to subjects who:
-\itemize{
-\item have enrolled, and
-\item have not already dropped.
-}
+Dropout applies only to enrolled, not-yet-dropped subjects.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Population$set_dropped(n, time)}\if{html}{\out{</div>}}
 }
@@ -192,9 +195,9 @@ Dropout applies only to subjects who:
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{n}}{\code{integer} # of subjects to drop}
+\item{\code{n}}{\code{integer} Number of subjects to drop.}
 
-\item{\code{time}}{\code{numeric} Dropout time}
+\item{\code{time}}{\code{numeric} Dropout time.}
 }
 \if{html}{\out{</div>}}
 }
@@ -213,7 +216,7 @@ pop$set_dropped(n = 2, time = 3)
 \if{html}{\out{<a id="method-Population-set_data"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_data}{}}}
 \subsection{Method \code{set_data()}}{
-Replace the underlying subject data and reset enrollment/dropout status.
+Replace underlying subject data and reset enrollment/dropout status.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Population$set_data(data)}\if{html}{\out{</div>}}
 }
@@ -221,15 +224,8 @@ Replace the underlying subject data and reset enrollment/dropout status.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{data}}{\code{data.frame} Subject-level data frame with columns:
-\itemize{
-\item \code{id} \code{integer}
-\item \code{data} \code{numeric}
-\item \code{arm} \code{character}
-\item \code{readout_time} \code{numeric}
-\item \code{data} \code{numeric}
-\item may contain more columns
-}}
+\item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{data}, \code{arm},
+\code{readout_time}, and optionally more columns.}
 }
 \if{html}{\out{</div>}}
 }

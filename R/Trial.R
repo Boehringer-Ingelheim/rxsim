@@ -14,6 +14,8 @@
 #' Use `run()` to execute the simulation. Trigger conditions are best added with
 #' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
 #'
+#' @seealso [Population], [Timer], [prettify_results()], [replicate_trial()], [clone_trial()].
+#'
 #' @examples
 #' # Create two populations
 #' popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
@@ -52,40 +54,36 @@ Trial <- R6::R6Class(
     # --- fields ---
 
 
-    #' @field name `character` Unique identifier for the trial
+    #' @field name \code{character} Unique trial identifier.
     name = NULL,
 
-
-    #' @field seed `numeric` Optional seed for reproducibility. If provided,
-    #' `set.seed()` is called during initialization.
+    #' @field seed \code{numeric} or \code{NULL} Random seed for reproducibility.
     seed = NULL,
 
+    #' @field timer \code{Timer} object with timepoints and conditions.
+    timer = NULL,
 
-    #' @field timer `Timer` A `Timer` object describing timepoints and conditions.
-    timer = NULL,        # a Timers object
+    #' @field population \code{list} of \code{Population} objects, one per arm.
+    population = NULL,
 
-    #' @field population `list` A list of `Population` objects, one per arm.
-    population = NULL,   # list of Population objects
+    #' @field locked_data \code{list} Snapshots at each timepoint.
+    locked_data = NULL,
 
-    #' @field locked_data `list` Snapshots of  subject‑level data at each timepoint.
-    locked_data = NULL,  # list of snapshots per time
+    #' @field results \code{list} Analysis outputs per condition.
+    results = NULL,
 
-    #' @field results (`list`) Analysis outputs for each condition.
-    results = NULL,      # list of results per time
-
-    # --- constructorc ---
+    # --- constructor ---
     #' @description
     #' Create a new `Trial` instance.
     #'
-    #' @param name `character` Unique identifier for the trial.
-    #' @param seed `numeric` or `NULL` Optional random seed. If not `NULL`,
-    #' sets the RNG seed for reproducibility.
-    #' @param timer `Timer` A `Timer` object defining timepoints and conditions.
-    #' @param population `list` A list of `Population` objects, one for each arm.
-    #' @param locked_data `list` Generated at each Trial$run() call.
-    #' @param results (`list`) Generated at each Trial$run() call.
+    #' @param name \code{character} Unique identifier for the trial.
+    #' @param seed \code{numeric} or \code{NULL} Optional random seed for reproducibility.
+    #' @param timer \code{Timer} object defining timepoints and conditions.
+    #' @param population \code{list} of \code{Population} objects, one per arm.
+    #' @param locked_data \code{list} Generated at each \code{$run()} call.
+    #' @param results \code{list} Analysis outputs generated at each \code{$run()} call.
     #'
-    #' @returns A new `Trial` instance.
+    #' @returns A new \code{Trial} instance.
     #'
     #' @examples
     #' t <- Timer$new(name="simple_timer")
@@ -96,26 +94,25 @@ Trial <- R6::R6Class(
     #' pop$set_enrolled(5, 1)
     #' Trial$new(name = "simple_trial", timer=t, population = list(pop))
     initialize = function(
-    name,
-    seed = NULL,
-    timer = NULL,
-    population = list(),   # default empty list
-    locked_data = list(),
-    results = list()
+      name,
+      seed = NULL,
+      timer = NULL,
+      population = list(), # default empty list
+      locked_data = list(),
+      results = list()
     ) {
       stopifnot(is.character(name))
       self$name <- name
       self$seed <- seed
       if (!is.null(seed)) set.seed(seed)
 
+      stopifnot(is.list(population))
 
-      stopifnot(is.list(population))   # enforce list of Population objects
-
-      if (length(timer$timelist) == 0){
+      if (length(timer$timelist) == 0) {
+        # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
-        }
-        else {
+        } else {
           timepoints <- data.frame(
             time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
             arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
@@ -125,13 +122,13 @@ Trial <- R6::R6Class(
           add_timepoints(timer, timepoints)
           self$timer <- timer
         }
-      } else self$timer <- timer
-
+      } else {
+        self$timer <- timer
+      }
+      
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
-
-      # routine for empty time list
 
     },
 
@@ -148,6 +145,8 @@ Trial <- R6::R6Class(
     #' - Store snapshots and condition outputs under time‑indexed list keys
     #'
     #' @returns Updates `locked_data` and `results` fields.
+    #'
+    #' @seealso [Timer], [prettify_results()].
     #'
     #' @examples
     #' # Create two populations
@@ -178,49 +177,55 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
+      plan_df <- dplyr::bind_rows(self$timer$timelist)
+      if (nrow(plan_df) == 0L) {
+        return(invisible(self))
+      }
+
       # if( self$timer$get_n_arms() != length(self$population))
       # {
       #   stop("Need timers for the same amount of arms run()")
       #
       # }
 
-        for (i in  sort(self$timer$get_unique_times())){
-
-        # apply enrollment/dropout to each Population object in the list
+      for (i in sort(unique(plan_df$time))) {
+        # Apply enrollment/dropout updates to each population at this timepoint
         for (p in self$population) {
-          #add an error statement if the time/population dne
-          tp <- self$timer$get_timepoint(p$name, i)
-          if (!is.null(tp)) {
-            # check whether any one left to enroll?
-            if (
-              !is.null(tp$enroller) &
-              any(is.na(p$enrolled))
-              ) p$set_enrolled(tp$enroller, time = i)
-            # check whether anyone left to drop
-            if (
-              !is.null(tp$dropper) &
-              any(!is.na(p$enrolled)) &
-              any(is.na(p$dropped))
-              )p$set_dropped(tp$dropper,  time = i)
+          idx <- which(plan_df$arm == p$name & plan_df$time == i)
+          if (length(idx) > 0L) {
+            enroller_n <- as.integer(sum(plan_df$enroller[idx], na.rm = TRUE))
+            dropper_n <- as.integer(sum(plan_df$dropper[idx], na.rm = TRUE))
+
+            if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
+              p$set_enrolled(enroller_n, time = i)
+            }
+
+            if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
+              p$set_dropped(dropper_n, time = i)
+            }
           }
         }
 
-        # Collect raw snapshots from all populations (as a list)
-          locked_snapshot_list <- lapply(self$population, function(p) {
-            keep <- !is.na(p$enrolled)
-            cbind(
-              subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
-              p$data[keep, , drop = FALSE],
-              enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-              drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
-            )
-          })
+        # Create snapshots of enrolled subjects from all populations
+        locked_snapshot_list <- lapply(self$population, function(p) {
+          keep <- !is.na(p$enrolled)
+          cbind(
+            subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
+            p$data[keep, , drop = FALSE],
+            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
+            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
+          )
+        })
 
         combined <- do.call(rbind, locked_snapshot_list)
 
+        if (is.null(combined) || nrow(combined) == 0L) {
+          next
+        }
+
         # Add measurement and current time column
         combined$measurement_time <- combined$readout_time + combined$enroll_time
-        combined$time <- i
+        combined$time <- rep(i, nrow(combined))
 
         # Check all conditions on the combined snapshot
         results <- self$timer$check_conditions(
@@ -234,7 +239,6 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
-        }
-
+    }
   ) # end public
 ) # end class
