@@ -2,25 +2,28 @@
 % Please edit documentation in R/helpers.R
 \name{trigger_by_calendar}
 \alias{trigger_by_calendar}
-\title{Trigger analysis at a specific calendar time}
+\title{Trigger Analysis at a Calendar Time}
 \usage{
 trigger_by_calendar(cal_time, timer, analysis = NULL)
 }
 \arguments{
-\item{cal_time}{\code{numeric} Calendar time to trigger at}
+\item{cal_time}{\code{numeric} Calendar time(s) to trigger.}
 
-\item{timer}{\code{Timer} Timer instance to add condition to}
+\item{timer}{\code{\link{Timer}} instance to update.}
 
-\item{analysis}{\code{function} or \code{NULL} Analysis function to apply}
+\item{analysis}{\code{function} or \code{NULL} Optional function to apply.}
 }
 \value{
-returns \code{timer} for chaining.
+Invisible \code{\link{Timer}}.
 }
 \description{
-Trigger analysis at a specific calendar time
+Adds an analysis trigger at a specified calendar time.
 }
 \examples{
 t <- Timer$new("timer")
 trigger_by_calendar(2, t, analysis = function(df, current_time) nrow(df))
 
+}
+\seealso{
+\link{Timer}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}.
 }

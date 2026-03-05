@@ -8,7 +8,9 @@ inst/doc
 docs
 renv/profile
 /*.R
-.copilot-tracking
+.copilot-tracking/
+.github/agents/
+vignettes/.build.timestamp
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=r,windows,macos,linux

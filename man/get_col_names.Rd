@@ -2,29 +2,32 @@
 % Please edit documentation in R/helpers.R
 \name{get_col_names}
 \alias{get_col_names}
-\title{Get a list of data column names}
+\title{Extract Column Names from Populations}
 \usage{
 get_col_names(populations)
 }
 \arguments{
-\item{populations}{\code{list} or \code{Population} Population object(s) to extract column names from}
+\item{populations}{\code{\link{Population}} object or \code{list} of \code{\link{Population}} objects.}
 }
 \value{
-\code{vector} of column names
+\code{character} vector of unique column names.
 }
 \description{
-Get a list of data column names
+Collects all data frame column names from one or more populations.
 }
 \examples{
 pop1 <- Population$new(name = "P1", data = data.frame(
 id = 1:10,
 age = runif(10, 20, 60),
-readout_time = 0)
-)
+readout_time = 0
+))
 pop2 <- Population$new(name = "P2", data = data.frame(
 id = 1:10,
 weight = runif(10, 150, 250),
-readout_time = 0)
-)
+readout_time = 0
+))
 get_col_names(list(pop1, pop2))
+}
+\seealso{
+\link{Population}.
 }

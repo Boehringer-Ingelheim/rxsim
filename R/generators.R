@@ -1,12 +1,18 @@
-#' Generate plan for trial with allocation, enrollment and dropout
+#' Generate Trial Enrollment and Dropout Plan
 #'
-#' @param sample_size `integer` trial sample size
-#' @param arms `character` vector of unique identifier of arms
-#' @param allocation `numeric` vector of arm allocations
-#' @param enrollment `function` PDF of inter-enrollment time
-#' @param dropout `function` PDF of inter-dropout time
+#' Creates a time-indexed plan of enrollment and dropout events across arms.
 #'
-#' @returns `data.frame` timepoints that may be passed to [add_timepoints()]
+#' @param sample_size `integer` Trial sample size.
+#' @param arms `character` vector of arm identifiers.
+#' @param allocation `numeric` vector of allocation ratios.
+#' @param enrollment `function` generating inter-enrollment times (PDF).
+#' @param dropout `function` generating inter-dropout times (PDF).
+#'
+#' @return `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
+#'
+#' @seealso [gen_timepoints()] for piecewise-constant rates, [add_timepoints()]
+#'   to attach generated plans to a `Timer`.
+#'
 #' @export
 #'
 #' @examples
@@ -18,7 +24,6 @@
 #'   dropout = function(n) rexp(n, rate = 0.1)
 #' )
 #'
-#' @importFrom utils tail
 #' @importFrom rlang :=
 #' @importFrom dplyr .data
 #' @importFrom dplyr mutate
@@ -29,55 +34,86 @@
 #' @importFrom dplyr arrange
 gen_plan <- function(sample_size, arms, allocation, enrollment, dropout) {
 
-  # determine number of arms
-  n_arms <- length(arms)
+  # Input validation
+  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
+    stop("`sample_size` must be a single positive number.")
+  }
+  if (!is.character(arms) || length(arms) == 0L) {
+    stop("`arms` must be a non-empty character vector.")
+  }
+  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
+    stop("`allocation` must be a numeric vector with same length as `arms`.")
+  }
+  if (!is.function(enrollment) || !is.function(dropout)) {
+    stop("`enrollment` and `dropout` must be functions.")
+  }
 
-  # get valid weights
+  # Calculate arm allocation ratios
+  n_arms <- length(arms)
   ratio <- allocation / sum(allocation)
   names(ratio) <- arms
 
-  # get enrollment targets
+  # Calculate target enrollment per arm
   target <- as.integer(round(ratio * sample_size))
   names(target) <- arms
 
-  # handle removal
+  # Adjust for rounding: remove excess subjects
   if (sample_size - sum(target) < 0) {
-    remove <- table(sample(
+    remove_idx <- sample(
       seq_len(n_arms),
       sum(target) - sample_size,
       replace = TRUE,
       prob = ratio
-    )) |> as.vector()
+    )
+    remove <- tabulate(remove_idx, nbins = n_arms)
+    names(remove) <- arms
     target <- target - remove
   }
 
-    # handle additions
+  # Adjust for rounding: add missing subjects
   if (sample_size - sum(target) > 0) {
-    addition <- table(sample(
+    add_idx <- sample(
       seq_len(n_arms),
       sample_size - sum(target),
       replace = TRUE,
       prob = ratio
-    )) |> as.vector()
-  target <- target + addition
+    )
+    addition <- tabulate(add_idx, nbins = n_arms)
+    names(addition) <- arms
+    target <- target + addition
   }
 
-    enroll_events <- enrollment(sample_size)
-    drop_events <- dropout(sample_size)
+  if (any(target < 0L) || sum(target) != sample_size) {
+    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
+  }
 
+  # Generate enrollment and dropout inter-event times
+  enroll_events <- enrollment(sample_size)
+  drop_events <- dropout(sample_size)
+
+  # Shuffle arms to randomize allocation
+  shuffled_arms <- sample(
+    rep(arms, times = target),
+    sample_size,
+    replace = FALSE
+  )
+
+  # Create enrollment events (cumulative timing)
   df_enroll <- data.frame(
     time = cumsum(enroll_events),
-    arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
+    arm = shuffled_arms,
     enroller = 1L,
     dropper = 0L
   )
 
-    df_drop <- data.frame(
+  # Create dropout events (cumulative timing)
+  df_drop <- data.frame(
     time = cumsum(drop_events),
     arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
     enroller = 0L,
     dropper = 1L
   )
 
-rbind(df_enroll, df_drop) |> dplyr::arrange(.data$time)
+  # Combine and sort by time
+  rbind(df_enroll, df_drop) |> dplyr::arrange(.data$time)
 }

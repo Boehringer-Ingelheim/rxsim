@@ -3,11 +3,6 @@
 \name{Trial}
 \alias{Trial}
 \title{Trial: Simulate a multi‑arm clinical trial}
-\value{
-A new \code{Trial} instance.
-
-Updates \code{locked_data} and \code{results} fields.
-}
 \description{
 The \code{Trial} class coordinates one or more \code{Population} objects and a \code{Timer}
 to simulate a clinical trial.
@@ -94,21 +89,25 @@ trial$run()
 
 prettify_results(trial$results)
 }
+\seealso{
+\link{Population}, \link{Timer}, \code{\link[=prettify_results]{prettify_results()}}, \code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=clone_trial]{clone_trial()}}.
+
+\link{Timer}, \code{\link[=prettify_results]{prettify_results()}}.
+}
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
-\item{\code{name}}{\code{character} Unique identifier for the trial}
+\item{\code{name}}{\code{character} Unique trial identifier.}
 
-\item{\code{seed}}{\code{numeric} Optional seed for reproducibility. If provided,
-\code{set.seed()} is called during initialization.}
+\item{\code{seed}}{\code{numeric} or \code{NULL} Random seed for reproducibility.}
 
-\item{\code{timer}}{\code{Timer} A \code{Timer} object describing timepoints and conditions.}
+\item{\code{timer}}{\code{Timer} object with timepoints and conditions.}
 
-\item{\code{population}}{\code{list} A list of \code{Population} objects, one per arm.}
+\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
-\item{\code{locked_data}}{\code{list} Snapshots of  subject‑level data at each timepoint.}
+\item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
 
-\item{\code{results}}{(\code{list}) Analysis outputs for each condition.}
+\item{\code{results}}{\code{list} Analysis outputs per condition.}
 }
 \if{html}{\out{</div>}}
 }
@@ -141,18 +140,20 @@ Create a new \code{Trial} instance.
 \describe{
 \item{\code{name}}{\code{character} Unique identifier for the trial.}
 
-\item{\code{seed}}{\code{numeric} or \code{NULL} Optional random seed. If not \code{NULL},
-sets the RNG seed for reproducibility.}
+\item{\code{seed}}{\code{numeric} or \code{NULL} Optional random seed for reproducibility.}
 
-\item{\code{timer}}{\code{Timer} A \code{Timer} object defining timepoints and conditions.}
+\item{\code{timer}}{\code{Timer} object defining timepoints and conditions.}
 
-\item{\code{population}}{\code{list} A list of \code{Population} objects, one for each arm.}
+\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
-\item{\code{locked_data}}{\code{list} Generated at each Trial$run() call.}
+\item{\code{locked_data}}{\code{list} Generated at each \verb{$run()} call.}
 
-\item{\code{results}}{(\code{list}) Generated at each Trial$run() call.}
+\item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{Trial} instance.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -187,6 +188,9 @@ At each unique time defined by the trial's \code{Timer}:
 \if{html}{\out{<div class="r">}}\preformatted{Trial$run()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+Updates \code{locked_data} and \code{results} fields.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{# Create two populations

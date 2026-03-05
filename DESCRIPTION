@@ -34,10 +34,13 @@ Description: Simulate phase II and/or phase III clinical trials. It supports
 License: Apache License (>= 2)
 Encoding: UTF-8
 LazyData: true
+Depends:
+    R (>= 4.1)
 Suggests: 
     knitr,
     rmarkdown,
     tibble,
+    tidyr,
     MASS,
     multcomp,
     DoseFinding,
@@ -51,3 +54,4 @@ Imports:
     rlang
 Roxygen: list(markdown = TRUE)
 Config/renv/profiles/ci/dependencies: pak, rcmdcheck
+URL: https://boehringer-ingelheim.github.io/rxsim

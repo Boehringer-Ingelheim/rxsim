@@ -2,26 +2,26 @@
 % Please edit documentation in R/generators.R
 \name{gen_plan}
 \alias{gen_plan}
-\title{Generate plan for trial with allocation, enrollment and dropout}
+\title{Generate Trial Enrollment and Dropout Plan}
 \usage{
 gen_plan(sample_size, arms, allocation, enrollment, dropout)
 }
 \arguments{
-\item{sample_size}{\code{integer} trial sample size}
+\item{sample_size}{\code{integer} Trial sample size.}
 
-\item{arms}{\code{character} vector of unique identifier of arms}
+\item{arms}{\code{character} vector of arm identifiers.}
 
-\item{allocation}{\code{numeric} vector of arm allocations}
+\item{allocation}{\code{numeric} vector of allocation ratios.}
 
-\item{enrollment}{\code{function} PDF of inter-enrollment time}
+\item{enrollment}{\code{function} generating inter-enrollment times (PDF).}
 
-\item{dropout}{\code{function} PDF of inter-dropout time}
+\item{dropout}{\code{function} generating inter-dropout times (PDF).}
 }
 \value{
-\code{data.frame} timepoints that may be passed to \code{\link[=add_timepoints]{add_timepoints()}}
+\code{data.frame} with columns: \code{time}, \code{arm}, \code{enroller}, \code{dropper}.
 }
 \description{
-Generate plan for trial with allocation, enrollment and dropout
+Creates a time-indexed plan of enrollment and dropout events across arms.
 }
 \examples{
 gen_plan(
@@ -32,4 +32,8 @@ gen_plan(
   dropout = function(n) rexp(n, rate = 0.1)
 )
 
+}
+\seealso{
+\code{\link[=gen_timepoints]{gen_timepoints()}} for piecewise-constant rates, \code{\link[=add_timepoints]{add_timepoints()}}
+to attach generated plans to a \code{Timer}.
 }

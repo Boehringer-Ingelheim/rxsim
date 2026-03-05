@@ -7,4 +7,6 @@
 ^doc$
 ^Meta$
 ^\.github$
-^\.copilot-tracking$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
