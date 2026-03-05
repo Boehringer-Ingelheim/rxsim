@@ -53,4 +53,4 @@ Imports:
     dplyr,
     rlang
 Roxygen: list(markdown = TRUE)
-URL: https://saumil-sh.github.io/rxsim
+URL: https://boehringer-ingelheim.github.io/rxsim
