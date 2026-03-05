@@ -138,6 +138,7 @@ Population <- R6::R6Class(
 
       pick <- idx[sample.int(length(idx), n_use, replace = FALSE)]
       self$enrolled[pick] <- time
+      invisible(self)
     },
 
     #' @description
@@ -168,6 +169,7 @@ Population <- R6::R6Class(
 
       pick <- idx[sample.int(length(idx), n_use, replace = FALSE)]
       self$dropped[pick] <- time
+      invisible(self)
     },
 
     #' @description
@@ -196,6 +198,7 @@ Population <- R6::R6Class(
       self$n <- nrow(self$data)
       self$dropped <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)
+      invisible(self)
     }
   ) # end public
 ) # end class

@@ -125,6 +125,7 @@ Timer <- R6::R6Class(
       stopifnot(is.integer(dropper), is.integer(enroller))
       tp <- list(time = time, arm = arm, dropper = dropper, enroller = enroller)
       self$timelist <- append(self$timelist, list(tp))
+      invisible(self)
     },
 
     #' @description

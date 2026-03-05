@@ -96,6 +96,7 @@ add_timepoints <- function(timer, df) {
       function(x) do.call(timer$add_timepoint, x)
     )
   )
+  invisible(timer)
 }
 
 

@@ -240,6 +240,7 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
+      invisible(self)
     }
   ) # end public
 ) # end class
