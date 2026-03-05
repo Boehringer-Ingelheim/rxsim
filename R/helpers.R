@@ -81,12 +81,11 @@ trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
 #'
 #' add_timepoints(t, timepoints)
 add_timepoints <- function(timer, df) {
-  invisible(
-    sapply(
-      split(df, 1:nrow(df)),
-      function(x) do.call(timer$add_timepoint, x)
-    )
+  sapply(
+    split(df, 1:nrow(df)),
+    function(x) do.call(timer$add_timepoint, x)
   )
+  invisible(timer)
 }
 
 
