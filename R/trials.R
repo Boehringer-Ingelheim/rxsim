@@ -6,7 +6,7 @@
 #' @param trial `Trial` R6 object to clone.
 #' @param n `integer` Number of clones to create. Defaults to `1`.
 #'
-#' @returns `list` of `n` independently cloned `Trial` objects.
+#' @return `list` of `n` independently cloned `Trial` objects.
 #'
 #' @seealso [Trial], [replicate_trial()], [run_trials()].
 #'
@@ -16,6 +16,10 @@
 #'
 #' @export
 clone_trial <- function(trial, n = 1) {
+  if (missing(trial) || !inherits(trial, "Trial")) stop("`trial` must be a Trial instance")
+  n <- as.integer(n)
+  if (length(n) != 1L || is.na(n) || n < 1L) stop("`n` must be a single positive integer")
+
   lapply(seq_len(n), function(i) {
     Trial$new(
       name = paste(trial$name, i, sep="_"),
@@ -33,7 +37,7 @@ clone_trial <- function(trial, n = 1) {
 #' @param generator `function` that returns a data.frame-like object.
 #' @param sample_size `integer` Number of subjects to generate.
 #'
-#' @returns `Population` R6 object.
+#' @return `Population` R6 object.
 #'
 #' @seealso [Population], [replicate_trial()], [vector_to_dataframe()].
 #'
@@ -43,6 +47,10 @@ clone_trial <- function(trial, n = 1) {
 #'
 #' @export
 gen_population <- function(name, generator, sample_size = 1) {
+  if (!is.character(name) || length(name) != 1L) stop("`name` must be a single character value")
+  if (!is.function(generator)) stop("`generator` must be a function")
+  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size < 0) stop("`sample_size` must be a single non-negative number")
+
   Population$new(
     name = name,
     data = generator(sample_size)
@@ -66,7 +74,7 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @param population_generators `list` (named) of population generator functions.
 #' @param n `integer` Number of trials to create.
 #'
-#' @returns `list` of `n` `Trial` objects with indexed names,
+#' @return `list` of `n` `Trial` objects with indexed names,
 #'   cloned timers, and generated populations.
 #'
 #' @seealso [gen_plan()], [gen_population()], [clone_trial()], [run_trials()].
@@ -170,7 +178,7 @@ replicate_trial <- function(
 #'
 #' @param trials `list` of `Trial` R6 objects.
 #'
-#' @returns `list` of results from each trial's `$run()` method.
+#' @return `list` of results from each trial's `$run()` method.
 #'
 #' @seealso [Trial], [replicate_trial()].
 #'
@@ -180,4 +188,7 @@ replicate_trial <- function(
 #' @export
 
 
-run_trials <- function(trials) lapply(trials, function(trial) trial$run())
+run_trials <- function(trials) {
+  if (!is.list(trials)) stop("`trials` must be a list of Trial objects")
+  lapply(trials, function(trial) trial$run())
+}

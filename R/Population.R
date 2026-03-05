@@ -65,7 +65,7 @@ Population <- R6::R6Class(
     #' @param n `integer` Auto-computed from data (optional).
     #' @param n_readouts `integer` Auto-computed from data (optional).
     #'
-    #' @returns A new `Population` instance.
+    #' @return A new `Population` instance.
     #'
     #' @examples
     #' Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))

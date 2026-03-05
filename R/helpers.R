@@ -6,7 +6,7 @@
 #' @param timer [`Timer`] instance to update.
 #' @param analysis `function` or `NULL` Optional function to apply.
 #'
-#' @returns Invisible [`Timer`].
+#' @return Invisible [`Timer`].
 #'
 #' @seealso [Timer], [trigger_by_fraction()].
 #'
@@ -19,6 +19,10 @@
 #' @importFrom rlang :=
 #' @importFrom dplyr .data
 trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
+  if (missing(cal_time) || missing(timer)) stop("`cal_time` and `timer` are required.")
+  stopifnot(is.numeric(cal_time))
+  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
+
   timer$add_condition(
     .data$time %in% cal_time,
     analysis = analysis,
@@ -35,7 +39,7 @@ trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
 #' @param sample_size `integer` Target sample size.
 #' @param analysis `function` or `NULL` Optional function to apply.
 #'
-#' @returns Invisible [`Timer`].
+#' @return Invisible [`Timer`].
 #'
 #' @seealso [Timer], [trigger_by_calendar()].
 #'
@@ -48,7 +52,10 @@ trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
 #' @importFrom rlang :=
 #' @importFrom dplyr .data
 trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
+  if (missing(fraction) || missing(timer) || missing(sample_size)) stop("`fraction`, `timer`, and `sample_size` are required.")
+  stopifnot(is.numeric(sample_size) && length(sample_size) == 1L)
   stopifnot(fraction > 0 && fraction <= 1)
+  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
 
   timer$add_condition(
     sum(!is.na(.data$enroll_time)) >= fraction * sample_size,
@@ -81,9 +88,13 @@ trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
 #'
 #' add_timepoints(t, timepoints)
 add_timepoints <- function(timer, df) {
-  sapply(
-    split(df, 1:nrow(df)),
-    function(x) do.call(timer$add_timepoint, x)
+  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
+  if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroller, dropper")
+  invisible(
+    sapply(
+      split(df, seq_len(nrow(df))),
+      function(x) do.call(timer$add_timepoint, x)
+    )
   )
   invisible(timer)
 }
@@ -95,12 +106,13 @@ add_timepoints <- function(timer, df) {
 #'
 #' @param results `list` Trial results (nested by time).
 #'
-#' @returns `data.frame` with columns: `time` and measurement columns.
+#' @return `data.frame` with columns: `time` and measurement columns.
 #'
 #' @seealso [Trial] for generating results.
 #'
 #' @export
 prettify_results <- function(results) {
+  stopifnot(is.list(results))
   all_cols <- unique(unlist(lapply(results, names)))
 
   df <- do.call(rbind, lapply(names(results), function(nm) {
@@ -120,7 +132,7 @@ prettify_results <- function(results) {
 #'
 #' @param data `numeric` vector of population values.
 #'
-#' @returns `data.frame` with columns: `id`, `data`, `readout_time`.
+#' @return `data.frame` with columns: `id`, `data`, `readout_time`.
 #'
 #' @seealso [Population].
 #'
@@ -142,7 +154,7 @@ vector_to_dataframe <- function(data) data.frame(
 #'   `rate` (numeric subjects/unit time for each period).
 #' @param dropout `list` with `end_time` and `rate` (same structure).
 #'
-#' @returns `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
+#' @return `data.frame` with columns: `time`, `arm`, `enroller`, `dropper`.
 #'
 #' @seealso [gen_plan()] for random inter-event times, [add_timepoints()].
 #'
@@ -173,6 +185,23 @@ vector_to_dataframe <- function(data) data.frame(
 #' @importFrom dplyr select
 #' @importFrom dplyr arrange
 gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
+  # Input validation
+  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
+    stop("`sample_size` must be a single positive number.")
+  }
+  if (!is.character(arms) || length(arms) == 0L) {
+    stop("`arms` must be a non-empty character vector.")
+  }
+  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
+    stop("`allocation` must be a numeric vector with same length as `arms`.")
+  }
+  if (!is.list(enrollment) || !all(c("end_time", "rate") %in% names(enrollment))) {
+    stop("`enrollment` must be a list with 'end_time' and 'rate'.")
+  }
+  if (!is.list(dropout) || !all(c("end_time", "rate") %in% names(dropout))) {
+    stop("`dropout` must be a list with 'end_time' and 'rate'.")
+  }
+
   # Calculate arm allocation ratios
   n_arms <- length(arms)
   ratio <- allocation / sum(allocation)
@@ -289,7 +318,7 @@ gen_timepoints <- function(sample_size, arms, allocation, enrollment, dropout) {
 #'
 #' @param populations [`Population`] object or `list` of [`Population`] objects.
 #'
-#' @returns `character` vector of unique column names.
+#' @return `character` vector of unique column names.
 #'
 #' @seealso [Population].
 #'

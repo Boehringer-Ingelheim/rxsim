@@ -3,9 +3,6 @@
 \name{Population}
 \alias{Population}
 \title{Population: Manage a patient population}
-\value{
-A new \code{Population} instance.
-}
 \description{
 The \code{Population} class stores subject-level data and manages enrollment and
 dropout times for each subject.
@@ -141,6 +138,9 @@ Create a new \code{Population} instance.
 \item{\code{n_readouts}}{\code{integer} Auto-computed from data (optional).}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{Population} instance.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}

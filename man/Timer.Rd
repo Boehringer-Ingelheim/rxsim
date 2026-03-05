@@ -3,17 +3,6 @@
 \name{Timer}
 \alias{Timer}
 \title{Timer: Track timed events and apply condition-triggered analyses}
-\value{
-A new \code{Timer} instance.
-
-\code{integer} Number of unique arms.
-
-\code{numeric} vector of unique times.
-
-\code{list} timepoint or \code{NULL} if not found.
-
-\code{list} of filtered data or analysis results per condition.
-}
 \description{
 A class to collect and query \emph{timepoints}, time-based events, across arms.
 Timer class also supports conditions that filter data using \code{\link[dplyr:filter]{dplyr::filter()}}
@@ -97,7 +86,7 @@ t$add_timepoint(
 # Add timepoints
 t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
 
-# Add conditions using dplyr style
+# Add conditions using `dplyr` style
 # Suppose you have a data.frame:
 df <- data.frame(
   id = 1:6,
@@ -178,7 +167,7 @@ t$get_timepoint("A", 1)   # returns a single timepoint
 df <- data.frame(
   id = 1:6,
   arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
+  status = c("active", "inactive", "active", "active", "inactive", "active"),
   visit = c(1,2,1,3,3,2)
 )
 
@@ -256,6 +245,9 @@ Create a new \code{Timer} instance.
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+A new \code{Timer} instance.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
@@ -329,7 +321,7 @@ Add a trigger condition to a timer.
 # Add timepoints
 t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
 
-# Add conditions using dplyr style
+# Add conditions using `dplyr` style
 # Suppose you have a data.frame:
 df <- data.frame(
   id = 1:6,
@@ -386,6 +378,9 @@ Get number of unique arms.
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_n_arms()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+\code{integer} Number of unique arms.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
@@ -407,6 +402,9 @@ Get unique timepoints.
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_unique_times()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+\code{numeric} vector of unique times.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
@@ -436,6 +434,9 @@ Get a timepoint by arm and index.
 \item{\code{i}}{\code{integer} Timepoint index.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+\code{list} timepoint or \code{NULL} if not found.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -468,6 +469,9 @@ Check conditions and return filtered data or analysis results.
 }
 \if{html}{\out{</div>}}
 }
+\subsection{Returns}{
+\code{list} of filtered data or analysis results per condition.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{#' t <- Timer$new(name = "Timer")
@@ -488,7 +492,7 @@ t$get_timepoint("A", 1)   # returns a single timepoint
 df <- data.frame(
   id = 1:6,
   arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
+  status = c("active", "inactive", "active", "active", "inactive", "active"),
   visit = c(1,2,1,3,3,2)
 )
 

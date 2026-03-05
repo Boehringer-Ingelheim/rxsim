@@ -40,6 +40,7 @@ Suggests:
     knitr,
     rmarkdown,
     tibble,
+    tidyr,
     MASS,
     multcomp,
     DoseFinding,

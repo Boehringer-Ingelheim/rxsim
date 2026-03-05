@@ -3,11 +3,6 @@
 \name{Trial}
 \alias{Trial}
 \title{Trial: Simulate a multi‑arm clinical trial}
-\value{
-A new \code{Trial} instance.
-
-Updates \code{locked_data} and \code{results} fields.
-}
 \description{
 The \code{Trial} class coordinates one or more \code{Population} objects and a \code{Timer}
 to simulate a clinical trial.
@@ -108,7 +103,7 @@ prettify_results(trial$results)
 
 \item{\code{timer}}{\code{Timer} object with timepoints and conditions.}
 
-\item{\code{population}}{\code{list} of \code{Population} objects, one per arm.}
+\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
 \item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
 
@@ -149,13 +144,16 @@ Create a new \code{Trial} instance.
 
 \item{\code{timer}}{\code{Timer} object defining timepoints and conditions.}
 
-\item{\code{population}}{\code{list} of \code{Population} objects, one per arm.}
+\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
-\item{\code{locked_data}}{\code{list} Generated at each \code{$run()} call.}
+\item{\code{locked_data}}{\code{list} Generated at each \verb{$run()} call.}
 
-\item{\code{results}}{\code{list} Analysis outputs generated at each \code{$run()} call.}
+\item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
 }
 \if{html}{\out{</div>}}
+}
+\subsection{Returns}{
+A new \code{Trial} instance.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
@@ -190,6 +188,9 @@ At each unique time defined by the trial's \code{Timer}:
 \if{html}{\out{<div class="r">}}\preformatted{Trial$run()}\if{html}{\out{</div>}}
 }
 
+\subsection{Returns}{
+Updates \code{locked_data} and \code{results} fields.
+}
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{# Create two populations
