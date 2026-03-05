@@ -1,8 +1,8 @@
 ---
-title: "Example 1: Two arm | Fixed design | Continuous"
+title: "Example Multi Run: Two arm | Interim | Continuous | t-test"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Example 1: Two arm | Fixed design | Continuous}
+  %\VignetteIndexEntry{Example Multi Run: Two arm | Interim | Continuous | t-test}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -22,37 +22,34 @@ library(rxsim)
 Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
-sample_size <- 100
-arms <- c("pbo", "trt")
-allocation <- c(1,1)
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
+set.seed(123)
+sample_size <- 6
+arms        <- c("pbo", "trt")
+allocation  <- c(1, 1)
+enrollment  <- function(n) rexp(n, rate = 1)
+dropout     <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
   allocation = list(allocation)
 )
+
 ```
 
-## Populations
-Define population generators.
+## Arms
+Generate populations and endpoint data using generators (functions).
 
 ```{r population}
+#update the generators to have sample size 50
+
 population_generators <- list(
-  pbo = function(n) data.frame(
-    id = 1:n,
-    value = rnorm(n),
-    readout_time = 1
-  ),
-  trt = function(n) data.frame(
-    id = 1:n,
-    value = rnorm(n, 0.2),
-    readout_time = 1
-  )
+  pbo = function(n) vector_to_dataframe(stats::rnorm(n)),
+  trt = function(n) vector_to_dataframe(stats::rnorm(n, mean = 2, sd = 3.14))
 )
+
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+Run one final analysis at full enrollment.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -60,15 +57,15 @@ analysis_generators <- list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
-    analysis = function(df, timer){
+    analysis = function(df, timer) {
       df_enrolled <- df |> subset(!is.na(enroll_time))
-      tt <- t.test(value ~ arm, data = df_enrolled)
+      mean_pbo <- df_enrolled |> subset(arm == "pbo") |> with(mean(data))
+      mean_trt <- df_enrolled |> subset(arm == "trt") |> with(mean(data))
       data.frame(
         scenario,
+        mean_pbo = mean_pbo,
+        mean_trt = mean_trt,
         n_total = nrow(df_enrolled),
-        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
-        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(tt$p.value),
         stringsAsFactors = FALSE
       )
     }
@@ -77,31 +74,28 @@ analysis_generators <- list(
 ```
 
 ## Trial
-Make multiple trial replicates.
+Make the trial objects for when data is using generators.
 
 ```{r trial}
 trials <- replicate_trial(
-  trial_name = "test_trial",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
+  trial_name    = "trial",
+  sample_size   = sample_size,
+  arms          = arms,
+  allocation    = allocation,
+  enrollment    = enrollment,
+  dropout       = dropout,
   analysis_generators = analysis_generators,
   population_generators = population_generators,
-  n = 3
+  n             = 3
 )
 ```
 
 ## Simulate
-To simulate all replicates:
+Run all replicates and bind one row per replicate.
 
 ```{r sim}
 run_trials(trials)
-```
 
-Bind one row per replicate into one data frame.
-```{r results}
 replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
   data.frame(
     replicate = i,
