@@ -92,6 +92,8 @@ pop$set_data(
 \item{\code{n}}{\code{integer} Number of unique subjects in the population.}
 
 \item{\code{n_readouts}}{\code{integer} Number of readout_times in the population.}
+
+\item{\code{id_map}}{\code{vector} Canonical subject id order used to align enrolled/dropped with \code{id}.}
 }
 \if{html}{\out{</div>}}
 }

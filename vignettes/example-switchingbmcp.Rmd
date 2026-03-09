@@ -1,0 +1,590 @@
+---
+title: "Example Switching: Seamless Ph2a/2b with Conditional Plan Switching (Adaptive Timepoints)"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example Switching: Seamless Ph2a/2b with Conditional Plan Switching (Adaptive Timepoints)}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+# Core simulation framework
+library(rxsim)
+
+# Bayesian utilities
+library(RBesT)
+library(BayesianMCPMod)
+library(DoseFinding)
+
+# Helpers
+library(dplyr)
+
+set.seed(8808)
+```
+
+# Motivation
+
+This vignette expands **Example 8** by demonstrating the **new adaptive plan/timepoint switching** mechanism.
+
+With the updated `Trial$run()` loop in `rxsim`, the trial **re-reads the Timer plan** (`timer$timelist`) at each step. Therefore, if an interim analysis modifies the timepoints (e.g., expands from 2 arms to multiple arms, or stops enrollment), the trial follows the updated plan in the same run.
+
+We compare:
+
+1. **Static seamless plan** (as in Example 8): plan is fully specified upfront.
+2. **Adaptive plan switching**: start with **2-arm Ph2a** only, then at interim:
+   - **GO** → switch plan to expand to multi-arm Ph2b and add final Bayesian MCP-Mod condition.
+   - **NO-GO** → switch plan to stop future enrollment and skip the final MCP-Mod.
+
+We show both branches by running:
+- a **GO scenario** (true effect exists)
+- a **NO-GO scenario** (null effect)
+
+---
+
+# Scenario setup
+
+```{r scenario}
+# Dose levels and arm labels
+dose_map <- c(d0 = 0, d5 = 5, d10 = 10, d20 = 20, d40 = 40)
+arm_names <- names(dose_map)
+dose_levels <- as.numeric(dose_map)
+
+# Noise
+sigma <- 1.0
+
+# Interim Go/No-Go thresholds 
+delta_interim <- 0.1
+gamma_interim <- 0.8
+
+# Multiplicity level for final Bayesian MCP step
+alpha_final <- 0.05
+
+# Planned analysis times
+interim_time <- 4
+final_time   <- 12
+```
+
+---
+
+# Helper: build static vs adaptive plans
+
+We define:
+
+- A **2-arm Ph2a-only plan** (placebo + d20) for times 1..4.
+- A **multi-arm Ph2b expansion plan** for times 5..12.
+- A **stop plan** that sets all enrollers to 0 after interim.
+
+```{r plan-helpers}
+time <- 1:12
+
+make_plan_static <- function() {
+  enroll_plan <- data.frame(
+    time = rep(time, times = length(arm_names)),
+    arm  = rep(arm_names, each = length(time)),
+    enroller = c(
+      # d0 placebo (total 80)
+      8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+      # d5 (total 20)
+      0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+      # d10 (total 20)
+      0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+      # d20 (total 40)
+      8, 8, 8, 8, 2, 2, 2, 2, 0, 0, 0, 0,
+      # d40 (total 20)
+      0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0
+    ),
+    dropper = 0L
+  )
+  enroll_plan$enroller <- as.integer(enroll_plan$enroller)
+  enroll_plan$dropper  <- as.integer(enroll_plan$dropper)
+  enroll_plan
+}
+
+make_plan_ph2a_only <- function() {
+  # Only placebo + d20 in times 1..12
+  enroll_plan <- data.frame(
+    time = rep(time, times = length(arm_names)),
+    arm  = rep(arm_names, each = length(time)),
+    enroller = 0L,
+    dropper = 0L
+  )
+
+  # d0 and d20 enroll during Ph2a (times 1..4)
+  enroll_plan$enroller[enroll_plan$arm == "d0"  & enroll_plan$time %in% 1:4] <- 8L
+  enroll_plan$enroller[enroll_plan$arm == "d20" & enroll_plan$time %in% 1:4] <- 8L
+
+  enroll_plan$enroller <- as.integer(enroll_plan$enroller)
+  enroll_plan$dropper  <- as.integer(enroll_plan$dropper)
+  enroll_plan
+}
+
+make_plan_ph2b_expand <- function() {
+  plan <- make_plan_ph2a_only()
+
+  # Continue placebo in Ph2b (times 5..10)
+  plan$enroller[plan$arm == "d0" & plan$time %in% 5:10] <- 8L
+
+  # Add new dose arms d5,d10,d40 in Ph2b (times 5..10)
+  for (a in c("d5", "d10", "d40")) {
+    plan$enroller[plan$arm == a & plan$time %in% c(5,6,7,8,9,10)] <- c(3L,3L,4L,3L,3L,4L)
+  }
+
+  # Continue d20 a bit in early Ph2b (times 5..8)
+  plan$enroller[plan$arm == "d20" & plan$time %in% 5:8] <- 2L
+
+  plan$enroller <- as.integer(plan$enroller)
+  plan
+}
+
+make_plan_stop_after_interim <- function(plan, interim_time) {
+  # After interim_time, stop all enrollment
+  plan$enroller[plan$time > interim_time] <- 0L
+  plan$enroller <- as.integer(plan$enroller)
+  plan
+}
+
+summarise_plan <- function(df) {
+  df |>
+    group_by(arm) |>
+    summarise(planned_n = sum(enroller), .groups = "drop") |>
+    arrange(match(arm, arm_names))
+}
+```
+
+---
+
+# Priors
+
+```{r priors}
+# Historical placebo summary data
+hist_placebo <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c(20, 24, 18),
+  mean  = c(-0.06, 0.00, 0.03)
+)
+
+n_hist <- sum(hist_placebo$n)
+m_hist <- weighted.mean(hist_placebo$mean, hist_placebo$n)
+
+# Base non-informative prior
+prior_noninf <- RBesT::mixnorm(c(1, 0, 1e-6), sigma = sigma, param = "mn")
+
+# Placebo borrowing prior
+prior_placebo_inf <- RBesT::postmix(prior_noninf, n = n_hist, m = m_hist)
+prior_placebo <- RBesT::robustify(
+  prior_placebo_inf,
+  weight = 0.2,
+  mean = 0,
+  n = 1,
+  sigma = sigma
+)
+
+# Prior list for Bayesian MCP-Mod (Ctrl + 4 active groups)
+prior_list_final <- list(
+  Ctrl = prior_placebo,
+  DG_1 = prior_noninf,
+  DG_2 = prior_noninf,
+  DG_3 = prior_noninf,
+  DG_4 = prior_noninf
+)
+```
+
+---
+
+# Models for MCP-Mod 
+
+```{r mcpmod-models}
+mods <- DoseFinding::Mods(
+  linear      = NULL,
+  emax        = 20,
+  exponential = 20,
+  sigEmax     = c(20, 3),
+  doses       = dose_levels
+)
+```
+
+---
+
+# Helper: build Populations under a chosen truth
+
+We create all arm populations upfront (so switching plans only changes enrollment, not which populations exist).
+
+```{r populations-helper}
+mk_pops <- function(e0, emax, ed50, sigma) {
+  mean_fun <- function(d) e0 + emax * d / (ed50 + d)
+
+  # Use plan maxima for "available subject slots"
+  max_n <- summarise_plan(make_plan_static())$planned_n
+  names(max_n) <- summarise_plan(make_plan_static())$arm
+
+  lapply(arm_names, function(arm) {
+    d <- dose_map[[arm]]
+    n <- max_n[[arm]]
+    Population$new(
+      name = arm,
+      data = data.frame(
+        id = seq_len(n),
+        dose = d,
+        y = rnorm(n, mean = mean_fun(d), sd = sigma),
+        readout_time = 1
+      )
+    )
+  })
+}
+```
+
+---
+
+# Core function: run a trial (static or adaptive)
+
+This function runs either:
+- `mode = "static"`: plan is fixed upfront (Example 8 behavior)
+- `mode = "adaptive"`: start Ph2a-only plan, then switch at interim based on Go/No-Go
+
+It returns a list with:
+- trial object
+- planned enrollment (original and final plan)
+- observed enrollment by arm
+- interim decision
+
+```{r run-trial-fn}
+get_plan_df <- function(timer) {
+  dplyr::bind_rows(timer$timelist) |>
+    arrange(time, arm)
+}
+
+count_enrolled_by_arm <- function(trial) {
+  data.frame(
+    arm = vapply(trial$population, function(p) p$name, character(1)),
+    enrolled = vapply(trial$population, function(p) sum(!is.na(p$enrolled)), integer(1))
+  ) |>
+    arrange(match(arm, arm_names))
+}
+
+run_trial <- function(mode = c("static","adaptive"),
+                      truth = c("go","nogo"),
+                      seed = 8808) {
+
+  mode <- match.arg(mode)
+  truth <- match.arg(truth)
+
+  # Truth parameters
+  if (truth == "go") {
+    e0 <- 0.0; emax <- 0.9; ed50 <- 15
+  } else {
+    e0 <- 0.0; emax <- 0.0; ed50 <- 15
+  }
+
+  set.seed(seed)
+  pops <- mk_pops(e0, emax, ed50, sigma)
+
+  # Timer + initial plan
+  tr_timer <- Timer$new(name = paste0("timer_", mode, "_", truth))
+
+  if (mode == "static") {
+    plan0 <- make_plan_static()
+  } else {
+    plan0 <- make_plan_ph2a_only()
+  }
+
+  add_timepoints(tr_timer, plan0)
+
+  # Shared state
+  go_interim <- NA_integer_
+
+  # Interim: Go/No-Go on d20 vs placebo
+  trigger_by_calendar(interim_time, tr_timer, analysis = function(df, current_time) {
+
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
+
+    y_p <- dat$y[dat$arm == "d0"]
+    y_t <- dat$y[dat$arm == "d20"]
+
+    n_p <- length(y_p)
+    n_t <- length(y_t)
+    m_p <- mean(y_p)
+    m_t <- mean(y_t)
+
+    post_p <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+    post_t <- RBesT::postmix(prior_noninf,  n = n_t, m = m_t)
+
+    prob_delta <- RBesT::pmixdiff(post_t, post_p, delta_interim, lower.tail = FALSE)
+    delta_q <- RBesT::qmixdiff(post_t, post_p, c(0.025, 0.5, 0.975))
+
+    go_interim <<- as.integer(prob_delta >= gamma_interim)
+
+    # --- adaptive switching happens HERE ---
+    if (mode == "adaptive") {
+      old_plan <- get_plan_df(tr_timer)
+
+      if (go_interim == 1L) {
+        # Switch to expansion plan and add final MCP-Mod condition
+        new_plan <- make_plan_ph2b_expand()
+
+        tr_timer$timelist <- list()
+        add_timepoints(tr_timer, new_plan)
+
+        # Add final analysis only if GO
+        tr_timer$add_condition(
+          time == final_time,
+          analysis = function(df, time) {
+
+            dat2 <- df |>
+              dplyr::filter(!is.na(enroll_time))
+
+            summ <- dat2 |>
+              dplyr::group_by(arm) |>
+              dplyr::summarise(
+                dose = unique(dose)[1],
+                n = dplyr::n(),
+                mu_hat = mean(y),
+                .groups = "drop"
+              ) |>
+              dplyr::arrange(dose)
+
+            n_vec <- summ$n |> as.double()
+            mu_vec <- summ$mu_hat
+            S_hat <- diag((sigma / sqrt(n_vec))^2)
+
+            estimates_sim <- list(
+              mu_hats = list(mu_vec),
+              S_hats  = list(S_hat)
+            )
+
+            bmcp <- BayesianMCPMod::assessDesign(
+              n_patients = n_vec,
+              mods = mods,
+              prior_list = prior_list_final,
+              estimates_sim = estimates_sim,
+              alpha_crit_val = alpha_final,
+              n_sim = 1
+            )
+
+            data.frame(
+              n_total_final = nrow(dat2),
+              max_eff = attr(bmcp, "maxEff")
+            )
+          },
+          name = "final_bayesian_mcpmod"
+        )
+
+      } else {
+        # NO-GO: stop future enrollment
+        new_plan <- make_plan_stop_after_interim(old_plan, interim_time = current_time)
+
+        tr_timer$timelist <- list()
+        add_timepoints(tr_timer, new_plan)
+      }
+
+      # Return plan summaries for transparency
+      list(
+        n_placebo = n_p,
+        n_d20 = n_t,
+        post_prob_delta = prob_delta,
+        delta_q025 = delta_q[1],
+        delta_q500 = delta_q[2],
+        delta_q975 = delta_q[3],
+        decision_go = go_interim,
+        planned_before_switch = summarise_plan(old_plan),
+        planned_after_switch = summarise_plan(get_plan_df(tr_timer))
+      )
+
+    } else {
+      # Static mode: return interim stats only
+      list(
+        n_placebo = n_p,
+        n_d20 = n_t,
+        post_prob_delta = prob_delta,
+        delta_q025 = delta_q[1],
+        delta_q500 = delta_q[2],
+        delta_q975 = delta_q[3],
+        decision_go = go_interim
+      )
+    }
+  })
+
+  # Static mode adds final MCP-Mod upfront 
+  if (mode == "static") {
+    tr_timer$add_condition(
+      time == final_time,
+      analysis = function(df, time) {
+        dat2 <- df |>
+          dplyr::filter(!is.na(enroll_time))
+
+        summ <- dat2 |>
+          dplyr::group_by(arm) |>
+          dplyr::summarise(
+            dose = unique(dose)[1],
+            n = dplyr::n(),
+            mu_hat = mean(y),
+            .groups = "drop"
+          ) |>
+          dplyr::arrange(dose)
+
+        n_vec <- summ$n |> as.double()
+        mu_vec <- summ$mu_hat
+        S_hat <- diag((sigma / sqrt(n_vec))^2)
+
+        estimates_sim <- list(
+          mu_hats = list(mu_vec),
+          S_hats  = list(S_hat)
+        )
+
+        bmcp <- BayesianMCPMod::assessDesign(
+          n_patients = n_vec,
+          mods = mods,
+          prior_list = prior_list_final,
+          estimates_sim = estimates_sim,
+          alpha_crit_val = alpha_final,
+          n_sim = 1
+        )
+
+        data.frame(
+          n_total_final = nrow(dat2),
+          max_eff = attr(bmcp, "maxEff")
+        )
+      },
+      name = "final_bayesian_mcpmod"
+    )
+  }
+
+  # Build and run Trial
+  trial <- Trial$new(
+    name = paste0("example_switching_", mode, "_", truth),
+    seed = seed,
+    timer = tr_timer,
+    population = pops
+  )
+
+  trial$run()
+
+  list(
+    trial = trial,
+    mode = mode,
+    truth = truth,
+    plan_initial = summarise_plan(plan0),
+    plan_final = summarise_plan(get_plan_df(tr_timer)),
+    enrolled_final = count_enrolled_by_arm(trial)
+  )
+}
+```
+
+---
+
+# Run the comparisons
+
+We run 4 trials:
+
+- Static + GO truth
+- Adaptive + GO truth
+- Static + NO-GO truth
+- Adaptive + NO-GO truth
+
+```{r run-all}
+res_static_go    <- run_trial(mode = "static",   truth = "go",   seed = 8808)
+res_adapt_go     <- run_trial(mode = "adaptive", truth = "go",   seed = 8808)
+
+res_static_nogo  <- run_trial(mode = "static",   truth = "nogo", seed = 8808)
+res_adapt_nogo   <- run_trial(mode = "adaptive", truth = "nogo", seed = 8808)
+```
+
+---
+
+# Inspect interim decision + plan switching effects
+
+## GO truth: did adaptive switch expand?
+
+```{r inspect-go}
+key_interim <- paste0("time_", interim_time)
+key_final   <- paste0("time_", final_time)
+
+# Interim results (static vs adaptive)
+res_static_go$trial$results[[key_interim]]
+res_adapt_go$trial$results[[key_interim]]
+
+# Final MCP-Mod results (static vs adaptive)
+res_static_go$trial$results[[key_final]]
+res_adapt_go$trial$results[[key_final]]
+```
+
+## NO-GO truth: did adaptive switch stop enrollment and skip final MCP-Mod?
+
+```{r inspect-nogo}
+# Interim results (static vs adaptive)
+res_static_nogo$trial$results[[key_interim]]
+res_adapt_nogo$trial$results[[key_interim]]
+
+# Final results:
+# Static has final MCP-Mod (because it's attached upfront).
+# Adaptive only adds final MCP-Mod if GO; for NO-GO it should be missing.
+names(res_static_nogo$trial$results[[key_final]])
+res_adapt_nogo$trial$results[[key_final]]
+```
+
+---
+
+# Compare planned enrollment (initial vs final plan)
+
+```{r compare-plans}
+bind_rows(
+  res_static_go$plan_initial  |> mutate(run = "Static / GO",   stage = "initial"),
+  res_static_go$plan_final    |> mutate(run = "Static / GO",   stage = "final"),
+  res_adapt_go$plan_initial   |> mutate(run = "Adaptive / GO", stage = "initial"),
+  res_adapt_go$plan_final     |> mutate(run = "Adaptive / GO", stage = "final"),
+
+  res_static_nogo$plan_initial |> mutate(run = "Static / NO-GO",   stage = "initial"),
+  res_static_nogo$plan_final   |> mutate(run = "Static / NO-GO",   stage = "final"),
+  res_adapt_nogo$plan_initial  |> mutate(run = "Adaptive / NO-GO", stage = "initial"),
+  res_adapt_nogo$plan_final    |> mutate(run = "Adaptive / NO-GO", stage = "final")
+) |>
+  arrange(run, stage, match(arm, arm_names))
+```
+
+---
+
+# Compare actual enrollment (end of run)
+
+```{r compare-enrolled}
+bind_rows(
+  res_static_go$enrolled_final  |> mutate(run = "Static / GO"),
+  res_adapt_go$enrolled_final   |> mutate(run = "Adaptive / GO"),
+  res_static_nogo$enrolled_final |> mutate(run = "Static / NO-GO"),
+  res_adapt_nogo$enrolled_final  |> mutate(run = "Adaptive / NO-GO")
+) |>
+  arrange(run, match(arm, arm_names))
+```
+
+---
+
+# Plan audit trail (adaptive runs)
+
+If your updated `Trial` implementation records plan changes (e.g., `trial$plan_history`),
+you can inspect them here.
+
+```{r plan-history}
+length(res_adapt_go$trial$plan_history)
+res_adapt_go$trial$plan_history
+
+length(res_adapt_nogo$trial$plan_history)
+res_adapt_nogo$trial$plan_history
+```
+
+---
+
+# Takeaways
+
+1. **Static seamless**: The plan is fully defined upfront; Ph2a/Ph2b behavior is “encoded” by timepoints with zeros in the early period for new arms.
+2. **Adaptive switching**: You can begin with a minimal Ph2a plan, then **switch the plan** at interim based on the Bayesian Go/No-Go result:
+   - GO → expand to Ph2b multi-arm dose finding and attach the final Bayesian MCP-Mod analysis.
+   - NO-GO → stop future enrollment and do not add final MCP-Mod.
+3. This works because the updated `Trial$run()` loop re-reads the plan each step, so edits to `timer$timelist` affect subsequent timepoints in the same run.
+
+``

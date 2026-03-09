@@ -1,0 +1,336 @@
+---
+title: "Example 9: Adaptive Timepoint / Trial Plan Switching"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 9: Adaptive Timepoint / Trial Plan Switching}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Overview
+
+This vignette demonstrates **adaptive trial plan switching** during a single simulation run.
+
+With the updated `Trial$run()` loop, the trial **re-reads** `timer$timelist` at each step, so if an analysis function modifies the timepoints (the plan) at an interim time, the *new plan is actually followed* for all subsequent timepoints.
+
+We will run and compare two scenarios:
+
+1. **Scenario A (Static plan):** A fixed enrollment plan is used throughout.
+2. **Scenario B (Adaptive plan):** At an interim analysis time, we *conditionally* modify the enrollment plan (increase, decrease, or stop enrollment for an arm).
+
+We then compare:
+- planned enrollment before vs after switching
+- actual enrollment by arm
+- interim and final summaries
+- the trial's `plan_history` (audit trail of plan changes)
+
+# Setup
+
+```{r setup}
+library(rxsim)
+library(dplyr)
+
+set.seed(123)
+```
+
+# Helper functions
+
+```{r helpers}
+# Make a simple continuous outcome population with repeated readouts per subject.
+# The Population class requires columns: id, arm (optional), readout_time, and at least one endpoint column.
+mk_pop <- function(arm, n, mean_value, sd_value = 5, readouts = c(1, 4)) {
+  data <- do.call(rbind, lapply(readouts, function(rt) {
+    data.frame(
+      id = 1:n,
+      readout_time = rt,
+      value = rnorm(n, mean = mean_value, sd = sd_value)
+    )
+  }))
+  Population$new(arm, data = data)
+}
+
+# Summarise "currently enrolled" snapshot at a given time
+snap_summary <- function(dat) {
+  dat |>
+    group_by(arm) |>
+    summarise(
+      n_subjects = n_distinct(id),
+      mean_value = mean(value),
+      .groups = "drop"
+    ) |>
+    arrange(arm)
+}
+
+# Convenience: get current plan (Timer timelist -> data.frame)
+get_plan_df <- function(timer) {
+  dplyr::bind_rows(timer$timelist) |>
+    arrange(time, arm)
+}
+```
+
+# Trial design: populations + baseline plan
+
+We simulate a simple 2-arm trial with repeated readouts.
+
+- Arm A has mean 50
+- Arm B has mean 55 (so B tends to look better at interim)
+
+```{r populations}
+# Planned max N is driven by the plan; here we just generate "enough" subjects up front.
+popA <- mk_pop("Arm A", n = 120, mean_value = 50)
+popB <- mk_pop("Arm B", n = 120, mean_value = 55)
+
+list(popA$n, popB$n)   # subject slots available per arm
+popA$n_readouts        # repeated measures per subject
+```
+
+## Baseline timepoints (fixed plan)
+
+We plan timepoints at times 1..8.
+- From time 1 to 8: enroll 4 per time per arm (total 32 per arm)
+- No dropouts for simplicity in this vignette (dropper = 0)
+
+```{r baseline-plan}
+times <- 1:8
+
+timepoints_base <- data.frame(
+  time = rep(times, times = 2),
+  arm = rep(c("Arm A", "Arm B"), each = length(times)),
+  enroller = 4L,
+  dropper = 0L
+)
+
+timepoints_base
+timepoints_base |> group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop")
+```
+
+# Scenario A: Static plan (no switching)
+
+```{r scenario-a}
+# Timer with baseline plan
+t_static <- Timer$new("timer_static")
+add_timepoints(t_static, timepoints_base)
+
+# Interim + Final analyses (read-only)
+interim_time <- 4
+final_time <- 8
+
+trigger_by_calendar(interim_time, t_static, analysis = function(df, current_time) {
+  dat <- df |> filter(!is.na(enroll_time))
+  out <- snap_summary(dat)
+  out$time <- current_time
+  out
+})
+
+trigger_by_calendar(final_time, t_static, analysis = function(df, current_time) {
+  dat <- df |> filter(!is.na(enroll_time))
+  out <- snap_summary(dat)
+  out$time <- current_time
+  out
+})
+
+# Build and run trial
+trial_static <- Trial$new(
+  name = "trial_static",
+  seed = 123,
+  timer = t_static,
+  population = list(popA$clone(), popB$clone())
+)
+
+trial_static$run()
+
+# Show results as stored in trial
+names(trial_static$results)
+trial_static$results[[paste0("time_", interim_time)]]
+trial_static$results[[paste0("time_", final_time)]]
+```
+
+## Scenario A: Actual enrollment by arm
+
+Enrollment lives in each Population object, so we inspect the populations used inside the trial.
+
+```{r scenario-a-enroll}
+pops_static <- trial_static$population
+enrolled_counts_static <- data.frame(
+  arm = sapply(pops_static, function(p) p$name),
+  enrolled = sapply(pops_static, function(p) sum(!is.na(p$enrolled)))
+)
+
+enrolled_counts_static
+```
+
+# Scenario B: Adaptive plan switching at interim
+
+In this scenario, we **switch the timepoints** at `time = 4` depending on interim performance.
+
+**Rule:**
+- compute interim mean difference: `mean(B) - mean(A)`
+- if difference >= 2: **expand Arm B** (increase enroller to 8 after time 4)
+- else: **stop Arm B enrollment** after time 4 (set enroller to 0 after time 4)
+
+Arm A continues as planned.
+
+## Create a switched plan generator
+
+```{r switched-plan}
+make_switched_plan <- function(current_plan, interim_time, expand = TRUE) {
+  # keep past and interim times the same, but modify future times for Arm B
+  current_plan |>
+    mutate(
+      enroller = case_when(
+        time > interim_time & arm == "Arm B" & expand ~ 8L,
+        time > interim_time & arm == "Arm B" & !expand ~ 0L,
+        TRUE ~ as.integer(enroller)
+      ),
+      dropper = as.integer(dropper)
+    )
+}
+
+# Example of what expansion would look like:
+timepoints_expandB <- make_switched_plan(timepoints_base, interim_time, expand = TRUE)
+timepoints_stopB   <- make_switched_plan(timepoints_base, interim_time, expand = FALSE)
+
+timepoints_expandB |> group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop")
+timepoints_stopB |> group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop")
+```
+
+## Run with switching inside the interim analysis
+
+Key idea: at interim, we **mutate the timer plan** by replacing `t_switch$timelist`.
+
+```{r scenario-b}
+t_switch <- Timer$new("timer_switch")
+add_timepoints(t_switch, timepoints_base)
+
+trigger_by_calendar(interim_time, t_switch, analysis = function(df, current_time) {
+
+  dat <- df |> filter(!is.na(enroll_time))
+  summ <- snap_summary(dat)
+
+  # Interim decision statistic
+  mA <- summ$mean_value[summ$arm == "Arm A"]
+  mB <- summ$mean_value[summ$arm == "Arm B"]
+  diff <- as.numeric(mB - mA)
+
+  expandB <- is.finite(diff) && diff >= 2
+
+  # Build new plan from current timer plan
+  old_plan <- get_plan_df(t_switch)
+  new_plan <- make_switched_plan(old_plan, interim_time = current_time, expand = expandB)
+
+  # Switch plan: clear and re-add
+  t_switch$timelist <- list()
+  add_timepoints(t_switch, new_plan)
+
+  list(
+    time = current_time,
+    mean_A = mA,
+    mean_B = mB,
+    diff_B_minus_A = diff,
+    decision_expandB = expandB,
+    planned_enroll_after_switch = new_plan |>
+      group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop")
+  )
+})
+
+trigger_by_calendar(final_time, t_switch, analysis = function(df, current_time) {
+  dat <- df |> filter(!is.na(enroll_time))
+  out <- snap_summary(dat)
+  out$time <- current_time
+  out
+})
+
+trial_switch <- Trial$new(
+  name = "trial_switch",
+  seed = 123,
+  timer = t_switch,
+  population = list(popA$clone(), popB$clone())
+)
+
+trial_switch$run()
+
+# Interim output contains the decision and the plan summary after switch
+trial_switch$results[[paste0("time_", interim_time)]]
+```
+
+## Scenario B: Audit trail of plan changes
+
+`trial_switch$plan_history` records plan changes detected during the run.
+
+```{r scenario-b-planhistory}
+length(trial_switch$plan_history)
+trial_switch$plan_history
+```
+
+## Scenario B: Actual enrollment by arm
+
+```{r scenario-b-enroll}
+pops_switch <- trial_switch$population
+enrolled_counts_switch <- data.frame(
+  arm = sapply(pops_switch, function(p) p$name),
+  enrolled = sapply(pops_switch, function(p) sum(!is.na(p$enrolled)))
+)
+
+enrolled_counts_switch
+```
+
+# Compare Scenario A vs Scenario B
+
+## Planned enrollment (before vs after switching)
+
+```{r compare-plans}
+plan_static <- get_plan_df(t_static) |>
+  group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop") |>
+  mutate(scenario = "A: Static")
+
+plan_switch_final <- get_plan_df(t_switch) |>
+  group_by(arm) |> summarise(planned_enroll = sum(enroller), .groups="drop") |>
+  mutate(scenario = "B: After switch")
+
+bind_rows(plan_static, plan_switch_final)
+```
+
+## Actual enrollment (end of run)
+
+```{r compare-enroll}
+enrolled_counts_static$scenario <- "A: Static"
+enrolled_counts_switch$scenario <- "B: Switch"
+
+bind_rows(enrolled_counts_static, enrolled_counts_switch) |>
+  arrange(arm, scenario)
+```
+
+## Final snapshot summary comparison
+
+```{r compare-final-summary}
+final_key <- paste0("time_", final_time)
+
+final_static <- trial_static$results[[final_key]][[1]]
+final_switch  <- trial_switch$results[[final_key]][[1]]
+
+final_static$scenario <- "A: Static"
+final_switch$scenario <- "B: Switch"
+
+bind_rows(final_static, final_switch) |>
+  arrange(arm, scenario)
+```
+
+# Notes for extending this pattern
+
+- You can switch from **2-arm to multi-arm** by adding new arms to the plan and ensuring you have corresponding `Population` objects in `trial$population`.
+- You can implement **go/no-go** by setting future enrollment for an arm to 0 (as shown).
+- You can implement **dose expansion** by increasing enroller counts for selected dose arms.
+
+The core mechanism is always the same:
+1. Trigger an interim analysis (`trigger_by_calendar()` or `add_condition()`).
+2. Use the interim result to build a *new* plan data.frame.
+3. Replace `timer$timelist` with the new plan (`t$timelist <- list(); add_timepoints(t, new_plan)`).
+4. The updated `Trial$run()` follows the modified plan for future timepoints.
+``
