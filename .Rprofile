@@ -1,5 +1,5 @@
 # Use more CPU cores while building packages
-options(Ncpus = 2)
+options(Ncpus = parallel::detectCores())
 
 # Use PPM and {pak} with {renv}
 # https://github.com/rstudio/renv/
@@ -10,4 +10,4 @@ options(renv.config.pak.enabled = TRUE)
 source("renv/activate.R")
 
 # Use the most recent snapshot of the BI's PPM
-options(repos = c(BI = "https://pm.prod.copernicus.aws.boehringer.com/cinema/latest"))
+options(repos = c(RSPM = "https://packagemanager.posit.co/cran/latest"))

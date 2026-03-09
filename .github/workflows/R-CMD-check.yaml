@@ -15,24 +15,19 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      R_REPOS: "https://packagemanager.posit.co/cran/latest"
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: r-lib/actions/setup-r@v2
-        with:
-          use-public-rspm: true
 
-      - name: set mirror
-        run: Rscript -e 'install.packages("pak", repos = sprintf("https://r-lib.github.io/p/pak/%s/%s/%s/%s", "devel", .Platform$pkgType, R.Version()$os, R.Version()$arch))'
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
+      - uses: r-lib/actions/setup-renv@v2
         with:
-          extra-packages: any::rcmdcheck
-          needs: check
-          cache: true
+          profile: '"ci"'
 
       - uses: r-lib/actions/check-r-package@v2
         with:
+          args: 'c("--no-manual", "--no-vignettes", "--no-examples", "--no-build-vignettes", "--ignore-vignettes")'
+          build_args: 'c("--no-manual", "--no-build-vignettes")'
+          error-on: '"error"'
           upload-snapshots: true
-          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
