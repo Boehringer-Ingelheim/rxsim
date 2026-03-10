@@ -241,8 +241,8 @@ Trial <- R6::R6Class(
         list(
           time = as.numeric(df2$time),
           arm = as.character(df2$arm),
-          enroller = as.integer(df2$enroller),
-          dropper = as.integer(df2$dropper)
+          enroller = as.numeric(df2$enroller),
+          dropper = as.numeric(df2$dropper)
         )
       }
 
