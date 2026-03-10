@@ -233,11 +233,17 @@ Trial <- R6::R6Class(
 
       get_plan <- function() dplyr::bind_rows(self$timer$timelist)
 
+      # Plan Signature saved as list
       plan_signature <- function(df) {
-        if (is.null(df) || nrow(df) == 0L) return("")
+        if (is.null(df) || nrow(df) == 0L) return(NULL)
         df2 <- df[, c("time", "arm", "enroller", "dropper")]
         df2 <- df2[order(df2$arm, df2$time), , drop = FALSE]
-        paste(apply(df2, 1, paste, collapse = "|"), collapse = ";;")
+        list(
+          time = as.numeric(df2$time),
+          arm = as.character(df2$arm),
+          enroller = as.integer(df2$enroller),
+          dropper = as.integer(df2$dropper)
+        )
       }
 
       # Build a named lookup of populations by arm (and guard duplicates)
@@ -304,7 +310,7 @@ Trial <- R6::R6Class(
             .groups = "drop"
           )
 
-        # Apply actions (purrr)
+        # Apply actions
         if (nrow(actions_i) > 0L) {
           purrr::pwalk(
             actions_i,

@@ -151,5 +151,5 @@ $RECYCLE.BIN/
 
 
 # Testing file
-Testimgall.Rmd
-Testimgall.html
+Testimgall*.Rmd
+Testimgall*.html
