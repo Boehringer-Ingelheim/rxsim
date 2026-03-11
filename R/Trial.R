@@ -126,7 +126,7 @@ Trial <- R6::R6Class(
       } else {
         self$timer <- timer
       }
-      
+
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
@@ -211,7 +211,6 @@ Trial <- R6::R6Class(
         locked_snapshot_list <- lapply(self$population, function(p) {
           keep <- !is.na(p$enrolled)
           cbind(
-            subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
             p$data[keep, , drop = FALSE],
             enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
             drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
@@ -219,6 +218,10 @@ Trial <- R6::R6Class(
         })
 
         combined <- do.call(rbind, locked_snapshot_list)
+        combined$subject_id <- rep(
+          x=seq_len(as.integer(dim(combined)[1] / p$n_readouts)),
+          times = p$n_readouts
+        )
 
         if (is.null(combined) || nrow(combined) == 0L) {
           next
