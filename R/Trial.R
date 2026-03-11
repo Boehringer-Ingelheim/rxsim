@@ -7,9 +7,9 @@
 #' ## Core simulation loop
 #' At each timepoint, the `Trial`:
 #' - applies enrollment and dropout updates to each `Population`
-#' - builds a snapshot of all currently enrolled subjects ("locked" snapshot)
+#' - builds a snapshot of all currently enrolled subjects "locked" snapshot
 #' - evaluates all conditions in the `Timer`
-#' - stores both the snapshot (`locked_data`) and analysis outputs (`results`)
+#' - stores both the snapshot `locked_data` and analysis outputs `results`
 #'
 #' ## Adaptive scheduling
 #' Unlike a static run-loop that freezes the plan at start, this implementation
@@ -23,6 +23,9 @@
 #' - `conditions_original`: the condition list at the beginning of the run
 #' - `plan_history`: entries recording when the plan changed, including signatures
 #'   and (optionally) full before/after plan snapshots.
+#'
+#'Use `run()` to execute the simulation. Trigger conditions are best added with
+#' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
 #'
 #' @seealso [Population], [Timer], [prettify_results()], [replicate_trial()], [clone_trial()].
 #'
@@ -78,7 +81,7 @@ Trial <- R6::R6Class(
     #' @field population `list` of [Population] objects, one per arm.
     population = NULL,
 
-    #' @field locked_data `list` Snapshots at each timepoint (stored when conditions return output).
+    #' @field locked_data `list` Snapshots at each timepoint.
     locked_data = NULL,
 
     #' @field results `list` Analysis outputs per condition/timepoint.
@@ -233,8 +236,8 @@ Trial <- R6::R6Class(
 
       get_plan <- function() dplyr::bind_rows(self$timer$timelist)
 
-      # Plan Signature saved as list
-      plan_signature <- function(df) {
+      # Plan parameters extracted and saved as list for use in history
+      plan_parameter <- function(df) {
         if (is.null(df) || nrow(df) == 0L) return(NULL)
         df2 <- df[, c("time", "arm", "enroller", "dropper")]
         df2 <- df2[order(df2$arm, df2$time), , drop = FALSE]
@@ -246,12 +249,13 @@ Trial <- R6::R6Class(
         )
       }
 
-      # Build a named lookup of populations by arm (and guard duplicates)
+      # Build a named lookup of populations by arm (and prevent duplicates)
       arm_names <- vapply(self$population, function(x) x$name, character(1))
       if (anyDuplicated(arm_names)) {
         stop("Duplicate arm names in population list: ",
              paste(unique(arm_names[duplicated(arm_names)]), collapse = ", "))
       }
+      #Create a names object
       pop_by_arm <- setNames(self$population, arm_names)
 
       if (track_plan && is.null(self$plan_original)) {
@@ -265,7 +269,7 @@ Trial <- R6::R6Class(
 
       last_plan <- get_plan()
       if (is.null(last_plan) || nrow(last_plan) == 0L) return(invisible(self))
-      last_sig <- plan_signature(last_plan)
+      last_sig <- plan_parameter(last_plan)
 
       repeat {
 
@@ -273,7 +277,7 @@ Trial <- R6::R6Class(
         if (is.null(plan_df) || nrow(plan_df) == 0L) break
 
         if (track_plan) {
-          sig <- plan_signature(plan_df)
+          sig <- plan_parameter(plan_df)
           if (!identical(sig, last_sig)) {
             entry <- list(
               changed_after_time = if (is.finite(last_time)) last_time else NA,
@@ -329,7 +333,7 @@ Trial <- R6::R6Class(
           )
         }
 
-        # Build snapshot using explicit id_map
+        # Rebuild snapshot using explicit id_map
         locked_snapshot <- purrr::map_dfr(self$population, function(p) {
 
           ids <- p$id_map
