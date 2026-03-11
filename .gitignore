@@ -147,3 +147,8 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
 /doc/
 /Meta/
+
+
+# Testing file
+Testimgall*.Rmd
+Testimgall*.html

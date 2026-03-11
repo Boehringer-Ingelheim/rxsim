@@ -4,14 +4,27 @@
 #' The `Trial` class coordinates one or more `Population` objects and a `Timer`
 #' to simulate a clinical trial.
 #'
-#' At each unique time defined in the trial's `Timer`, the `Trial`:
-#'
+#' ## Core simulation loop
+#' At each timepoint, the `Trial`:
 #' - applies enrollment and dropout updates to each `Population`
-#' - builds a snapshot of all currently enrolled subjects
+#' - builds a snapshot of all currently enrolled subjects "locked" snapshot
 #' - evaluates all conditions in the `Timer`
-#' - stores both the snapshot `locked_data` and the analysis outputs `results`
+#' - stores both the snapshot `locked_data` and analysis outputs `results`
 #'
-#' Use `run()` to execute the simulation. Trigger conditions are best added with
+#' ## Adaptive scheduling
+#' Unlike a static run-loop that freezes the plan at start, this implementation
+#' re-reads the timer's timepoint plan (`timer$timelist`) at each iteration.
+#' Therefore, if an analysis function modifies `timer$timelist`, those changes
+#' can affect future timepoints during the same `run()` call.
+#'
+#' ## Audit trail
+#' If `track_plan = TRUE`, the `Trial` stores:
+#' - `plan_original`: the initial plan at the beginning of the run
+#' - `conditions_original`: the condition list at the beginning of the run
+#' - `plan_history`: entries recording when the plan changed, including signatures
+#'   and (optionally) full before/after plan snapshots.
+#'
+#'Use `run()` to execute the simulation. Trigger conditions are best added with
 #' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
 #'
 #' @seealso [Population], [Timer], [prettify_results()], [replicate_trial()], [clone_trial()].
@@ -28,7 +41,7 @@
 #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 #'
-#' # Add trigger for final analysis at time 2
+#' # Add a trigger for final analysis at time 2
 #' trigger_by_calendar(2, t, analysis = function(df, current_time) {
 #'   nrow(df)
 #' })
@@ -46,13 +59,15 @@
 #'
 #' prettify_results(trial$results)
 #'
+#' @importFrom rlang .data
+#' @importFrom dplyr bind_rows filter group_by summarise inner_join arrange mutate
+#' @importFrom purrr pwalk map map_dfr
 #' @export
-
 Trial <- R6::R6Class(
   classname = "Trial",
   public = list(
-    # --- fields ---
 
+    # --- fields ---
 
     #' @field name `character` Unique trial identifier.
     name = NULL,
@@ -69,10 +84,20 @@ Trial <- R6::R6Class(
     #' @field locked_data `list` Snapshots at each timepoint.
     locked_data = NULL,
 
-    #' @field results `list` Analysis outputs per condition.
+    #' @field results `list` Analysis outputs per condition/timepoint.
     results = NULL,
 
+    #' @field plan_original `data.frame` Plan snapshot captured at start of the first tracked run.
+    plan_original = NULL,
+
+    #' @field conditions_original `list` Conditions captured at start of the first tracked run.
+    conditions_original = NULL,
+
+    #' @field plan_history `list` Plan change log entries (signatures and optional snapshots).
+    plan_history = NULL,
+
     # --- constructor ---
+
     #' @description
     #' Create a new `Trial` instance.
     #'
@@ -94,50 +119,60 @@ Trial <- R6::R6Class(
     #' pop$set_enrolled(5, 1)
     #' Trial$new(name = "simple_trial", timer=t, population = list(pop))
     initialize = function(
-      name,
-      seed = NULL,
-      timer = NULL,
-      population = list(), # default empty list
-      locked_data = list(),
-      results = list()
+    name,
+    seed = NULL,
+    timer = NULL,
+    population = list(),
+    locked_data = list(),
+    results = list()
     ) {
-      stopifnot(is.character(name))
+
+      stopifnot(is.character(name), length(name) == 1L)
       self$name <- name
       self$seed <- seed
       if (!is.null(seed)) set.seed(seed)
-      if (!is.null(timer) && !inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
+
+      if (!is.null(timer) && !inherits(timer, "Timer")) {
+        stop("`timer` must be a Timer instance.")
+      }
       stopifnot(is.list(population))
 
+      # If timer missing or empty, try to infer timepoints from population enrollment times
       if (is.null(timer) || length(timer$timelist) == 0) {
-        # If timer has no timepoints, extract from population enrollment times
-        if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
+        if (length(population) == 0) {
+          stop("Timer is missing/empty and `population` is empty. Nothing to run.")
+        }
+        if (all(vapply(population, function(x) all(is.na(x$enrolled)), logical(1)))) {
           stop("Neither Timer nor Population has enrollment data.")
-        } else {
-          if (is.null(timer)) timer <- Timer$new(name = paste0(name, "_timer"))
-          timepoints <- data.frame(
-            time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
-            arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
+        }
+
+        if (is.null(timer)) timer <- Timer$new(name = paste0(name, "_timer"))
+
+        timepoints <- do.call(rbind, lapply(population, function(p) {
+          data.frame(
+            time = p$enrolled,
+            arm = rep(p$name, length(p$enrolled)),
             enroller = 1L,
             dropper = 0L
           )
-          add_timepoints(timer, timepoints)
-          self$timer <- timer
-        }
-      } else {
-        self$timer <- timer
+        }))
+        # Filtering out NA enrollment times
+        timepoints <- timepoints[!is.na(timepoints$time), , drop = FALSE]
+
+        add_timepoints(timer, timepoints)
       }
-      
+
+      self$timer <- timer
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
-
+      self$plan_history <- list()
     },
 
     # --- methods ---
 
     #' @description
     #' Execute a trial simulation.
-    #'
     #' At each unique time defined by the trial's `Timer`:
     #' - Apply enrollment and dropout actions to each `Population`
     #' - Build a combined snapshot of all currently enrolled subjects
@@ -145,7 +180,22 @@ Trial <- R6::R6Class(
     #' - Evaluate all condition readers via `Timer$check_conditions()`
     #' - Store snapshots and condition outputs under time‑indexed list keys
     #'
-    #' @return Updates `locked_data` and `results` fields.
+    #' ## Adaptive schedule following
+    #' This method re-reads the plan (`timer$timelist`) at each iteration so that
+    #' any plan updates made within analysis functions take effect immediately
+    #' for subsequent timepoints.
+    #'
+    #' ## Plan auditing
+    #' If `track_plan = TRUE`, the method:
+    #' - stores `plan_original` and `conditions_original` on first tracked run
+    #' - records plan changes into `plan_history`
+    #'
+    #' @param track_plan `logical` If `TRUE`, capture original plan and log plan changes.
+    #' @param verbose `logical` Print progress messages.
+    #' @param future_only `logical` If `TRUE`, newly added timepoints <= last processed time are ignored.
+    #' @param keep_plan_snapshots `logical` If `TRUE`, store full before/after plan data.frames in `plan_history`.
+    #'
+    #' @return Invisibly returns `self`, with updated `locked_data` and `results`.
     #'
     #' @seealso [Timer], [prettify_results()].
     #'
@@ -173,73 +223,154 @@ Trial <- R6::R6Class(
     #' trial$run()
     #'
     #' prettify_results(trial$results)
-    run = function() {
+    run = function(
+    track_plan = TRUE,
+    verbose = FALSE,
+    future_only = TRUE,
+    keep_plan_snapshots = FALSE
+    ) {
+
       if (is.null(self$timer) || length(self$population) == 0) {
         stop("Timer and population list must be set before running run()")
       }
 
-      plan_df <- dplyr::bind_rows(self$timer$timelist)
-      if (nrow(plan_df) == 0L) {
-        return(invisible(self))
+      get_plan <- function() dplyr::bind_rows(self$timer$timelist)
+
+      # Plan parameters extracted and saved as list for use in history
+      plan_parameter <- function(df) {
+        if (is.null(df) || nrow(df) == 0L) return(NULL)
+        df2 <- df[, c("time", "arm", "enroller", "dropper")]
+        df2 <- df2[order(df2$arm, df2$time), , drop = FALSE]
+        list(
+          time = as.numeric(df2$time),
+          arm = as.character(df2$arm),
+          enroller = as.numeric(df2$enroller),
+          dropper = as.numeric(df2$dropper)
+        )
       }
 
-      # if( self$timer$get_n_arms() != length(self$population))
-      # {
-      #   stop("Need timers for the same amount of arms run()")
-      #
-      # }
+      # Build a named lookup of populations by arm (and prevent duplicates)
+      arm_names <- vapply(self$population, function(x) x$name, character(1))
+      if (anyDuplicated(arm_names)) {
+        stop("Duplicate arm names in population list: ",
+             paste(unique(arm_names[duplicated(arm_names)]), collapse = ", "))
+      }
+      # Create a named object
+      pop_by_arm <- setNames(self$population, arm_names)
 
-      for (i in sort(unique(plan_df$time))) {
-        # Apply enrollment/dropout updates to each population at this timepoint
-        for (p in self$population) {
-          idx <- which(plan_df$arm == p$name & plan_df$time == i)
-          if (length(idx) > 0L) {
-            enroller_n <- as.integer(sum(plan_df$enroller[idx], na.rm = TRUE))
-            dropper_n <- as.integer(sum(plan_df$dropper[idx], na.rm = TRUE))
+      if (track_plan && is.null(self$plan_original)) {
+        self$plan_original <- get_plan()
+        self$conditions_original <- self$timer$conditions
+        self$plan_history <- list()
+      }
 
-            if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
-              p$set_enrolled(enroller_n, time = i)
+      processed <- numeric(0)
+      last_time <- -Inf
+
+      last_plan <- get_plan()
+      if (is.null(last_plan) || nrow(last_plan) == 0L) return(invisible(self))
+      last_sig <- plan_parameter(last_plan)
+
+      repeat {
+
+        plan_df <- get_plan()
+        if (is.null(plan_df) || nrow(plan_df) == 0L) break
+
+        if (track_plan) {
+          sig <- plan_parameter(plan_df)
+          if (!identical(sig, last_sig)) {
+            entry <- list(
+              changed_after_time = if (is.finite(last_time)) last_time else NA,
+              old_signature = last_sig,
+              new_signature = sig
+            )
+            if (keep_plan_snapshots) {
+              entry$old_plan <- last_plan
+              entry$new_plan <- plan_df
             }
-
-            if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
-              p$set_dropped(dropper_n, time = i)
-            }
+            self$plan_history[[length(self$plan_history) + 1]] <- entry
+            if (verbose) message("Plan changed (logged).")
+            last_sig <- sig
+            last_plan <- plan_df
           }
         }
 
-        # Create snapshots of enrolled subjects from all populations
-        locked_snapshot_list <- lapply(self$population, function(p) {
-          keep <- !is.na(p$enrolled)
-          cbind(
-            subject_id = rep(x=seq_len(sum(keep)), times = p$n_readouts),
-            p$data[keep, , drop = FALSE],
-            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
+        remaining_times <- sort(setdiff(unique(plan_df$time), processed))
+        if (future_only) remaining_times <- remaining_times[remaining_times > last_time]
+        if (length(remaining_times) == 0) break
+
+        i <- remaining_times[1]
+        processed <- c(processed, i)
+        last_time <- i
+
+        if (verbose) cat("\n=== Trial loop time:", i, "===\n")
+
+        actions_i <- plan_df |>
+          dplyr::filter(.data$time == i) |>
+          dplyr::group_by(.data$arm) |>
+          dplyr::summarise(
+            enroller_n = as.integer(sum(.data$enroller, na.rm = TRUE)),
+            dropper_n  = as.integer(sum(.data$dropper,  na.rm = TRUE)),
+            .groups = "drop"
           )
-        })
 
-        combined <- do.call(rbind, locked_snapshot_list)
+        # Apply actions
+        if (nrow(actions_i) > 0L) {
+          purrr::pwalk(
+            actions_i,
+            function(arm, enroller_n, dropper_n) {
+              p <- pop_by_arm[[arm]]
+              if (is.null(p)) return(NULL)
 
-        if (is.null(combined) || nrow(combined) == 0L) {
-          next
+              if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
+                p$set_enrolled(as.integer(enroller_n), time = i)
+              }
+              if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
+                p$set_dropped(as.integer(dropper_n), time = i)
+              }
+              NULL
+            }
+          )
         }
 
-        # Add measurement and current time column
-        combined$measurement_time <- combined$readout_time + combined$enroll_time
-        combined$time <- rep(i, nrow(combined))
+        # Rebuild snapshot using explicit id_map
+        locked_snapshot <- purrr::map_dfr(self$population, function(p) {
 
-        # Check all conditions on the combined snapshot
+          ids <- p$id_map
+          if (is.null(ids)) ids <- unique(p$data$id)
+
+          status <- data.frame(
+            id = ids,
+            enroll_time = p$enrolled,
+            drop_time   = p$dropped
+          )
+
+          status <- status[!is.na(status$enroll_time), , drop = FALSE]
+          if (nrow(status) == 0L) return(NULL)
+
+          dplyr::inner_join(p$data, status, by = "id") |>
+            dplyr::mutate(subject_id = .data$id)
+        })
+
+        if (is.null(locked_snapshot) || nrow(locked_snapshot) == 0L) next
+
+        locked_snapshot <- locked_snapshot |>
+          dplyr::mutate(
+            measurement_time = .data$readout_time + .data$enroll_time,
+            time = i
+          )
+
         results <- self$timer$check_conditions(
-          locked_data  = combined,
+          locked_data  = locked_snapshot,
           current_time = i
         )
 
-        # Store only if there are results
         if (length(results) > 0) {
-          self$locked_data[[paste0("time_", i)]] <- combined
+          self$locked_data[[paste0("time_", i)]] <- locked_snapshot
           self$results[[paste0("time_", i)]] <- results
         }
       }
+
       invisible(self)
     }
   ) # end public

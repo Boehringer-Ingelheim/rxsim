@@ -53,6 +53,9 @@ Population <- R6::R6Class(
     #' @field n_readouts `integer` Number of readout_times in the population.
     n_readouts = NULL,
 
+    #' @field id_map `vector` Canonical subject id order used to align enrolled/dropped with `id`.
+    id_map = NULL,
+
     # --- constructor ---
     #' @description
     #' Create a new `Population` instance.
@@ -70,12 +73,12 @@ Population <- R6::R6Class(
     #' @examples
     #' Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
     initialize = function(
-      name,
-      data = NULL,
-      enrolled = NULL,
-      dropped = NULL,
-      n = NULL,
-      n_readouts = NULL
+    name,
+    data = NULL,
+    enrolled = NULL,
+    dropped = NULL,
+    n = NULL,
+    n_readouts = NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
@@ -94,7 +97,11 @@ Population <- R6::R6Class(
       }
 
       self$data <- data
-      self$n <- length(unique(self$data$id))
+
+      # id_map fixes the id/enrolled alignment: enrolled[i] and dropped[i] correspond to id_map[i]
+      self$id_map <- unique(self$data$id)
+
+      self$n <- length(self$id_map)
       self$n_readouts <- (dim(self$data)[1] / self$n)
 
       # Initialize enrollment/dropout status if not provided
@@ -195,7 +202,11 @@ Population <- R6::R6Class(
         data$arm <- self$name
       }
       self$data <- data
-      self$n <- nrow(self$data)
+
+      self$id_map <- unique(self$data$id)
+      self$n <- length(self$id_map)
+      self$n_readouts <- (dim(self$data)[1] / self$n)
+
       self$dropped <- rep(NA, self$n)
       self$enrolled <- rep(NA, self$n)
       invisible(self)

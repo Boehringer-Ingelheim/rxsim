@@ -6,17 +6,35 @@
 \description{
 The \code{Trial} class coordinates one or more \code{Population} objects and a \code{Timer}
 to simulate a clinical trial.
+\subsection{Core simulation loop}{
 
-At each unique time defined in the trial's \code{Timer}, the \code{Trial}:
+At each timepoint, the \code{Trial}:
 \itemize{
 \item applies enrollment and dropout updates to each \code{Population}
-\item builds a snapshot of all currently enrolled subjects
+\item builds a snapshot of all currently enrolled subjects ("locked" snapshot)
 \item evaluates all conditions in the \code{Timer}
-\item stores both the snapshot \code{locked_data} and the analysis outputs \code{results}
+\item stores both the snapshot (\code{locked_data}) and analysis outputs (\code{results})
+}
 }
 
-Use \code{run()} to execute the simulation. Trigger conditions are best added with
-helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} or \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}.
+\subsection{Adaptive scheduling}{
+
+Unlike a static run-loop that freezes the plan at start, this implementation
+re-reads the timer's timepoint plan (\code{timer$timelist}) at each iteration.
+Therefore, if an analysis function modifies \code{timer$timelist}, those changes
+can affect future timepoints during the same \code{run()} call.
+}
+
+\subsection{Audit trail}{
+
+If \code{track_plan = TRUE}, the \code{Trial} stores:
+\itemize{
+\item \code{plan_original}: the initial plan at the beginning of the run
+\item \code{conditions_original}: the condition list at the beginning of the run
+\item \code{plan_history}: entries recording when the plan changed, including signatures
+and (optionally) full before/after plan snapshots.
+}
+}
 }
 \examples{
 # Create two populations
@@ -30,7 +48,7 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 
-# Add trigger for final analysis at time 2
+# Add a trigger for final analysis at time 2
 trigger_by_calendar(2, t, analysis = function(df, current_time) {
   nrow(df)
 })
@@ -105,9 +123,15 @@ prettify_results(trial$results)
 
 \item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
-\item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
+\item{\code{locked_data}}{\code{list} Snapshots at each timepoint (stored when conditions return output).}
 
-\item{\code{results}}{\code{list} Analysis outputs per condition.}
+\item{\code{results}}{\code{list} Analysis outputs per condition/timepoint.}
+
+\item{\code{plan_original}}{\code{data.frame} Plan snapshot captured at start of the first tracked run.}
+
+\item{\code{conditions_original}}{\code{list} Conditions captured at start of the first tracked run.}
+
+\item{\code{plan_history}}{\code{list} Plan change log entries (signatures and optional snapshots).}
 }
 \if{html}{\out{</div>}}
 }
@@ -175,7 +199,6 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 \if{latex}{\out{\hypertarget{method-Trial-run}{}}}
 \subsection{Method \code{run()}}{
 Execute a trial simulation.
-
 At each unique time defined by the trial's \code{Timer}:
 \itemize{
 \item Apply enrollment and dropout actions to each \code{Population}
@@ -184,12 +207,45 @@ At each unique time defined by the trial's \code{Timer}:
 \item Evaluate all condition readers via \code{Timer$check_conditions()}
 \item Store snapshots and condition outputs under time‑indexed list keys
 }
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Trial$run()}\if{html}{\out{</div>}}
+\subsection{Adaptive schedule following}{
+
+This method re-reads the plan (\code{timer$timelist}) at each iteration so that
+any plan updates made within analysis functions take effect immediately
+for subsequent timepoints.
 }
 
+\subsection{Plan auditing}{
+
+If \code{track_plan = TRUE}, the method:
+\itemize{
+\item stores \code{plan_original} and \code{conditions_original} on first tracked run
+\item records plan changes into \code{plan_history}
+}
+}
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Trial$run(
+  track_plan = TRUE,
+  verbose = FALSE,
+  future_only = TRUE,
+  keep_plan_snapshots = FALSE
+)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{track_plan}}{\code{logical} If \code{TRUE}, capture original plan and log plan changes.}
+
+\item{\code{verbose}}{\code{logical} Print progress messages.}
+
+\item{\code{future_only}}{\code{logical} If \code{TRUE}, newly added timepoints <= last processed time are ignored.}
+
+\item{\code{keep_plan_snapshots}}{\code{logical} If \code{TRUE}, store full before/after plan data.frames in \code{plan_history}.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
-Updates \code{locked_data} and \code{results} fields.
+Invisibly returns \code{self}, with updated \code{locked_data} and \code{results}.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
