@@ -255,7 +255,7 @@ Trial <- R6::R6Class(
         stop("Duplicate arm names in population list: ",
              paste(unique(arm_names[duplicated(arm_names)]), collapse = ", "))
       }
-      #Create a names object
+      # Create a named object
       pop_by_arm <- setNames(self$population, arm_names)
 
       if (track_plan && is.null(self$plan_original)) {
