@@ -76,8 +76,8 @@ analysis_generators <- list(
       data.frame(
         scenario,
         n_total    = nrow(df_enrolled),
-        n_pbo      = sum(df_enrolled$arm == "pbo"),
-        n_trt      = sum(df_enrolled$arm == "trt"),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
         logrank_p  = surv_p,
         hr_cox     = hr,
         hr_cox_p   = hr_p,
