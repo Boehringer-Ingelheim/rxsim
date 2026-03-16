@@ -2,7 +2,7 @@
 title: "Example 10: Two arm | Fixed design | TTE"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
+  %\VignetteIndexEntry{Example 10: Two arm | Fixed design | TTE}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -58,34 +58,32 @@ analysis_generators <- list(
     analysis = function(df, timer){
       df_enrolled <- df |> subset(!is.na(enroll_time))
       
+      ## Log-Rank Test
+      surv_p <- tryCatch({
+          sd <- survdiff(value ~ arm, data = df_enrolled)
+          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+        }, error = function(e) NA_real_)
+      
       ## HR from PH Cox model
-      fit_coxph <- survival::coxph(
-        Surv(ep, ep_event) ~ I(arm != 'soc'),
-        data = df_enrolled) %>%
-        summary() %>%
-        coef()
-    
-      fit1 <- data.frame(
-        p = pnorm(fit_coxph[1, 'z'], lower.tail = TRUE),
-        estimate = fit_coxph[1, 'exp(coef)']
-      )
-    
-      ## logrank test
-      fit_logrank <- survival::survdiff(
-        Surv(ep, ep_event) ~ I(arm != 'soc'),
-        data = locked_data)
-    
-      fit2 <- pnorm(sqrt(fit_logrank$chisq) * sign(fit_coxph[1, 'coef']),
-                    lower.tail = TRUE)
+        cox <- tryCatch(coxph(value ~ arm, data = df_enrolled), error = function(e) NULL)
+        if (!is.null(cox)) {
+          s <- summary(cox)
+          hr_p <- pnorm(s$coef[1, 'z'], lower.tail = TRUE)
+          hr    <- unname(s$coef[1, "exp(coef)"])
+          hr_lo <- unname(s$conf.int[1, "lower .95"])
+          hr_hi <- unname(s$conf.int[1, "upper .95"])
+        }
   
       data.frame(
         scenario,
-        n_total = nrow(df_enrolled),
-        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
-        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(fit1$p),
-        estimate = unname(fit1$estimate),
-        lr_pval = fit2,
+        n_total    = nrow(df_enrolled),
+        n_pbo      = sum(df_enrolled$arm == "pbo"),
+        n_trt      = sum(df_enrolled$arm == "trt"),
+        logrank_p  = surv_p,
+        hr_cox     = hr,
+        hr_cox_p   = hr_p,
+        hr_ci_lo   = hr_lo,
+        hr_ci_hi   = hr_hi,
         stringsAsFactors = FALSE
       )
     }

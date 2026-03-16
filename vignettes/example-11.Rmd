@@ -1,47 +1,142 @@
 ---
 title: "Example 11: Two arm | Fixed design | Bivariate TTE"
-format: html
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 11: Two arm | Fixed design | Bivariate TTE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup}
-devtools::load_all("../rxsim/")
+# Core package that provides Timer, Population, Trial, gen_timepoints, add_timepoints, ...
+library(rxsim)
+
+# Utilities
+library(dplyr)
+library(MASS)   # for mvrnorm (simulate correlated endpoints)
 ```
 
 ## Scenario
-Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+We consider a **two-arm, fixed design** with **two correlated time to event endpoints** per subject.  
+Enrollment is piece-wise linear; analysis happens **once at the final time**.
 
 ```{r scenario}
+# Total target sample size
 sample_size <- 100
-arms <- c("pbo", "trt")
-allocation <- c(1,1)
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
+
+# Arms and allocation (balanced)
+arms       <- c("pbo", "trt")
+allocation <- c(1, 1)
+
+# Piece-wise linear enrollment and dropout rates (per unit time)
+# (You can tweak these to match your program's cadence.)
+enrollment <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(5, 10, 15, 20)
+)
+dropout <- list(
+  end_time = c(4, 8, 12, 16),
+  rate     = c(1, 2, 4, 8)
+)
+
+# Endpoint model parameters
+# Endpoint correlation structure (common across arms for simplicity)
+rho  <- 0.60            # correlation between endpoint1 and endpoint2
+sd1  <- 1.00            # SD of endpoint1
+sd2  <- 1.00            # SD of endpoint2
+
+# Mean structure per arm
+mu1_pbo <- 0.00         # Control mean for endpoint1
+mu2_pbo <- 0.00         # Control mean for endpoint2
+
+# Treatment effects (mean shifts)
+delta1  <- 0.30         # Treatment - control difference for endpoint1
+delta2  <- 0.20         # Treatment - control difference for endpoint2
+
+mu1_trt <- mu1_pbo + delta1
+mu2_trt <- mu2_pbo + delta2
+
+# Construct covariance matrix
+Sigma <- matrix(
+  c(sd1^2, rho*sd1*sd2,
+    rho*sd1*sd2, sd2^2),
+  nrow = 2, byrow = TRUE
+)
+
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation = list(allocation),
+  rho = rho,
+  delta1 = delta1,
+  delta2 = delta2
 )
 ```
 
-## Populations
-Define population generators.
+## Time points
+
+Generate timeline of discrete timepoints and add them to a `Timer`.
+
+```{r timepoints}
+timepoints <- gen_timepoints(
+  sample_size = sample_size,
+  arms        = arms,
+  allocation  = allocation,
+  enrollment  = enrollment,
+  dropout     = dropout
+)
+
+t <- Timer$new(name = "trial_timer_two_endpoints")
+add_timepoints(t, timepoints)
+
+final_time <- t$get_end_timepoint()
+final_time
+```
+
+## Arms (Populations)
+
+For each arm we simulate **two correlated endpoints** per subject using `MASS::mvrnorm`.  
+We keep **50** subjects per arm (consistent with `sample_size = 100` and equal allocation).
 
 ```{r population}
+# Create closure to capture parameters
+mk_population_generator <- function(mu_y1, mu_y2) {
+  function(n) {
+    xy <- MASS::mvrnorm(
+      n     = n,
+      mu    = c(mu_y1, mu_y2),
+      Sigma = Sigma
+    )
+    data.frame(
+      id = seq_len(n),
+      y1 = xy[, 1],
+      y2 = xy[, 2],
+      readout_time = 1
+    )
+  }
+}
+
 population_generators <- list(
-  pbo = function(n) data.frame(
-    id = 1:n,
-    value = rbinom(n, size = 1, prob = 0.1),
-    readout_time = 1
-  ),
-  trt = function(n) data.frame(
-    id = 1:n,
-    value = rbinom(n, size = 1, prob = 0.18),
-    readout_time = 1
-  )
+  pbo = mk_population_generator(mu1_pbo, mu2_pbo),
+  trt = mk_population_generator(mu1_trt, mu2_trt)
 )
 ```
 
-## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+## Trial Parameters
+
+Define enrollment/dropout profiles and parameters.
+
+```{r trial_params}
+arms <- c("pbo", "trt")
+allocation <- c(1, 1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
+```
+
+## Trigger & Analysis
+
+This is a **fixed design**: perform analysis **once**.  
+We run two independent two-sample t-tests (one per endpoint).
 
 ```{r trigger}
 analysis_generators <- list(
@@ -49,20 +144,22 @@ analysis_generators <- list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
-    analysis = function(df, timer){
-      df_enrolled <- df |> subset(!is.na(enroll_time))
-      
-      logreg <- glm(value ~ arm, data = df_enrolled, family = "binomial") #logistic regression
-      odds_ratio <- exp(coef(logreg)["armtrt"])
-      logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
-      logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
-  
+    analysis = function(df, timer) {
+      df_e <- df |> subset(!is.na(enroll_time))
+
+      p1 <- t.test(y1 ~ arm, data = df_e)$p.value
+      p2 <- t.test(y2 ~ arm, data = df_e)$p.value
+      padj <- p.adjust(c(p1, p2), method = "holm")
+
       data.frame(
         scenario,
-        n_total = nrow(df_enrolled),
-        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
-        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(logreg_p),
+        p_y1      = unname(p1),
+        p_y2      = unname(p2),
+        p_holm_y1 = unname(padj[1]),
+        p_holm_y2 = unname(padj[2]),
+        n_total   = nrow(df_e),
+        n_pbo     = sum(df_e$arm == "pbo"),
+        n_trt     = sum(df_e$arm == "trt"),
         stringsAsFactors = FALSE
       )
     }
@@ -71,11 +168,13 @@ analysis_generators <- list(
 ```
 
 ## Trial
-Make multiple trial replicates.
+
+Create and run the trial.  
+(We supply a `seed` for reproducibility inside the trial engine—e.g., enrollment/dropout sampling.)
 
 ```{r trial}
 trials <- replicate_trial(
-  trial_name = "test_trial",
+  trial_name = "two_endpoints_fixed_design",
   sample_size = sample_size,
   arms = arms,
   allocation = allocation,
@@ -88,13 +187,15 @@ trials <- replicate_trial(
 ```
 
 ## Simulate
-To simulate all replicates:
 
 ```{r sim}
 run_trials(trials)
 ```
 
-Bind one row per replicate into one data frame.
+## Results
+
+One row per replicate, row-bound across all replicates:
+
 ```{r results}
 replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
   data.frame(
