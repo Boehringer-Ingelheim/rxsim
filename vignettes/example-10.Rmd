@@ -67,7 +67,7 @@ analysis_generators <- list(
         cox <- tryCatch(coxph(value ~ arm, data = df_enrolled), error = function(e) NULL)
         if (!is.null(cox)) {
           s <- summary(cox)
-          hr_p <- pnorm(s$coef[1, 'z'], lower.tail = TRUE)
+          hr_p <- unname(pnorm(s$coef[1, 'z'], lower.tail = TRUE))
           hr    <- unname(s$coef[1, "exp(coef)"])
           hr_lo <- unname(s$conf.int[1, "lower .95"])
           hr_hi <- unname(s$conf.int[1, "upper .95"])
