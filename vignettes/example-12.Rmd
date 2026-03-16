@@ -1,10 +1,14 @@
 ---
 title: "Example 12: Two arm | Interim design | Binary"
-format: html
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup}
-devtools::load_all("../rxsim/")
+library(rxsim)
 ```
 
 ## Scenario
@@ -41,11 +45,11 @@ population_generators <- list(
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+Final analysis at full enrollment.
 
 ```{r trigger}
 analysis_generators <- list(
-  final = list(
+  interim_final = list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
@@ -56,7 +60,7 @@ analysis_generators <- list(
       odds_ratio <- exp(coef(logreg)["armtrt"])
       logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
       logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
-  
+      
       data.frame(
         scenario,
         n_total = nrow(df_enrolled),
@@ -99,7 +103,7 @@ Bind one row per replicate into one data frame.
 replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
   data.frame(
     replicate = i,
-    trials[[i]]$results[[1]]$final,
+    trials[[i]]$results[[1]]$interim_final,
     stringsAsFactors = FALSE
   )
 }))

@@ -1,10 +1,14 @@
 ---
 title: "Example 9: Two arm | Fixed design | Binary"
-format: html
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup}
-devtools::load_all("../rxsim/")
+library(rxsim)
 ```
 
 ## Scenario
@@ -41,7 +45,7 @@ population_generators <- list(
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+We want to do a logistic regression analysis when 100 subjects have been enrolled.
 
 ```{r trigger}
 analysis_generators <- list(
