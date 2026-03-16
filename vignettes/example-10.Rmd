@@ -23,8 +23,7 @@ enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation),
-  medians = medians 
+  allocation = list(allocation)
 )
 ```
 
@@ -35,12 +34,12 @@ Define population generators.
 population_generators <- list(
   pbo = function(n) data.frame(
     id = 1:n,
-    value = log(2) / medians['soc'],
+    value = rexp(n, log(2) / medians['soc']),
     readout_time = 1
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = log(2) / medians['trt'],
+    value = rexp(n, log(2) / medians['trt']),
     readout_time = 1
   )
 )
