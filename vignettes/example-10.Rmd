@@ -1,331 +1,108 @@
-{
-  "cells": [
-    {
-      "cell_type": "markdown",
-      "metadata": {},
-      "source": [
-        "---\n",
-        "title: \"Template for a phase III study with interim analyses\"\n",
-        "format: html\n",
-        "editor: visual\n",
-        "---\n",
-        "\n",
-        "## Prerequistite\n",
-        "\n",
-        "This template assumes prior familiarity with the R package `TrialSimulator`. In particular, users are expected to understand the member functions for defining endpoints, arms, trial, and milestones provided by the package. To install the package, run\n",
-        "\n",
-        "```{r}\n",
-        "#| eval: false\n",
-        "#| echo: true\n",
-        "if (!require(\"remotes\")) {\n",
-        "  install.packages(\"remotes\")\n",
-        "}\n",
-        "remotes::install_github(\n",
-        "  \"zhangh12/TrialSimulator\", \n",
-        "  build_manual = TRUE, \n",
-        "  build_vignettes = TRUE, \n",
-        "  force = TRUE\n",
-        ")\n",
-        "```\n",
-        "\n",
-        "Before using this template, we recommend reviewing the following vignettes depending on the type of endpoints in trials:\n",
-        "\n",
-        "-   [Define Time-to-Event Endpoints in Clinical Trials](https://zhangh12.github.io/TrialSimulator/articles/defineTimeToEventEndpoints.html)\n",
-        "\n",
-        "-   [Define Non-Time-to-Event Endpoints in Clinical Trials](https://zhangh12.github.io/TrialSimulator/articles/defineNonTimeToEventEndpoints.html)\n",
-        "\n",
-        "-   [Define Longitudinal Endpoints in Clinical Trials](https://zhangh12.github.io/TrialSimulator/articles/defineLongitudinalEndpoints.html)\n",
-        "\n",
-        "`TrialSimulator` supports a condition-based system to define the milestones of a trial, which can be used to specify the time of creating data snapshots for statistical analysis and decision making. We recommend reviewing the vignette\n",
-        "\n",
-        "-   [Condition System for Triggering Milestones in Clinical Trials](https://zhangh12.github.io/TrialSimulator/articles/conditionSystem.html)\n",
-        "\n",
-        "## Environment Setup\n",
-        "\n",
-        "This template requires a reproducible R environment managed by the `renv` package. All necessary packages and their specific versions are recorded in the `renv.lock` file included with this template. To set up the environment, run\n",
-        "\n",
-        "```{r}\n",
-        "#| eval: false\n",
-        "#| echo: true\n",
-        "install.packages(\"renv\")\n",
-        "renv::restore()\n",
-        "```\n",
-        "\n",
-        "This will automatically install the required packages and configure your session to match the template's development environment.\n",
-        "\n",
-        "## Design\n",
-        "\n",
-        "In this template, we consider a randomized phase III study as follows\n",
-        "\n",
-        "-   Start with one standard-of-care arm and a treatment arm, with a 1:2 randomization ratio.\n",
-        "-   Planned trial duration is up to 40 months.\n",
-        "-   Randomize 50 patients per month for the first 6 months, then 65 patients per month until 650 patients are recruited.\n",
-        "-   Dropout rate is 5% at month 12 and 12% at month 24.\n",
-        "-   Two possibly correlated time-to-event endpoints `PFS` and `OS`.\n",
-        "    -   Medians of `PFS` in placebo and treated arms are 8.3 and 11.5 months, approximately a hazard ratio 0.72\n",
-        "    -   Medians of `OS` in placebo and treated arms are 14.5 and 19.3 months, approximately a hazard ratio 0.75\n",
-        "-   As an illustration, `PFS` and `OS` are both tested with one-sided `logrank` test to obtained their p-values. However, this template will not illustrate how to combine the p-values to control family-wise error rate as it is out of the scope.\n",
-        "-   A group sequential design is adopted\n",
-        "    -   Interim analysis is performed for both `PFS` and `OS` when 250 `PFS` events are observed.\n",
-        "    -   No futility analysis.\n",
-        "    -   Final analysis is performed for both endpoints when all planned patients are randomized and at least 400 `OS` events are observed. However, if the target number of `OS` events cannot be reached, the final analysis is performed at month 40.\n",
-        "\n",
-        "## Implementation\n",
-        "\n",
-        "### Loading relevant packages\n",
-        "\n",
-        "```{r}\n",
-        "#| output: false\n",
-        "library(dplyr)\n",
-        "library(TrialSimulator)\n",
-        "library(kableExtra)\n",
-        "set.seed(12345)\n",
-        "```\n",
-        "\n",
-        "### Helper functions\n",
-        "\n",
-        "In this section, we define helper functions that are task-specific. For example, statistician may simulate correlated `PFS` and `OS` in various ways. For the purpose of illustration, we show a user-defined function (random number generator) to simulate independent endpoints, i.e. `corr` is currently a dummy argument. It is mandatory that a user-defined generator always has its first argument `n`, the number of observations to be sampled. All other arguments are arbitrary.\n",
-        "\n",
-        "```{r}\n",
-        "#' Simulate correlated PFS and OS. Marginally, both endpoints follow exponential distribution. \n",
-        "#' Users should customize this function to fit their needs. For example, endpoints could follow \n",
-        "#' other marginal distributions, specific correlation could be used, or additional \n",
-        "#' endpoints/covariates can be simulated, or more arguments are added.  \n",
-        "#' @param n integer. Number of samples. \n",
-        "#' @param median_pfs numeric. Median of PFS in an arm. \n",
-        "#' @param median_os numeric. Median of OS in an arm. \n",
-        "#' @param corr numeric. Parameter of correlation between PFS and OS. \n",
-        "#' @returns a data frame\n",
-        "correlated_pfs_os <- function(n, median_pfs, median_os, corr = .0){\n",
-        "  pfs <- rexp(n, rate = log(2) / median_pfs)\n",
-        "  os <- rexp(n, rate = log(2) / median_os)\n",
-        "  \n",
-        "  ## if the two endpoints in this example, PFS and OS are claimed as \n",
-        "  ## time-to-event (tte) endpoints in the endpoint() function below, \n",
-        "  ## event columns should be returned in the data frames for each of \n",
-        "  ## the tte endpoints. Columns should be named as {endpoint name}_event. \n",
-        "  data.frame(pfs = pfs, os = os, pfs_event = 1, os_event = 1)\n",
-        "}\n",
-        "```\n",
-        "\n",
-        "### Define Endpoints and Arms\n",
-        "\n",
-        "::: panel-tabset\n",
-        "## Standard of Care\n",
-        "\n",
-        "```{r}\n",
-        "pfs_and_os_in_soc <- endpoint(name = c('pfs', 'os'), type = c('tte', 'tte'), \n",
-        "                              generator = correlated_pfs_os, \n",
-        "                              median_pfs = 8.3, median_os = 14.5)\n",
-        "soc <- arm(name = 'SoC')\n",
-        "soc$add_endpoints(pfs_and_os_in_soc)\n",
-        "```\n",
-        "\n",
-        "## Treated\n",
-        "\n",
-        "```{r}\n",
-        "pfs_and_os_in_trt <- endpoint(name = c('pfs', 'os'), type = c('tte', 'tte'), \n",
-        "                              generator = correlated_pfs_os, \n",
-        "                              median_pfs = 11.5, median_os = 19.3)\n",
-        "trt <- arm(name = 'treated')\n",
-        "trt$add_endpoints(pfs_and_os_in_trt)\n",
-        "```\n",
-        ":::\n",
-        "\n",
-        "### Define A Trial\n",
-        "\n",
-        "We use the Weibull distribution to model dropout. The `TrialSimulator` package provides a helper function to compute the shape and scale parameters of the Weibull distribution if user want to specify dropout rates at two time points.\n",
-        "\n",
-        "```{r}\n",
-        "weibullDropout(time = c(12, 24), dropout_rate = c(.05, .12))\n",
-        "```\n",
-        "\n",
-        "To define a trial, we first need to specify how patients are recruited. This can be done by specifying `accrual_rate`, which is a data frame required by the function `StaggeredRecruiter` that defines a staggered recruitment. Two columns `end_time` and `piecewise_rate` are required. For more information, see `?TrialSimulator::StaggeredRecruiter`.\n",
-        "\n",
-        "```{r}\n",
-        "#| output: false\n",
-        "accrual_rate <- data.frame(end_time = c(6, Inf), \n",
-        "                           piecewise_rate = c(50, 65))\n",
-        "```\n",
-        "\n",
-        "Then we initialize a trial\n",
-        "\n",
-        "```{r}\n",
-        "#| output: false\n",
-        "trial <- trial(\n",
-        "  name = 'trial-123', n_patients = 650, duration = 40, \n",
-        "  enroller = StaggeredRecruiter, accrual_rate = accrual_rate, \n",
-        "  dropout = rweibull, shape = 1.32, scale = 114.4\n",
-        ")\n",
-        "\n",
-        "trial$add_arms(sample_ratio = c(1, 2), soc, trt)\n",
-        "```\n",
-        "\n",
-        "Note that the `shape` and `scale` arguments are used to specify `Weibull` as the dropout distribution. Any other distribution can be used. The following example shows the use of an exponential distribution by specifying the `rate` argument.\n",
-        "\n",
-        "```{r}\n",
-        "#| eval: false\n",
-        "#' Not executed. Illustration purpose only\n",
-        "trial <- trial(\n",
-        "  name = 'trial-123', n_patients = 650, duration = 40, \n",
-        "  enroller = StaggeredRecruiter, accrual_rate = accrual_rate, \n",
-        "  dropout = rexp, rate = .3\n",
-        ")\n",
-        "```\n",
-        "\n",
-        "### Define Actions at Milestones\n",
-        "\n",
-        "For more information about defining milestones, users can refer to [Condition System for Triggering Milestones in Clinical Trials](https://zhangh12.github.io/TrialSimulator/articles/conditionSystem.html).\n",
-        "\n",
-        "We need to implement custom action functions for each of the milestones. An action function is executed automatically when the corresponding milestone is triggered. In an action function, we recommend to call `trial$get_locked_data(milestone_name)` to get access of a data frame of the data snapshot. We can then carry out statistical analysis based on the snapshot.\n",
-        "\n",
-        "Since the only adaptation for an endpoint is via group sequential design, we can use `logrank` p-values of cumulative data.\n",
-        "\n",
-        "In the actions, two member functions `save` and `bind` are used to save intermediate results during a trial. Users can refer to `TrialSimulator::Trials` for more information about these functions.\n",
-        "\n",
-        "::: panel-tabset\n",
-        "## Interim\n",
-        "\n",
-        "```{r}\n",
-        "action_at_interim <- function(trial, milestone_name){\n",
-        "  \n",
-        "  ## get data snapshot\n",
-        "  locked_data <- trial$get_locked_data(milestone_name)\n",
-        "  ## When developing the action function, you can get locked_data by running \n",
-        "  ## trial$get_locked_data('interim analysis') in console \n",
-        "  ## and then work from there\n",
-        "  \n",
-        "  ## codes below this line are customized to conduct statistical \n",
-        "  ## tests and save results\n",
-        "  ## fitLogrank is a function provided by TrialSimulator, \n",
-        "  ## see ?TrialSimulator::fitLogrank\n",
-        "  ## users can use custom codes to do log-rank test \n",
-        "  ## (and any other tests with locked data snapshots)\n",
-        "  pfs <- fitLogrank(Surv(pfs, pfs_event) ~ arm, placebo = 'SoC', \n",
-        "                    data = locked_data, alternative = 'less')\n",
-        "  \n",
-        "  os <- fitLogrank(Surv(os, os_event) ~ arm, placebo = 'SoC', \n",
-        "                   data = locked_data, alternative = 'less')\n",
-        "  \n",
-        "  ## see help doc of bind() in ?TrialSimulator::Trials\n",
-        "  trial$bind(value = pfs, name = 'pfs_result')\n",
-        "  trial$bind(value = os, name = 'os_result')\n",
-        "  \n",
-        "  ## save anything you like for summary later\n",
-        "  ## see help doc of save() in ?TrialSimulator::Trials\n",
-        "  # trial$save(value = ..., name = ...)\n",
-        "}\n",
-        "```\n",
-        "\n",
-        "## Final\n",
-        "\n",
-        "```{r}\n",
-        "#' action at final analysis is very similar to the one at interim\n",
-        "action_at_final <- function(trial, milestone_name){\n",
-        "  \n",
-        "  ## get data snapshot\n",
-        "  locked_data <- trial$get_locked_data(milestone_name)\n",
-        "  ## When developing the action function, you can get locked_data by running \n",
-        "  ## trial$get_locked_data('final analysis') in console \n",
-        "  ## and then work from there\n",
-        "  \n",
-        "  ## codes below this line are customized to conduct statistical tests and save results\n",
-        "  pfs <- fitLogrank(Surv(pfs, pfs_event) ~ arm, placebo = 'SoC', \n",
-        "                    data = locked_data, alternative = 'less')\n",
-        "  \n",
-        "  os <- fitLogrank(Surv(os, os_event) ~ arm, placebo = 'SoC', \n",
-        "                   data = locked_data, alternative = 'less')\n",
-        "  \n",
-        "  ## see help doc of bind() in ?TrialSimulator::Trials\n",
-        "  trial$bind(value = pfs, name = 'pfs_result')\n",
-        "  trial$bind(value = os, name = 'os_result')\n",
-        "  \n",
-        "  ## Now we have p-values and other testing statistics, \n",
-        "  ## it is up to user to use it in decision making\n",
-        "  ## add custom codes if any\n",
-        "  ## For example, graphical test or combination test can be performed.\n",
-        "  \n",
-        "  ## save testing decisions for PFS and OS\n",
-        "  ## 'reject' and 'accept' are for illustration only\n",
-        "  trial$save(value = 'reject', name = 'pfs_decision')\n",
-        "  trial$save(value = 'accept', name = 'os_decision')\n",
-        "  \n",
-        "  ## save time of making the decisions for PFS and OS\n",
-        "  ## NA is for illustration only\n",
-        "  trial$save(value = NA, name = 'pfs_decision_time')\n",
-        "  trial$save(value = NA, name = 'os_decision_time')\n",
-        "  \n",
-        "  ## save anything you like for summary later\n",
-        "  # trial$save(value = ..., name = ...)\n",
-        "  \n",
-        "}\n",
-        "```\n",
-        ":::\n",
-        "\n",
-        "We plan two milestones for interim and final analysis.\n",
-        "\n",
-        "::: panel-tabset\n",
-        "## Interim\n",
-        "\n",
-        "```{r}\n",
-        "interim <- milestone(name = 'interim analysis', \n",
-        "                     when = eventNumber(endpoint = 'pfs', n = 250), \n",
-        "                     action = action_at_interim)\n",
-        "```\n",
-        "\n",
-        "## Final\n",
-        "\n",
-        "```{r}\n",
-        "final <- milestone(name = 'final analysis', \n",
-        "                   when = (\n",
-        "                     enrollment(n = 650) & \n",
-        "                       eventNumber(endpoint = 'os', n = 400)\n",
-        "                     ) | calendarTime(time = 40), \n",
-        "                   action = action_at_final)\n",
-        "```\n",
-        ":::\n",
-        "\n",
-        "We then register the two milestones to a listener who will monitor the trial.\n",
-        "\n",
-        "```{r}\n",
-        "#| output: false\n",
-        "listener <- listener()\n",
-        "#' register trial events with the listener\n",
-        "listener$add_milestones(interim, final)\n",
-        "```\n",
-        "\n",
-        "### Execute a Trial\n",
-        "\n",
-        "To execute a trial, we call the member function `run` in the controller of the trial and listener. Here we simulate one trial, so that a plot of cumulative events are generated automatically for each of the endpoints. We can set `n` to a larger integer for more replicates.\n",
-        "\n",
-        "```{r}\n",
-        "controller <- controller(trial, listener)\n",
-        "controller$run(n = 1, plot_event = TRUE)\n",
-        "```\n",
-        "\n",
-        "### Extract the Output\n",
-        "\n",
-        "We can display information saved for each of the simulated trials by the member function `get_output`.\n",
-        "\n",
-        "```{r}\n",
-        "controller$get_output() %>% \n",
-        "  kable(escape = TRUE) %>% \n",
-        "  kable_styling(bootstrap_options = \"striped\", \n",
-        "                full_width = FALSE,\n",
-        "                position = \"left\") %>%\n",
-        "  scroll_box(width = \"100%\")\n",
-        "```"
-      ]
+---
+title: "Example 10: Two arm | Fixed design | TTE"
+format: html
+---
+
+```{r setup}
+devtools::load_all("../rxsim/")
+```
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 100
+arms <- c("pbo", "trt")
+allocation <- c(1,1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation)
+)
+```
+
+## Populations
+Define population generators.
+
+```{r population}
+population_generators <- list(
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = 0.1),
+    readout_time = 1
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = 0.18),
+    readout_time = 1
+  )
+)
+```
+
+## Triggers & Analysis
+We want to do a t-test when 100 subjects have been enrolled.
+
+```{r trigger}
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer){
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      
+      logreg <- glm(value ~ arm, data = df_enrolled, family = "binomial") #logistic regression
+      odds_ratio <- exp(coef(logreg)["armtrt"])
+      logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
+      logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
+  
+      data.frame(
+        scenario,
+        n_total = nrow(df_enrolled),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
+        p_value = unname(logreg_p),
+        stringsAsFactors = FALSE
+      )
     }
-  ],
-  "metadata": {
-    "kernelspec": {
-      "name": "python3",
-      "language": "python",
-      "display_name": "Python 3 (ipykernel)",
-      "path": "/opt/python/3.13.5/share/jupyter/kernels/python3"
-    }
-  },
-  "nbformat": 4,
-  "nbformat_minor": 4
-}
+  )
+)
+```
+
+## Trial
+Make multiple trial replicates.
+
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
+```
+
+## Simulate
+To simulate all replicates:
+
+```{r sim}
+run_trials(trials)
+```
+
+Bind one row per replicate into one data frame.
+```{r results}
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
+```

@@ -1,184 +1,68 @@
 ---
-title: "Example 9: Two-arm | Fixed design | Single binary endpoint | Logistic regression analysis"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Example 9: Two-arm | Fixed design | Single binary endpoint | Logistic regression analysis}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+title: "Example 11: Two arm | Fixed design | Bivariate TTE"
+format: html
 ---
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
-```
-
 ```{r setup}
-# Core simulation framework
-library(rxsim)
-
-# Helpers
-library(dplyr)
-
-set.seed(6606)
+devtools::load_all("../rxsim/")
 ```
 
 ## Scenario
-
-A **two-arm, fixed design** trial (placebo vs treatment) with a **single binary endpoint**that follows a binomial distribution with rates in placebo and treated arms are are `r args$rates[[1]]['pbo']` and `r args$rates[[1]]['trt']`, respectively, where a greater median indicates efficacy. **Final analysis** is performed when all data is complete with a logistic regression model.
-
-At final analysis, we report:
-
-- **Overall analysis**: treatment effect across all subjects.
-- **Exploratory subgroup analysis**: treatment effect within each subgroup + arm-by-subgroup interaction test.
+Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
-# Trial design
-sample_size <- 500
-allocation  <- c(1, 1)
-arms        <- c("placebo", "treatment")
-
-# Subgroup settings
-subgroup_levels <- c("A", "B")
-subgroup_prob   <- c(0.6, 0.4)
-
-# Data-generating truth (example values)
-mu_placebo_A <- 0.00
-mu_placebo_B <- 0.00
-mu_treat_A   <- 0.40
-mu_treat_B   <- 0.15
-sigma        <- 1.0
-
-# Enrollment/dropout profile
-enrollment <- list(
-  end_time = c(4, 8),
-  rate     = c(8, 7)
-)
-dropout <- list(
-  end_time = c(4, 8),
-  rate     = c(0, 0)
-)
-
+sample_size <- 100
+arms <- c("pbo", "trt")
+allocation <- c(1,1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation),
-  p_subgroup_A = subgroup_prob[1],
-  p_subgroup_B = subgroup_prob[2]
+  allocation = list(allocation)
 )
-```
-
-## Time points
-
-```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
-)
-
-tr_timer <- Timer$new(name = "timer_example_6")
-add_timepoints(tr_timer, timepoints)
-
-final_time <- tr_timer$get_end_timepoint()
-final_time
 ```
 
 ## Populations
+Define population generators.
 
-Create two populations and include a `subgroup` column in each population dataset.
-
-```{r populations}
-# Create generator for arm-specific data with subgroups
+```{r population}
 population_generators <- list(
-  placebo = function(n) {
-    subgroup <- sample(subgroup_levels, size = n, replace = TRUE, prob = subgroup_prob)
-    mu <- ifelse(subgroup == "A", mu_placebo_A, mu_placebo_B)
-    data.frame(
-      id = seq_len(n),
-      subgroup = subgroup,
-      y = rnorm(n, mean = mu, sd = sigma),
-      readout_time = 1
-    )
-  },
-  treatment = function(n) {
-    subgroup <- sample(subgroup_levels, size = n, replace = TRUE, prob = subgroup_prob)
-    mu <- ifelse(subgroup == "A", mu_treat_A, mu_treat_B)
-    data.frame(
-      id = seq_len(n),
-      subgroup = subgroup,
-      y = rnorm(n, mean = mu, sd = sigma),
-      readout_time = 1
-    )
-  }
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = 0.1),
+    readout_time = 1
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = 0.18),
+    readout_time = 1
+  )
 )
 ```
 
-## Trial Parameters
+## Triggers & Analysis
+We want to do a t-test when 100 subjects have been enrolled.
 
-```{r trial_params}
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
-
-## Final analysis trigger
-
-```{r analysis}
+```{r trigger}
 analysis_generators <- list(
   final = list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
-    analysis = function(df, timer) {
-      dat <- df |>
-        dplyr::filter(!is.na(enroll_time)) |>
-        dplyr::mutate(
-          arm = factor(arm, levels = c("placebo", "treatment")),
-          subgroup = factor(subgroup, levels = subgroup_levels)
-        )
-
-      fit_overall <- lm(y ~ arm, data = dat)
-      coef_overall <- summary(fit_overall)$coefficients
-
-      overall_est <- unname(coef_overall["armtreatment", "Estimate"])
-      overall_p   <- unname(coef_overall["armtreatment", "Pr(>|t|)"])
-
-      subgroup_stats <- lapply(levels(dat$subgroup), function(sg) {
-        dsg <- dat[dat$subgroup == sg, , drop = FALSE]
-        fit_sg <- lm(y ~ arm, data = dsg)
-        coef_sg <- summary(fit_sg)$coefficients
-
-        c(
-          n_total = nrow(dsg),
-          estimate = unname(coef_sg["armtreatment", "Estimate"]),
-          p_value = unname(coef_sg["armtreatment", "Pr(>|t|)"])
-        )
-      })
-      names(subgroup_stats) <- levels(dat$subgroup)
-
-      fit_interaction <- lm(y ~ arm * subgroup, data = dat)
-      coef_int <- summary(fit_interaction)$coefficients
-      int_term <- grep("^arm.*:subgroup", rownames(coef_int), value = TRUE)
-      p_interaction <- if (length(int_term) > 0) {
-        unname(coef_int[int_term[1], "Pr(>|t|)"])
-      } else {
-        NA_real_
-      }
-
+    analysis = function(df, timer){
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      
+      logreg <- glm(value ~ arm, data = df_enrolled, family = "binomial") #logistic regression
+      odds_ratio <- exp(coef(logreg)["armtrt"])
+      logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
+      logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
+  
       data.frame(
         scenario,
-        n_total = nrow(dat),
-        overall_estimate = overall_est,
-        overall_p_value = overall_p,
-        subgroup_A_n = unname(subgroup_stats[["A"]]["n_total"]),
-        subgroup_A_estimate = unname(subgroup_stats[["A"]]["estimate"]),
-        subgroup_A_p_value = unname(subgroup_stats[["A"]]["p_value"]),
-        subgroup_B_n = unname(subgroup_stats[["B"]]["n_total"]),
-        subgroup_B_estimate = unname(subgroup_stats[["B"]]["estimate"]),
-        subgroup_B_p_value = unname(subgroup_stats[["B"]]["p_value"]),
-        interaction_p_value = p_interaction,
+        n_total = nrow(df_enrolled),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
+        p_value = unname(logreg_p),
         stringsAsFactors = FALSE
       )
     }
@@ -187,10 +71,11 @@ analysis_generators <- list(
 ```
 
 ## Trial
+Make multiple trial replicates.
 
 ```{r trial}
 trials <- replicate_trial(
-  trial_name = "example_6_two_arm_fixed_subgroup",
+  trial_name = "test_trial",
   sample_size = sample_size,
   arms = arms,
   allocation = allocation,
@@ -203,13 +88,13 @@ trials <- replicate_trial(
 ```
 
 ## Simulate
+To simulate all replicates:
 
-```{r simulate}
+```{r sim}
 run_trials(trials)
 ```
 
-## Results
-
+Bind one row per replicate into one data frame.
 ```{r results}
 replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
   data.frame(
