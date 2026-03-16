@@ -1,10 +1,14 @@
 ---
 title: "Example 10: Two arm | Fixed design | TTE"
-format: html
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 2: Two arm | Interim | Continuous | t-test}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup}
-devtools::load_all("../rxsim/")
+library(rxsim)
 ```
 
 ## Scenario
@@ -12,13 +16,15 @@ Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
 sample_size <- 100
+medians <- c(soc = 14, trt = 18.8) # median survival times in treatment and standard of care group 
 arms <- c("pbo", "trt")
 allocation <- c(1,1)
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation = list(allocation),
+  medians = medians 
 )
 ```
 
@@ -29,19 +35,19 @@ Define population generators.
 population_generators <- list(
   pbo = function(n) data.frame(
     id = 1:n,
-    value = rbinom(n, size = 1, prob = 0.1),
+    value = log(2) / medians['soc'],
     readout_time = 1
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = rbinom(n, size = 1, prob = 0.18),
+    value = log(2) / medians['trt'],
     readout_time = 1
   )
 )
 ```
 
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+We want to perform a Cox PH model and logrank test.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -52,17 +58,34 @@ analysis_generators <- list(
     analysis = function(df, timer){
       df_enrolled <- df |> subset(!is.na(enroll_time))
       
-      logreg <- glm(value ~ arm, data = df_enrolled, family = "binomial") #logistic regression
-      odds_ratio <- exp(coef(logreg)["armtrt"])
-      logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
-      logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
+      ## HR from PH Cox model
+      fit_coxph <- survival::coxph(
+        Surv(ep, ep_event) ~ I(arm != 'soc'),
+        data = df_enrolled) %>%
+        summary() %>%
+        coef()
+    
+      fit1 <- data.frame(
+        p = pnorm(fit_coxph[1, 'z'], lower.tail = TRUE),
+        estimate = fit_coxph[1, 'exp(coef)']
+      )
+    
+      ## logrank test
+      fit_logrank <- survival::survdiff(
+        Surv(ep, ep_event) ~ I(arm != 'soc'),
+        data = locked_data)
+    
+      fit2 <- pnorm(sqrt(fit_logrank$chisq) * sign(fit_coxph[1, 'coef']),
+                    lower.tail = TRUE)
   
       data.frame(
         scenario,
         n_total = nrow(df_enrolled),
         mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
         mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(logreg_p),
+        p_value = unname(fit1$p),
+        estimate = unname(fit1$estimate),
+        lr_pval = fit2,
         stringsAsFactors = FALSE
       )
     }
