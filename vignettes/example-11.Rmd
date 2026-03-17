@@ -41,8 +41,8 @@ lambda0_1 <- 0.08    # baseline hazard (per time unit)
 HR_trt_1  <- 0.70    # treatment hazard ratio (<1 favors treatment)
 
 # TTE model parameters for second variable (Exponential PH with subject frailty exp(eta))
-lambda0_2 <- 0.08    # baseline hazard (per time unit)
-HR_trt_2  <- 0.70    # treatment hazard ratio (<1 favors treatment)
+lambda0_2 <- 0.04    # baseline hazard (per time unit)
+HR_trt_2  <- 0.50    # treatment hazard ratio (<1 favors treatment)
 
 # Frailty scale (eta = sigma_frailty * Z2)
 sigma_frailty <- 0.6
@@ -150,19 +150,19 @@ analysis_generators <- list(
       events_1 <- sum(status_1)
 
       if (length(unique(df_e$arm)) == 2 && events_1 > 0 && all(t_obs_1 >= 0)) {
-        S <- Surv(time = t_obs_1, event = status_1)
+        S_1 <- Surv(time = t_obs_1, event = status_1)
 
         surv_p_1 <- tryCatch({
-          sd <- survdiff(S ~ arm, data = df_e)
-          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+          sd_1 <- survdiff(S_1 ~ arm, data = df_e)
+          1 - pchisq(sd_1$chisq, df = length(sd_1$n) - 1)
         }, error = function(e) NA_real_)
 
-        cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
-        if (!is.null(cox)) {
-          s <- summary(cox)
-          hr_1    <- unname(s$coef[1, "exp(coef)"])
-          hr_lo_1 <- unname(s$conf.int[1, "lower .95"])
-          hr_hi_1 <- unname(s$conf.int[1, "upper .95"])
+        cox_1 <- tryCatch(coxph(S_1 ~ arm, data = df_e), error = function(e) NULL)
+        if (!is.null(cox_1)) {
+          s_1 <- summary(cox_1)
+          hr_1    <- unname(s_1$coef[1, "exp(coef)"])
+          hr_lo_1 <- unname(s_1$conf.int[1, "lower .95"])
+          hr_hi_1 <- unname(s_1$conf.int[1, "upper .95"])
         }
       }
       
@@ -172,19 +172,19 @@ analysis_generators <- list(
       events_2 <- sum(status_2)
 
       if (length(unique(df_e$arm)) == 2 && events_2 > 0 && all(t_obs_2 >= 0)) {
-        S <- Surv(time = t_obs_2, event = status_2)
+        S_2 <- Surv(time = t_obs_2, event = status_2)
 
         surv_p_2 <- tryCatch({
-          sd <- survdiff(S ~ arm, data = df_e)
-          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+          sd_2 <- survdiff(S_2 ~ arm, data = df_e)
+          1 - pchisq(sd_2$chisq, df = length(sd_2$n) - 1)
         }, error = function(e) NA_real_)
 
-        cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
-        if (!is.null(cox)) {
-          s <- summary(cox)
-          hr_2    <- unname(s$coef[1, "exp(coef)"])
-          hr_lo_2 <- unname(s$conf.int[1, "lower .95"])
-          hr_hi_2 <- unname(s$conf.int[1, "upper .95"])
+        cox_2 <- tryCatch(coxph(S_2 ~ arm, data = df_e), error = function(e) NULL)
+        if (!is.null(cox_2)) {
+          s_2 <- summary(cox_2)
+          hr_2    <- unname(s_2$coef[1, "exp(coef)"])
+          hr_lo_2 <- unname(s_2$conf.int[1, "lower .95"])
+          hr_hi_2 <- unname(s_2$conf.int[1, "upper .95"])
         }
       }
 
