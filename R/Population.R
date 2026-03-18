@@ -95,17 +95,17 @@ Population <- R6::R6Class(
 
       self$data <- data
       self$n <- length(unique(self$data$id))
-      self$n_readouts <- (dim(self$data)[1] / self$n)
+      self$n_readouts <- as.integer((dim(self$data)[1] / self$n))
 
       # Initialize enrollment/dropout status if not provided
       ifelse(
         is.null(enrolled),
-        self$enrolled <- rep(NA, self$n),
+        self$enrolled <- rep(NA_real_, self$n),
         self$enrolled <- enrolled
       )
       ifelse(
         is.null(dropped),
-        self$dropped <- rep(NA, self$n),
+        self$dropped <- rep(NA_real_, self$n),
         self$dropped <- dropped
       )
     },
@@ -195,9 +195,10 @@ Population <- R6::R6Class(
         data$arm <- self$name
       }
       self$data <- data
-      self$n <- nrow(self$data)
-      self$dropped <- rep(NA, self$n)
-      self$enrolled <- rep(NA, self$n)
+      self$n <- length(unique(self$data$id))
+      self$n_readouts <- as.integer((dim(self$data)[1] / self$n))
+      self$dropped <- rep(NA_real_, self$n)
+      self$enrolled <- rep(NA_real_, self$n)
       invisible(self)
     }
   ) # end public
