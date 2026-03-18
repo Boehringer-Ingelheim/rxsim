@@ -12,10 +12,10 @@ testthat::test_that("Population initialize: basic type checks and arm check", {
   # Field types
   testthat::expect_true(is.character(pop$name))
   testthat::expect_true(is.data.frame(pop$data))
-  #testthat::expect_true(is.numeric(pop$enrolled)) #not sure why they fail
-  #testthat::expect_true(is.numeric(pop$dropped)) #not sure why they fail
+  testthat::expect_true(is.numeric(pop$enrolled))
+  testthat::expect_true(is.numeric(pop$dropped))
   testthat::expect_true(is.integer(pop$n))
-  testthat::expect_true(is.integer(pop$n_readouts)) #claims integer but not explicitly set
+  testthat::expect_true(is.integer(pop$n_readouts))
 
   # Values
   testthat::expect_equal(pop$name, "Arm A")
