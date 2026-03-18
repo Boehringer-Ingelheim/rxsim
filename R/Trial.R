@@ -192,7 +192,6 @@ Trial <- R6::R6Class(
     #'
     #' @param track_plan `logical` If `TRUE`, capture original plan and log plan changes.
     #' @param verbose `logical` Print progress messages.
-    #' @param future_only `logical` If `TRUE`, newly added timepoints <= last processed time are ignored.
     #' @param keep_plan_snapshots `logical` If `TRUE`, store full before/after plan data.frames in `plan_history`.
     #'
     #' @return Invisibly returns `self`, with updated `locked_data` and `results`.
@@ -226,7 +225,6 @@ Trial <- R6::R6Class(
     run = function(
     track_plan = TRUE,
     verbose = FALSE,
-    future_only = TRUE,
     keep_plan_snapshots = FALSE
     ) {
 
@@ -296,7 +294,7 @@ Trial <- R6::R6Class(
         }
 
         remaining_times <- sort(setdiff(unique(plan_df$time), processed))
-        if (future_only) remaining_times <- remaining_times[remaining_times > last_time]
+        remaining_times <- remaining_times[remaining_times > last_time]
         if (length(remaining_times) == 0) break
 
         i <- remaining_times[1]
@@ -333,6 +331,7 @@ Trial <- R6::R6Class(
           )
         }
 
+
         # Rebuild snapshot using explicit id_map
         locked_snapshot <- purrr::map_dfr(self$population, function(p) {
 
@@ -350,6 +349,7 @@ Trial <- R6::R6Class(
 
           dplyr::inner_join(p$data, status, by = "id") |>
             dplyr::mutate(subject_id = .data$id)
+
         })
 
         if (is.null(locked_snapshot) || nrow(locked_snapshot) == 0L) next

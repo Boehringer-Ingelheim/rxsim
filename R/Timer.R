@@ -134,7 +134,7 @@ Timer <- R6::R6Class(
     #' @param ... `expression` Boolean expression(s) for `dplyr::filter()`.
     #' @param analysis `function` or `NULL` Optional function to apply.
     #' @param name `character` Unique condition identifier.
-     #' 
+     #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
     #'
@@ -323,7 +323,7 @@ Timer <- R6::R6Class(
         }
 
         if (nrow(df_i) == 0L) {
-          warning(sprintf("Skipping condition '%s' at time %s: filtered data is empty", key, as.character(current_time)), call. = FALSE)
+          #warning(sprintf("Skipping condition '%s' at time %s: filtered data is empty", key, as.character(current_time)), call. = FALSE)
           next
         }
 
