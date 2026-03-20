@@ -9,6 +9,7 @@ vignette: >
 
 ```{r setup}
 library(rxsim)
+library(survival)
 ```
 
 ## Scenario
@@ -34,12 +35,12 @@ Define population generators.
 population_generators <- list(
   pbo = function(n) data.frame(
     id = 1:n,
-    value = rexp(n, log(2) / medians['soc']),
+    value = rexp(n, log(2) / medians['soc']), # hazard rate for soc based on median survival time
     readout_time = 1
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = rexp(n, log(2) / medians['trt']),
+    value = rexp(n, log(2) / medians['trt']), # hazard rate for trt based on median survival time
     readout_time = 1
   )
 )
@@ -54,17 +55,39 @@ analysis_generators <- list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
-    analysis = function(df, timer){
-      df_enrolled <- df |> subset(!is.na(enroll_time))
+    analysis = function(df, timer) {
+      df_enrolled <- df[!is.na(df$enroll_time), , drop = FALSE]
+      if (nrow(df_enrolled) == 0) {
+        return(data.frame(scenario, note = "no enrolled subjects", stringsAsFactors = FALSE))
+      }
       
+      # Build observed TTE with censoring
+      censor_drop  <- ifelse(is.na(df_enrolled$drop_time), Inf, pmax(0, df_enrolled$drop_time - df_enrolled$enroll_time))
+      censor_admin <- pmax(0, max(df_enrolled$enroll_time) + 100 - df_enrolled$enroll_time)
+
+      t_obs    <- pmin(df_enrolled$value, censor_drop, censor_admin)
+      status   <- as.integer(df_enrolled$value <= pmin(censor_drop, censor_admin))
+      
+      
+      # Defaults if we can't run time-to-event inference
+      surv_p <- NA_real_
+      hr     <- NA_real_
+      hr_p   <- NA_real_
+      hr_lo  <- NA_real_
+      hr_hi  <- NA_real_
+
+      
+      # Building survival
+      S <- Surv(time = t_obs, event = status)
+        
       ## Log-Rank Test
       surv_p <- tryCatch({
-          sd <- survdiff(value ~ arm, data = df_enrolled)
+          sd <- survdiff(S ~ arm, data = df_enrolled)
           1 - pchisq(sd$chisq, df = length(sd$n) - 1)
         }, error = function(e) NA_real_)
       
       ## HR from PH Cox model
-        cox <- tryCatch(coxph(value ~ arm, data = df_enrolled), error = function(e) NULL)
+        cox <- tryCatch(coxph(S ~ arm, data = df_enrolled), error = function(e) NULL)
         if (!is.null(cox)) {
           s <- summary(cox)
           hr_p <- unname(pnorm(s$coef[1, 'z'], lower.tail = TRUE))
