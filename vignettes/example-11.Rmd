@@ -13,6 +13,7 @@ library(rxsim)
 
 # Utilities
 library(dplyr)
+library(survival)
 library(MASS)   # for mvrnorm (simulate correlated endpoints)
 ```
 
