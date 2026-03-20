@@ -343,7 +343,7 @@ testthat::test_that("set_data: resets enrolled/dropped and updates n", {
   testthat::expect_true(all(is.na(pop$dropped)))
 })
 
-testthat::test_that("set_data: ISSUE for repeated measures", {
+testthat::test_that("Set_data: Test that repeated measures parameters are inputted and calculated correctly", {
 
 
   df <- data.frame(
@@ -363,4 +363,5 @@ testthat::test_that("set_data: ISSUE for repeated measures", {
   testthat::expect_equal(pop$n_readouts, nrow(df2) / pop$n)
   testthat::expect_equal(length(pop$enrolled), pop$n)
   testthat::expect_equal(length(pop$dropped), pop$n)
+
 })
