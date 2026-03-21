@@ -5,7 +5,7 @@
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/saumil-sh/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/saumil-sh/rxsim/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 The goal of rxsim is to reduce friction in simulating randomized
