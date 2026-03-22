@@ -1,0 +1,90 @@
+# rxsim
+
+The goal of rxsim is to reduce friction in simulating randomized
+clinical trials (RCT).
+
+## Installation
+
+You can install the development version of rxsim from
+[GitHub](https://github.com/Boehringer-Ingelheim/rxsim) with:
+
+``` r
+install.packages("pak")
+pak::pak("Boehringer-Ingelheim/rxsim")
+```
+
+## Usage
+
+Checkout the vignette that shows a basic example:
+
+``` r
+vignette("example-usecase", package="rxsim")
+```
+
+# Package index
+
+## All functions
+
+- [`Population`](https://boehringer-ingelheim.github.io/rxsim/reference/Population.md)
+  : Population: Manage a patient population
+- [`Timer`](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md)
+  : Timer: Track timed events and apply condition-triggered analyses
+- [`Trial`](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)
+  : Trial: Simulate a multi‑arm clinical trial
+- [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
+  : Add Timepoints to a Timer
+- [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md)
+  : Clone a Trial Object Multiple Times
+- [`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
+  : Generate Trial Enrollment and Dropout Plan
+- [`gen_population()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_population.md)
+  : Generate a Population Object
+- [`gen_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.md)
+  : Generate Piecewise-Linear Enrollment and Dropout Plan
+- [`get_col_names()`](https://boehringer-ingelheim.github.io/rxsim/reference/get_col_names.md)
+  : Extract Column Names from Populations
+- [`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md)
+  : Format Trial Results as a Data Frame
+- [`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md)
+  : Create Multiple Trials with Generated Populations
+- [`run_trials()`](https://boehringer-ingelheim.github.io/rxsim/reference/run_trials.md)
+  : Run Multiple Trial Objects
+- [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
+  : Trigger Analysis at a Calendar Time
+- [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
+  : Trigger Analysis at a Sample Fraction
+- [`vector_to_dataframe()`](https://boehringer-ingelheim.github.io/rxsim/reference/vector_to_dataframe.md)
+  : Convert Vector to Population Data Frame
+
+# Articles
+
+### All vignettes
+
+- [Example 1: Two arm \| Fixed design \|
+  Continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md):
+- [Example 2: Two arm \| Interim \| Continuous \|
+  t-test](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.md):
+- [Example 3: Two arm \| Fixed design \| Two correlated continuous
+  endpoints \|
+  t-test](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md):
+- [Example 4: Two arm \| Fixed design \| Correlated continuous &
+  time-to-event endpoints \| t-test + survival
+  analysis](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.md):
+- [Example 5: Multi-arm \| Fixed design \| Single continuous endpoint \|
+  Dunnett test +
+  MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md):
+- [Example 6: Two-arm \| Fixed design \| Single continuous endpoint \|
+  Overall + exploratory subgroup
+  analysis](https://boehringer-ingelheim.github.io/rxsim/articles/example-6.md):
+- [Example 7: Two-arm \| Fixed design \| Single continuous endpoint \|
+  Bayesian Go/No-Go with placebo
+  borrowing](https://boehringer-ingelheim.github.io/rxsim/articles/example-7.md):
+- [Example 8: Seamless Ph2a/2b \| Two-arm -\> Multi-arm \| Single
+  continuous endpoint \| Bayesian Go/No-Go + Bayesian
+  MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-8.md):
+- [Example Multi Run: Two arm \| Interim \| Continuous \|
+  t-test](https://boehringer-ingelheim.github.io/rxsim/articles/example-multi-run.md):
+- [Example
+  usecase](https://boehringer-ingelheim.github.io/rxsim/articles/example-usecase.md):
+- [Getting
+  Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.md):
