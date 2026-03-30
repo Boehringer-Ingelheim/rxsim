@@ -100,6 +100,111 @@ add_timepoints <- function(timer, df) {
 }
 
 
+#' Collect Trial Results Across Replicates
+#'
+#' Gathers analysis outputs from one or more `Trial` objects into a single
+#' tidy data frame. Works with any number of named analyses (e.g., both
+#' an interim and a final) and any number of replicates.
+#'
+#' @param trials A `Trial` R6 object **or** a `list` of `Trial` objects
+#'   (as returned by [replicate_trial()]).
+#' @param analysis `character` or `NULL`. When supplied, only analyses whose
+#'   name matches one of these values are included. Defaults to `NULL`
+#'   (all analyses).
+#'
+#' @return A `data.frame` with columns:
+#'   - `replicate` `integer` Index of the trial replicate (1-based).
+#'   - `timepoint` `numeric` Calendar time at which the analysis fired.
+#'   - `analysis`  `character` Name of the analysis (as given in
+#'     `analysis_generators` or via a trigger helper).
+#'   - Additional columns from the value returned by each analysis function.
+#'
+#' @details
+#' Each analysis function may return either a `data.frame` (the standard
+#' pattern) or a named `list`; both are coerced to a single-row data frame
+#' and stacked. Analyses that return `NULL` or `NA` are silently skipped.
+#'
+#' When `trials` is a single `Trial` object (e.g., from a one-off
+#' `Trial$new()` + `$run()` call), the `replicate` column is always `1`.
+#'
+#' @seealso [replicate_trial()], [run_trials()], [Trial].
+#'
+#' @export
+#'
+#' @examples
+#' # --- replicated trial ---
+#' pop_gens <- list(
+#'   control   = function(n) vector_to_dataframe(rnorm(n)),
+#'   treatment = function(n) vector_to_dataframe(rnorm(n, 0.5))
+#' )
+#' an_gens <- list(
+#'   final = list(
+#'     trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= 20L),
+#'     analysis = function(df, timer) {
+#'       data.frame(mean_ctrl = mean(df$data[df$arm == "control"]))
+#'     }
+#'   )
+#' )
+#' trials <- replicate_trial(
+#'   trial_name = "ex", sample_size = 20L,
+#'   arms = c("control", "treatment"), allocation = c(1, 1),
+#'   enrollment = function(n) rexp(n, 1), dropout = function(n) rexp(n, 0.01),
+#'   analysis_generators = an_gens, population_generators = pop_gens, n = 3
+#' )
+#' run_trials(trials)
+#' collect_results(trials)
+#'
+#' # --- filter to a specific analysis name ---
+#' collect_results(trials, analysis = "final")
+collect_results <- function(trials, analysis = NULL) {
+  if (inherits(trials, "Trial")) trials <- list(trials)
+  if (!is.list(trials)) stop("`trials` must be a Trial object or a list of Trial objects.")
+
+  rows <- lapply(seq_along(trials), function(i) {
+    results <- trials[[i]]$results
+    if (length(results) == 0L) return(NULL)
+
+    tp_rows <- lapply(names(results), function(tp_name) {
+      analyses <- results[[tp_name]]
+
+      if (!is.null(analysis)) {
+        analyses <- analyses[names(analyses) %in% analysis]
+      }
+      if (length(analyses) == 0L) return(NULL)
+
+      an_rows <- lapply(names(analyses), function(an_name) {
+        val <- analyses[[an_name]]
+        if (is.null(val) || (length(val) == 1L && is.na(val))) return(NULL)
+
+        df <- if (is.data.frame(val)) {
+          val
+        } else {
+          as.data.frame(as.list(val), stringsAsFactors = FALSE)
+        }
+
+        cbind(
+          data.frame(
+            replicate = i,
+            timepoint = as.numeric(sub("time_", "", tp_name)),
+            analysis  = an_name,
+            stringsAsFactors = FALSE,
+            row.names = NULL
+          ),
+          df
+        )
+      })
+
+      do.call(rbind, an_rows)
+    })
+
+    do.call(rbind, tp_rows)
+  })
+
+  result <- do.call(rbind, rows)
+  if (!is.null(result)) rownames(result) <- NULL
+  result
+}
+
 #' Format Trial Results as a Data Frame
 #'
 #' Converts trial results to a single data frame with all measurements.
