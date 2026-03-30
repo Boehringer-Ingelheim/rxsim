@@ -8,6 +8,13 @@
 \description{
 Simulate phase II and/or phase III clinical trials. It supports various types of endpoints and adaptive strategies.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://boehringer-ingelheim.github.io/rxsim}
+}
+
+}
 \author{
 \strong{Maintainer}: Saumil Shah \email{saumil.shah@boehringer-ingelheim.com}
 
