@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -176,21 +177,18 @@ first by the **timepoint** at which an analysis fired (e.g., `"time_30.4"`),
 then by the **analysis name** you gave it (here `"final"`). The value is
 whatever your analysis function returned.
 
-The idiomatic way to collect one row per replicate into a single data frame is
-`do.call(rbind, lapply(...))`:
+The `collect_results()` helper gathers every analysis from every timepoint
+across all replicates into one tidy data frame:
 
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  # results[[1]] accesses the first (and here, only) timepoint that fired
-  data.frame(replicate = i, trials[[i]]$results[[1]]$final,
-             stringsAsFactors = FALSE)
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
 
 Each row is one replicate. The `mean_ctrl` and `mean_trt` columns show the
-arm-level sample means at the moment the final analysis fired. Variation across
+arm-level sample means at the moment the final analysis fired. The `timepoint`
+and `analysis` columns identify when and which analysis produced each row —
+essential when a trial has both interim and final analyses. Variation across
 replicates reflects both the stochastic endpoint data and the randomness in
 enrollment timing; exactly what operating characteristic simulations are
 designed to characterise.

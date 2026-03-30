@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -24,10 +25,21 @@ library(MASS)      # for mvrnorm (simulate correlated latent variables)
 library(survival)  # for Surv, survdiff, coxph
 ```
 
+Oncology and cardiovascular trials often co-primary a continuous biomarker
+alongside a time-to-event (TTE) endpoint such as progression-free survival or
+overall survival. Correlation between a biomarker and TTE arises naturally
+through shared biological mechanisms. This example demonstrates simulating such
+a joint endpoint structure and applying both a t-test (for the continuous
+component) and a log-rank test plus Cox proportional hazards model (for TTE) at
+a single final analysis. See [Example 3](example-3.html) for the analogous
+two-correlated-continuous setup.
+
 ## Scenario
 
-We consider a **two-arm fixed design** with a **continuous endpoint (Y)** and a **time-to-event (TTE)** endpoint per subject.  
-The endpoints are **correlated** via a shared Gaussian latent structure. Enrollment is piece-wise linear; analysis happens **once at the final time**.
+We consider a **two-arm fixed design** with a **continuous endpoint (Y)** and a
+**time-to-event (TTE)** endpoint per subject. The endpoints are **correlated**
+via a shared Gaussian latent structure. Enrollment is piece-wise linear;
+analysis happens **once at the final time**.
 
 ```{r scenario}
 # Total target N (across both arms)
@@ -45,7 +57,7 @@ rho <- 0.50
 
 # Continuous endpoint parameters
 mu_pbo <- 0.0
-mu_trt <- 0.3      # treatment mean shift
+delta  <- 0.3      # true treatment - placebo mean difference
 sd_y   <- 1.0
 
 # TTE model parameters (Exponential PH with subject frailty exp(eta))
@@ -60,11 +72,21 @@ SigmaZ <- matrix(c(1, rho, rho, 1), nrow = 2)
 
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation),
-  rho = rho,
+  allocation  = list(allocation),
+  delta       = delta,
+  rho         = rho,
   hr_trt_true = HR_trt
 )
 ```
+
+`HR_trt = 0.70` encodes a 30% hazard reduction in the treatment arm — a
+clinically meaningful effect in many oncology settings. `lambda0 = 0.08` is the
+baseline event rate per time unit; combined with n=1200, this ensures a
+substantial number of TTE events even with only 3 replicates. `sigma_frailty =
+0.6` controls the strength of the subject-level frailty term: larger values
+introduce more between-subject heterogeneity in TTE, making the frailty the
+shared biological driver linking the continuous and TTE endpoints through the
+bivariate latent (Z1, Z2) with `rho = 0.50`.
 
 ## Time points
 
@@ -80,13 +102,21 @@ plan <- gen_plan(
 )
 ```
 
+`gen_plan()` is called with `enrollment_fn` as a stochastic function, so each
+invocation by `replicate_trial()` generates a fresh per-replicate enrollment
+schedule. This differs from the piecewise-constant list approach in [Example
+3](example-3.html): here there is no deterministic timer pre-built — enrollment
+timing varies across replicates, which is the more realistic simulation regime
+for large trials.
+
 ## Arms (Populations)
 
-Per arm we simulate subject-level latent bivariate normals `(Z1, Z2)` with correlation `rho`.  
-- The **continuous** endpoint is `Y = mu_arm + sd_y * Z1`.
-- The **TTE** endpoint uses a proportional-hazards exponential model with subject-specific frailty:  
-  `hazard_i = lambda_arm * exp(eta_i)`, where `eta_i = sigma_frailty * Z2` and `lambda_trt = lambda0 * HR_trt`.
-  Event time `T_i ~ Exponential(rate = hazard_i)`.
+Per arm we simulate subject-level latent bivariate normals `(Z1, Z2)` with
+correlation `rho`. - The **continuous** endpoint is `Y = mu_arm + sd_y * Z1`. -
+The **TTE** endpoint uses a proportional-hazards exponential model with
+subject-specific frailty: `hazard_i = lambda_arm * exp(eta_i)`, where `eta_i =
+sigma_frailty * Z2` and `lambda_trt = lambda0 * HR_trt`. Event time `T_i ~
+Exponential(rate = hazard_i)`.
 
 ```{r population}
 # Create generator function for arm-specific data
@@ -114,14 +144,23 @@ lambda_trt <- lambda0 * HR_trt
 
 population_generators <- list(
   pbo = mk_population_generator(mu_y = mu_pbo, lambda_arm = lambda_pbo),
-  trt = mk_population_generator(mu_y = mu_trt, lambda_arm = lambda_trt)
+  trt = mk_population_generator(mu_y = mu_pbo + delta, lambda_arm = lambda_trt)
 )
 ```
 
+Each subject gets a latent pair (Z1, Z2) drawn from a bivariate standard normal
+with correlation `rho`. Z1 drives the continuous endpoint: `Y = mu_arm + sd_y *
+Z1`. Z2 drives TTE through a multiplicative frailty: `eta = sigma_frailty * Z2`,
+so `hazard_i = lambda_arm * exp(eta_i)`, and `T_i ~ Exponential(hazard_i)`. The
+shared latent structure means subjects with higher Z2 (higher frailty, shorter
+TTE) also tend to have higher Z1 (higher Y), modelling a biological scenario
+where the biomarker and TTE share a common underlying driver.
+
 ## Trigger & Analysis
 
-This is a **fixed design**: analyze **once at the final timepoint**.
-We run a **two-sample t-test** for the continuous endpoint and a **log-rank test** plus **Cox PH** for the TTE endpoint.
+This is a **fixed design**: analyze **once at the final timepoint**. We run a
+**two-sample t-test** for the continuous endpoint and a **log-rank test** plus
+**Cox PH** for the TTE endpoint.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -189,6 +228,15 @@ analysis_generators <- list(
 )
 ```
 
+`censor_drop` censors a subject at the time elapsed between enrollment and
+dropout (or infinity if no dropout). `censor_admin` provides administrative
+censoring: each subject is followed for 100 time units after the last
+enrollment, a common end-of-study rule. `t_obs` and `status` capture what would
+actually be observed. The `Surv()` object is then passed to `survdiff()` for the
+log-rank p-value and `coxph()` for the Cox HR and 95% CI. `tryCatch` guards
+against edge cases (e.g., one arm with no events) so the simulation continues
+rather than stopping on an error.
+
 ## Trial
 
 Create and run multiple trial replicates.
@@ -218,13 +266,16 @@ run_trials(trials)
 One row per replicate, row-bound across all replicates:
 
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
+
+`collect_results()` prepends `replicate`, `timepoint`, and `analysis` columns to
+the result data. The `events` column shows how many TTE events were observed —
+with n=1200 and `lambda0 = 0.08`, this should be large. `logrank_p` tests the
+null of equal survival curves; `hr_cox` is the estimated hazard ratio from the
+Cox model (values < 1 favour treatment), and `hr_ci_lo`/`hr_ci_hi` are its 95%
+CI bounds. Because the continuous endpoint Y and TTE share the same latent
+drivers, replicates with a small `p_ttest_y` tend to also have a small
+`logrank_p`, though the correspondence is imperfect due to the different
+statistical tests and the censoring mechanism.

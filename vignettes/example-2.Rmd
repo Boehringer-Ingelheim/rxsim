@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -18,20 +19,32 @@ knitr::opts_chunk$set(
 library(rxsim)
 ```
 
+This example extends [Example 1](example-1.html) by introducing two named
+analyses — `interim` and `final` — that fire at different enrollment
+milestones. Understanding how analysis names propagate through
+`collect_results()` is the foundation for multi-analysis designs shown in
+later examples.
+
 ## Scenario
 Capture scenario parameters. We will assume piece-wise linear enrollment.
 
 ```{r scenario}
 sample_size <- 100
-arms <- c("pbo", "trt")
-allocation <- c(1,1)
+arms        <- c("pbo", "trt")
+allocation  <- c(1, 1)
+delta       <- 0.2  # true treatment - placebo mean difference
 enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation  = list(allocation),
+  delta       = delta
 )
 ```
+
+`allocation = c(1, 1)` specifies balanced randomisation. `tidyr::expand_grid()`
+embeds design parameters directly into each result row for traceability across
+parameter sweeps.
 
 ## Populations
 Define population generators.
@@ -45,18 +58,40 @@ population_generators <- list(
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = rnorm(n, 0.2),
+    value = rnorm(n, mean = delta),
     readout_time = 1
   )
 )
 ```
+
+Each generator is a function of `n` returning a `data.frame` with one row per
+subject. `readout_time = 1` means the endpoint is observed 1 time unit after
+enrollment. The treatment arm has a mean shift of δ = 0.2 SD units over placebo.
 
 ## Triggers & Analysis
 Final analysis at full enrollment.
 
 ```{r trigger}
 analysis_generators <- list(
-  interim_final = list(
+  interim = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= (!!sample_size) / 2
+    ),
+    analysis = function(df, timer){
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      tt <- t.test(value ~ arm, data = df_enrolled)
+      data.frame(
+        scenario,
+        n_total = nrow(df_enrolled),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
+        p_value = unname(tt$p.value),
+        stringsAsFactors = FALSE
+      )
+    }
+  ),
+  
+  final = list(
     trigger = rlang::exprs(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
@@ -75,6 +110,12 @@ analysis_generators <- list(
   )
 )
 ```
+
+Two analyses are defined. The `interim` analysis fires at half enrollment and
+the `final` analysis fires when all subjects are enrolled. These names appear
+in the `analysis` column of `collect_results()` output, making it
+straightforward to distinguish interim from final results when stacking rows
+across timepoints.
 
 ## Trial
 Make multiple trial replicates.
@@ -102,13 +143,12 @@ run_trials(trials)
 
 Bind one row per replicate into one data frame.
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$interim_final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
+
+`collect_results()` prepends `replicate`, `timepoint`, and `analysis` columns
+to your result data. Each row shows either `"interim"` or `"final"` in the
+`analysis` column, reflecting which named analysis produced it. This naming
+convention becomes essential in later examples where multiple named analyses
+fire per replicate.
