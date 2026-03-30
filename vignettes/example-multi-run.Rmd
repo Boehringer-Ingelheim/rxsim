@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -26,26 +27,24 @@ set.seed(123)
 sample_size <- 6
 arms        <- c("pbo", "trt")
 allocation  <- c(1, 1)
+delta       <- 2    # true treatment - placebo mean difference
 enrollment  <- function(n) rexp(n, rate = 1)
 dropout     <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation  = list(allocation),
+  delta       = delta
 )
-
 ```
 
 ## Arms
 Generate populations and endpoint data using generators (functions).
 
 ```{r population}
-#update the generators to have sample size 50
-
 population_generators <- list(
   pbo = function(n) vector_to_dataframe(stats::rnorm(n)),
-  trt = function(n) vector_to_dataframe(stats::rnorm(n, mean = 2, sd = 3.14))
+  trt = function(n) vector_to_dataframe(stats::rnorm(n, mean = delta, sd = 3.14))
 )
-
 ```
 
 ## Triggers & Analysis
@@ -95,14 +94,6 @@ Run all replicates and bind one row per replicate.
 
 ```{r sim}
 run_trials(trials)
-
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```

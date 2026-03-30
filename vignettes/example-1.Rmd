@@ -34,13 +34,13 @@ Capture scenario parameters. We will assume piece-wise linear enrollment.
 sample_size <- 100
 arms <- c("pbo", "trt")
 allocation <- c(1,1)
-true_delta <- 0.2
+delta <- 0.2
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
   allocation = list(allocation),
-  true_delta = true_delta
+  delta = delta
 )
 ```
 
@@ -61,7 +61,7 @@ population_generators <- list(
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = rnorm(n, true_delta),
+    value = rnorm(n, delta),
     readout_time = 1
   )
 )
@@ -70,7 +70,7 @@ population_generators <- list(
 Each population generator is a function of `n` that returns a `data.frame` with
 one row per subject. `readout_time = 1` means the endpoint is observed exactly
 1 time unit after a subject enrolls. The placebo arm has a mean of 0 and the
-treatment arm a mean of `true_delta`, a small-to-moderate standardised effect.
+treatment arm a mean of `delta`, a small-to-moderate standardised effect.
 
 ## Triggers & Analysis
 We want to do a t-test when `sample_size` subjects have been enrolled.

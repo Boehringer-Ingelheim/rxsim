@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -24,14 +25,30 @@ library(dplyr)
 set.seed(6606)
 ```
 
+Subgroup analyses are a standard exploratory component of clinical trial
+reporting. This example simulates a trial where the treatment effect differs
+between two patient subgroups — a form of treatment effect heterogeneity. We
+evaluate the overall treatment effect, subgroup-specific effects, and formally
+test whether the arm-by-subgroup interaction is statistically significant.
+
 ## Scenario
 
-A **two-arm, fixed design** trial (placebo vs treatment) with a **single continuous endpoint** and one **final analysis**.
+A **two-arm, fixed design** trial (placebo vs treatment) with a **single
+continuous endpoint** and one **final analysis**.
 
 At final analysis, we report:
 
 - **Overall analysis**: treatment effect across all subjects.
-- **Exploratory subgroup analysis**: treatment effect within each subgroup + arm-by-subgroup interaction test.
+- **Exploratory subgroup analysis**: treatment effect within each subgroup +
+  arm-by-subgroup interaction test.
+
+Treatment effect heterogeneity arises when patients with different baseline
+characteristics — such as disease subtype or biomarker status — respond
+differently to treatment. Here, `delta_A = 0.40` and `delta_B = 0.15` encode
+a larger benefit in subgroup A; treatment is effective in both subgroups, but
+considerably more so in A. `subgroup_prob = c(0.6, 0.4)` means that on
+average 60% of enrolled patients belong to subgroup A and 40% to subgroup B,
+though actual proportions vary across replicates due to random assignment.
 
 ```{r scenario}
 # Trial design
@@ -46,8 +63,8 @@ subgroup_prob   <- c(0.6, 0.4)
 # Data-generating truth (example values)
 mu_placebo_A <- 0.00
 mu_placebo_B <- 0.00
-mu_treat_A   <- 0.40
-mu_treat_B   <- 0.15
+delta_A      <- 0.40  # true treatment effect in subgroup A
+delta_B      <- 0.15  # true treatment effect in subgroup B
 sigma        <- 1.0
 
 # Enrollment/dropout profile
@@ -61,14 +78,21 @@ dropout <- list(
 )
 
 scenario <- tidyr::expand_grid(
-  sample_size = sample_size,
-  allocation = list(allocation),
+  sample_size  = sample_size,
+  allocation   = list(allocation),
+  delta_A      = delta_A,
+  delta_B      = delta_B,
   p_subgroup_A = subgroup_prob[1],
   p_subgroup_B = subgroup_prob[2]
 )
 ```
 
 ## Time points
+
+`gen_timepoints()` uses a two-interval piecewise-constant schedule (rates 8 and
+7 per time unit) to reach the target sample size of 120. Both dropout rates are
+zero, so all enrolled subjects complete the trial and contribute to the final
+analysis.
 
 ```{r timepoints}
 timepoints <- gen_timepoints(
@@ -88,7 +112,15 @@ final_time
 
 ## Populations
 
-Create two populations and include a `subgroup` column in each population dataset.
+Create two populations and include a `subgroup` column in each population
+dataset.
+
+In each generator, subgroup membership is randomly drawn for each subject with
+probabilities `c(0.6, 0.4)`, and the arm-specific mean is selected conditional
+on that assignment. Because subgroup is sampled independently in each replicate,
+realized subgroup counts — and hence per-subgroup sample sizes — vary across
+replicates, reflecting a realistic pre-stratified (but not block-randomised)
+design.
 
 ```{r populations}
 # Create generator for arm-specific data with subgroups
@@ -105,7 +137,7 @@ population_generators <- list(
   },
   treatment = function(n) {
     subgroup <- sample(subgroup_levels, size = n, replace = TRUE, prob = subgroup_prob)
-    mu <- ifelse(subgroup == "A", mu_treat_A, mu_treat_B)
+    mu <- ifelse(subgroup == "A", mu_placebo_A + delta_A, mu_placebo_B + delta_B)
     data.frame(
       id = seq_len(n),
       subgroup = subgroup,
@@ -118,12 +150,23 @@ population_generators <- list(
 
 ## Trial Parameters
 
+`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
+distributions for individual subjects. These are passed to `replicate_trial()`,
+which uses them when building each replicate's enrollment schedule.
+
 ```{r trial_params}
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 ```
 
 ## Final analysis trigger
+
+`lm(y ~ arm)` estimates the overall treatment effect across all subjects.
+Per-subgroup effects are obtained by fitting `lm(y ~ arm)` separately within
+each subgroup subset. The interaction model `lm(y ~ arm * subgroup)` includes an
+`arm:subgroupB` coefficient that tests directly whether the treatment effect in
+subgroup B differs from that in the reference subgroup A — a statistically
+significant result indicates genuine treatment effect heterogeneity.
 
 ```{r analysis}
 analysis_generators <- list(
@@ -210,14 +253,21 @@ run_trials(trials)
 
 ## Results
 
-```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
+`collect_results()` row-binds analysis outputs across all replicates and
+prepends `replicate` (integer index), `timepoint` (calendar time at which the
+analysis fired), and `analysis` (the analysis name) to each row.
+`overall_estimate` and `overall_p_value` summarise the pooled treatment effect;
+the per-subgroup columns reveal within-group signals. Note that with
+approximately 24 patients per arm in subgroup B (40% of 60 treated),
+subgroup-level power is limited and p-values will be highly variable — this is
+intentional, since exploratory subgroup analyses are hypothesis-generating and
+should not support confirmatory conclusions. A small `interaction_p_value`
+suggests genuine treatment effect heterogeneity, but interpretation should be
+made cautiously given the sample sizes. See [Getting
+Started](getting-started.html) for simulation setup and [Core
+Concepts](concepts.html) for background.
 
+```{r results}
+replicate_results <- collect_results(trials)
 replicate_results
 ```
