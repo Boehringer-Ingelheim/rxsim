@@ -14,43 +14,109 @@ knitr::opts_chunk$set(
 )
 ```
 
-## Setup package
+This vignette walks through a complete rxsim simulation from start to finish:
+defining a trial scenario, building arm populations, registering an analysis
+trigger, running replicates, and collecting results. By the end you will have
+seen the full rxsim workflow in one place and will be ready to adapt it to your
+own design. For deeper explanations of each building block, see the
+[Core Concepts](concepts.html) vignette.
+
+## Load the package
+
 ```{r setup}
 library(rxsim)
 ```
 
-## Scenario
-Capture essential trial parameters. These will form scenarios.
+## Step 1 — Define the scenario
+
+The `scenario` tibble captures the design parameters you want to track in your
+results — sample size, allocation ratios, or any other factors you might vary
+across simulation runs. Wrapping them in `tidyr::expand_grid()` produces a
+one-row data frame that gets embedded in every analysis result. When you later
+stack results across many scenarios or sensitivity analyses, this metadata keeps
+each row traceable back to its design.
 
 ```{r scenario}
-sample_size <- 15
-allocation <- c(1)
+sample_size <- 30
+arms        <- c("control", "treatment")
+allocation  <- c(1, 1)
+true_delta  <- 0.5
+
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation  = list(allocation),
+  true_delta  = true_delta
 )
 ```
 
-## Arm / Population / Cohort
-Let's assume a continuous endpoint that follows a normal distribution.
+## Step 2 — Define arm populations
+
+Each trial arm is represented by a **generator function** — a plain R function
+that takes `n` (the number of subjects planned for that arm) and returns a data
+frame of subject-level endpoint data. rxsim calls these functions once per
+replicate to draw a fresh population, so every replicate gets independent data.
+
+The data frame must contain at least three columns:
+
+- `id` — a unique integer identifier per subject
+- `readout_time` — the time (in trial-time units) after enrollment when the
+  endpoint is observed (use `0` for baseline or immediately-available data)
+- at least one endpoint column
+
+`vector_to_dataframe()` is a convenience helper that wraps a numeric vector
+into this standard format with `id`, `data`, and `readout_time = 0`.
+
+Here we simulate a simple continuous endpoint: the control arm is
+standard-normal, the treatment arm has a mean shift of `true_delta`.
 
 ```{r population}
 population_generators <- list(
-  control = function(n) vector_to_dataframe(rnorm(n))
+  control   = function(n) vector_to_dataframe(rnorm(n)),
+  treatment = function(n) vector_to_dataframe(rnorm(n, mean = true_delta))
 )
 ```
 
-## Trial Parameters
-Define enrollment and dropout profiles.
+## Step 3 — Define enrollment and dropout
+
+Enrollment and dropout are modelled as random processes. Each function takes
+`n` and returns a vector of **inter-event times** — the waiting times between
+successive enrollments (or dropouts). These times are drawn independently for
+every replicate, giving each trial its own enrollment trajectory.
+
+`rexp(n, rate = 1)` generates exponentially-distributed inter-arrival times
+with a mean gap of 1 time unit between enrolments — a common approximation for
+Poisson arrivals. A lower dropout rate (`0.05`) reflects a trial where most
+subjects complete the study.
 
 ```{r trial_params}
-arms <- c("control")
-enrollment <- function(n) rexp(n, rate = 1)
-dropout <- function(n) rexp(n, rate = 0.1)
+enrollment <- function(n) rexp(n, rate = 1.0)
+dropout    <- function(n) rexp(n, rate = 0.05)
 ```
 
-## Event Triggers
-Define analysis conditions.
+## Step 4 — Define analysis triggers
+
+Analysis triggers are the heart of rxsim. Each trigger pairs a **condition**
+(when to fire) with an **analysis function** (what to compute when it fires).
+
+The condition is written as a `dplyr`-style boolean expression inside
+`rlang::exprs()`. It is evaluated against a snapshot of all currently enrolled
+subjects at each timepoint. Here the condition fires once full enrollment is
+reached, i.e., `sample_size` subjects have accumulated a non-`NA` `enroll_time`.
+
+The `!!` operator (pronounced "bang-bang") **injects the current value** of
+`sample_size` into the expression at definition time, rather than looking it up
+at evaluation time. This is necessary because the expression is stored and
+evaluated later inside the simulation loop.
+
+When the condition is met, rxsim calls the analysis function with two arguments:
+
+- `df`: a data frame snapshot of all enrolled subjects at the triggering
+  timepoint, with columns from the population data plus `enroll_time`,
+  `drop_time`, and `arm`
+- `time`: the current trial clock time at which the trigger fired
+
+The function should return a data frame (one row per trigger event is the
+conventional pattern).
 
 ```{r triggers}
 analysis_generators <- list(
@@ -59,10 +125,12 @@ analysis_generators <- list(
       sum(!is.na(enroll_time)) >= !!sample_size
     ),
     analysis = function(df, timer) {
+      enrolled <- subset(df, !is.na(enroll_time))
       data.frame(
         scenario,
-        n_enrolled = sum(!is.na(df$enroll_time)),
-        mean_data = mean(df$data),
+        n_enrolled  = nrow(enrolled),
+        mean_ctrl   = mean(enrolled$data[enrolled$arm == "control"]),
+        mean_trt    = mean(enrolled$data[enrolled$arm == "treatment"]),
         stringsAsFactors = FALSE
       )
     }
@@ -70,41 +138,95 @@ analysis_generators <- list(
 )
 ```
 
-## Collect & Run
-Create multiple replicates of the trial:
+## Step 5 — Create replicates and run
+
+`replicate_trial()` generates `n` fully independent `Trial` objects. For each
+replicate it:
+
+1. Samples a fresh enrollment/dropout timeline from your functions
+2. Calls each population generator to draw new subject-level data
+3. Registers your analysis triggers on the trial's internal timer
+
+`run_trials()` then executes every replicate's simulation loop in sequence.
 
 ```{r trial}
+set.seed(42)
+
 trials <- replicate_trial(
-  trial_name = "test_trial",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment,
-  dropout = dropout,
-  analysis_generators = analysis_generators,
+  trial_name            = "getting_started",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment,
+  dropout               = dropout,
+  analysis_generators   = analysis_generators,
   population_generators = population_generators,
-  n = 3
+  n                     = 5
 )
+
+run_trials(trials)
 ```
 
-Run all replicates:
+## Step 6 — Collect and interpret results
 
-```{r run}
-run_trials(trials)
+### Analysis results
 
+After running, each `Trial` object exposes a `results` list. It is indexed
+first by the **timepoint** at which an analysis fired (e.g., `"time_30.4"`),
+then by the **analysis name** you gave it (here `"final"`). The value is
+whatever your analysis function returned.
+
+The idiomatic way to collect one row per replicate into a single data frame is
+`do.call(rbind, lapply(...))`:
+
+```{r results}
 replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
+  # results[[1]] accesses the first (and here, only) timepoint that fired
+  data.frame(replicate = i, trials[[i]]$results[[1]]$final,
+             stringsAsFactors = FALSE)
 }))
 
 replicate_results
 ```
 
-You can also inspect locked data from any replicate:
+Each row is one replicate. The `mean_ctrl` and `mean_trt` columns show the
+arm-level sample means at the moment the final analysis fired. Variation across
+replicates reflects both the stochastic endpoint data and the randomness in
+enrollment timing; exactly what operating characteristic simulations are
+designed to characterise.
 
-```{r data}
-trials[[1]]$locked_data |> lapply(head)
+### Locked data snapshots
+
+Every time an analysis fires, rxsim also saves a **locked data snapshot**, the
+full subject-level data frame at that timepoint. You can inspect it directly to
+debug your analysis function, audit which subjects were enrolled, or compute
+additional statistics post-hoc.
+
+```{r locked_data}
+# One snapshot per timepoint that fired in replicate 1
+names(trials[[1]]$locked_data)
+
+# First six rows of the snapshot
+head(trials[[1]]$locked_data[[1]])
 ```
+
+The locked data contains the population columns (`id`, `data`, `arm`,
+`readout_time`) plus three columns added by rxsim:
+
+| Column | Meaning |
+|--------|---------|
+| `enroll_time` | Calendar time the subject was enrolled (`NA` if not yet enrolled) |
+| `drop_time` | Calendar time the subject dropped out (`NA` if still active) |
+| `time` | The trial clock time at which this snapshot was taken |
+
+## Next steps
+
+Now that you have seen the full workflow, here is where to go next:
+
+- **[Core Concepts](concepts.html)** — understand how `Population`, `Timer`,
+  and `Trial` compose, and how to write more advanced trigger expressions
+- **[Enrollment & Dropout Modeling](enrollment-dropout.html)** — choose between
+  stochastic (`gen_plan`) and piecewise-constant (`gen_timepoints`) schedules
+- **[Example 1](example-1.html)** through **[Example 7](example-7.html)** —
+  progressively complex designs: correlated endpoints, time-to-event, multi-arm
+  dose-finding, subgroup analyses, and Bayesian Go/No-Go rules
