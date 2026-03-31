@@ -3,6 +3,12 @@
 Simulate phase II and/or phase III clinical trials. It supports various
 types of endpoints and adaptive strategies.
 
+## See also
+
+Useful links:
+
+- <https://boehringer-ingelheim.github.io/rxsim>
+
 ## Author
 
 **Maintainer**: Saumil Shah <saumil.shah@boehringer-ingelheim.com>

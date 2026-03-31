@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,11 +29,17 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
+<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+    <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
+    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
     <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
@@ -42,10 +48,9 @@
     <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
     <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
     <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-usecase.html">Example usecase</a></li>
-    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -85,11 +90,13 @@ enrollment.</p>
 <span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">6</span></span>
 <span><span class="va">arms</span>        <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pbo"</span>, <span class="st">"trt"</span><span class="op">)</span></span>
 <span><span class="va">allocation</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">delta</span>       <span class="op">&lt;-</span> <span class="fl">2</span>    <span class="co"># true treatment - placebo mean difference</span></span>
 <span><span class="va">enrollment</span>  <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">dropout</span>     <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
 <span><span class="va">scenario</span> <span class="op">&lt;-</span> <span class="fu">tidyr</span><span class="fu">::</span><span class="fu"><a href="https://tidyr.tidyverse.org/reference/expand_grid.html" class="external-link">expand_grid</a></span><span class="op">(</span></span>
 <span>  sample_size <span class="op">=</span> <span class="va">sample_size</span>,</span>
-<span>  allocation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">allocation</span><span class="op">)</span></span>
+<span>  allocation  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">allocation</span><span class="op">)</span>,</span>
+<span>  delta       <span class="op">=</span> <span class="va">delta</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -98,11 +105,9 @@ enrollment.</p>
 <p>Generate populations and endpoint data using generators
 (functions).</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">#update the generators to have sample size 50</span></span>
-<span></span>
-<span><span class="va">population_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">population_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  pbo <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  trt <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="fl">2</span>, sd <span class="op">=</span> <span class="fl">3.14</span><span class="op">)</span><span class="op">)</span></span>
+<span>  trt <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu">stats</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="va">delta</span>, sd <span class="op">=</span> <span class="fl">3.14</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -191,20 +196,52 @@ enrollment.</p>
 <span><span class="co">#&gt;     run: function () </span></span>
 <span><span class="co">#&gt;     seed: NULL</span></span>
 <span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span></span>
-<span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    replicate <span class="op">=</span> <span class="va">i</span>,</span>
-<span>    <span class="va">trials</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">results</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">final</span>,</span>
-<span>    stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
+<span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
 <span><span class="va">replicate_results</span></span>
-<span><span class="co">#&gt;   replicate sample_size allocation   mean_pbo   mean_trt n_total</span></span>
-<span><span class="co">#&gt; 1         1           6       1, 1  0.3666536 2.57810702       6</span></span>
-<span><span class="co">#&gt; 2         2           6       1, 1  0.2398118 0.05936882       6</span></span>
-<span><span class="co">#&gt; 3         3           6       1, 1 -0.1066843 5.16653968       6</span></span></code></pre></div>
+<span><span class="co">#&gt;    replicate  timepoint analysis sample_size allocation delta   mean_pbo</span></span>
+<span><span class="co">#&gt; 1          1   3.153412    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 2          1  31.422729    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 3          1  45.949410    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 4          1 318.573056    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 5          1 321.488401    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 6          1 421.971407    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 7          1 469.992879    final           6       1, 1     2  0.3666536</span></span>
+<span><span class="co">#&gt; 8          2   9.851882    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 9          2 160.585234    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 10         2 310.259521    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 11         2 467.324776    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 12         2 470.501550    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 13         2 530.286519    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 14         2 747.070494    final           6       1, 1     2  0.2398118</span></span>
+<span><span class="co">#&gt; 15         3  10.932265    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 16         3 224.830569    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 17         3 361.203999    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 18         3 418.843166    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 19         3 691.370751    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 20         3 822.587055    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt; 21         3 831.646190    final           6       1, 1     2 -0.1066843</span></span>
+<span><span class="co">#&gt;      mean_trt n_total</span></span>
+<span><span class="co">#&gt; 1  2.57810702       6</span></span>
+<span><span class="co">#&gt; 2  2.57810702       6</span></span>
+<span><span class="co">#&gt; 3  2.57810702       6</span></span>
+<span><span class="co">#&gt; 4  2.57810702       6</span></span>
+<span><span class="co">#&gt; 5  2.57810702       6</span></span>
+<span><span class="co">#&gt; 6  2.57810702       6</span></span>
+<span><span class="co">#&gt; 7  2.57810702       6</span></span>
+<span><span class="co">#&gt; 8  0.05936882       6</span></span>
+<span><span class="co">#&gt; 9  0.05936882       6</span></span>
+<span><span class="co">#&gt; 10 0.05936882       6</span></span>
+<span><span class="co">#&gt; 11 0.05936882       6</span></span>
+<span><span class="co">#&gt; 12 0.05936882       6</span></span>
+<span><span class="co">#&gt; 13 0.05936882       6</span></span>
+<span><span class="co">#&gt; 14 0.05936882       6</span></span>
+<span><span class="co">#&gt; 15 5.16653968       6</span></span>
+<span><span class="co">#&gt; 16 5.16653968       6</span></span>
+<span><span class="co">#&gt; 17 5.16653968       6</span></span>
+<span><span class="co">#&gt; 18 5.16653968       6</span></span>
+<span><span class="co">#&gt; 19 5.16653968       6</span></span>
+<span><span class="co">#&gt; 20 5.16653968       6</span></span>
+<span><span class="co">#&gt; 21 5.16653968       6</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

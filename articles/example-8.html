@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,11 +29,17 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
+<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+    <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
+    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
     <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
@@ -42,10 +48,9 @@
     <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
     <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
     <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-usecase.html">Example usecase</a></li>
-    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -95,6 +100,14 @@
 <span><span class="co">#&gt;     intersect, setdiff, setequal, union</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">8808</span><span class="op">)</span></span></code></pre></div>
+<p>Seamless Phase IIa/IIb designs allow a single trial to serve both
+exploratory and confirmatory objectives, starting with a limited arm set
+and expanding enrollment based on interim evidence. This example
+simulates a seamless design where the trial begins as a two-arm study
+(placebo + one active dose), conducts a Bayesian Go/No-Go interim at
+time 4, then expands to a full multi-arm dose-finding phase in Phase
+IIb, concluding with a Bayesian MCP-Mod analysis across all dose
+groups.</p>
 <div class="section level2">
 <h2 id="scenario">Scenario<a class="anchor" aria-label="anchor" href="#scenario"></a>
 </h2>
@@ -113,6 +126,15 @@ effect for the Ph2a dose.</li>
 <li>
 <strong>Final</strong>: Bayesian MCP-Mod across all doses.</li>
 </ul>
+<p><code>dose_map</code> defines five arms: <code>d0</code> (placebo, 0
+mg), <code>d5</code> (5 mg), <code>d10</code> (10 mg), <code>d20</code>
+(20 mg), and <code>d40</code> (40 mg). The Emax truth has
+<code>emax = 0.9</code> and <code>ed50 = 15</code>, meaning the
+dose-response curve saturates around 30–40 mg. The interim Go/No-Go at
+time 4 uses <code>delta_interim = 0.1</code> and
+<code>gamma_interim = 0.8</code> (same convention as <a href="example-7.html">Example 7</a>), while
+<code>alpha_final = 0.05</code> controls the Type I error at the final
+Bayesian MCP-Mod step.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Dose levels and arm labels</span></span>
 <span><span class="va">dose_map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>d0 <span class="op">=</span> <span class="fl">0</span>, d5 <span class="op">=</span> <span class="fl">5</span>, d10 <span class="op">=</span> <span class="fl">10</span>, d20 <span class="op">=</span> <span class="fl">20</span>, d40 <span class="op">=</span> <span class="fl">40</span><span class="op">)</span></span>
@@ -142,6 +164,15 @@ effect for the Ph2a dose.</li>
 </h2>
 <p>In this implementation, all arms are pre-defined, but enrollment
 switches from two-arm to multi-arm by time.</p>
+<p>The <code>enroll_plan</code> data frame specifies integer subject
+counts (<code>enroller</code>) per arm per time unit. During time 1–4
+(Ph2a), only <code>d0</code> and <code>d20</code> enroll (8 per time
+each). From time 5 onward (Ph2b), three new doses (<code>d5</code>,
+<code>d10</code>, <code>d40</code>) begin enrolling while the d20 arm
+tapers off; <code>d0</code> continues at 8 per time throughout.
+<code>dropper</code> is set to 0 (no dropout).
+<code>tr_timer$get_end_timepoint()</code> confirms the last time point
+at which any enrollment occurs.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">time</span> <span class="op">&lt;-</span> <span class="fl">1</span><span class="op">:</span><span class="fl">12</span></span>
 <span></span>
@@ -177,6 +208,12 @@ switches from two-arm to multi-arm by time.</p>
 <div class="section level2">
 <h2 id="populations">Populations<a class="anchor" aria-label="anchor" href="#populations"></a>
 </h2>
+<p><code>mk_pop()</code> creates <code>Population</code> objects
+directly from pre-generated data (not from generator functions),
+computing each arm’s <code>n</code> from <code>sum(enroller)</code> in
+the enrollment plan. This approach pre-generates the full cohort
+up-front; <code>Trial$new()</code> then draws from each population’s
+pool according to the time-specific enrollment counts.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Planned max N by arm from enrollment schedule</span></span>
 <span><span class="va">n_by_arm</span> <span class="op">&lt;-</span> <span class="va">enroll_plan</span> <span class="op">|&gt;</span></span>
@@ -207,6 +244,12 @@ switches from two-arm to multi-arm by time.</p>
 placebo data and a non-informative prior for active.</p>
 <p>For final Bayesian MCP-Mod, we pass arm-wise priors to
 <code>BayesianMCPMod</code>.</p>
+<p>The same historical borrowing approach as <a href="example-7.html">Example 7</a> is used for the interim and final
+placebo priors. <code>prior_list_final</code> has five entries —
+<code>Ctrl</code> (the robustified historical placebo prior) and
+<code>DG_1</code> through <code>DG_4</code> (non-informative priors for
+d5, d10, d20, d40) — matching the five dose groups expected by
+<code><a href="https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html" class="external-link">BayesianMCPMod::assessDesign()</a></code>.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Historical placebo summary data</span></span>
 <span><span class="va">hist_placebo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -253,6 +296,18 @@ placebo.</li>
 <code>time == final_time</code>: Bayesian MCP-Mod over all dose
 groups.</li>
 </ol>
+<p><code>trigger_by_calendar(interim_time, tr_timer, ...)</code>
+registers the interim analysis to fire when calendar time reaches
+<code>interim_time = 4</code>. The <code>&lt;&lt;-</code> operator in
+<code>go_interim &lt;&lt;- as.integer(...)</code> writes the interim
+Go/No-Go decision to the enclosing environment, making it available to
+downstream analyses or conditional logic in the final step. The final
+analysis calls <code><a href="https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html" class="external-link">BayesianMCPMod::assessDesign()</a></code> with
+arm-level sample sizes (<code>n_patients</code>), the candidate
+dose-response models (<code>mods</code>), the five-arm prior list
+(<code>prior_list</code>), and arm-level posterior mean estimates
+(<code>estimates_sim</code>); <code>alpha_crit_val = alpha_final</code>
+sets the significance threshold for the Bayesian MCP contrast step.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># shared state between interim and final trigger</span></span>
 <span><span class="va">go_interim</span> <span class="op">&lt;-</span> <span class="cn">NA_integer_</span></span>
@@ -374,6 +429,18 @@ groups.</li>
 </h2>
 <p>Interim and final analyses are stored under the corresponding time
 keys.</p>
+<p><code>trial$results</code> is a named list indexed by time-point keys
+(<code>"time_4"</code>, <code>"time_12"</code>); each entry holds the
+named results from analyses registered for that time. The interim
+results (under <code>"time_4"</code>) contain the Bayesian Go/No-Go
+metrics for d20 vs placebo. The final results (under
+<code>"time_12"</code>) include a <code>final_bayesian_mcpmod</code>
+entry whose sub-list components can be inspected with
+<code>names(trial$results[[final_key]]$final_bayesian_mcpmod)</code>.
+Note that this single-run demonstration shows the structural output; in
+practice you would replicate using <code><a href="../reference/clone_trial.html">clone_trial()</a></code> +
+<code><a href="../reference/run_trials.html">run_trials()</a></code> and then <code><a href="../reference/collect_results.html">collect_results()</a></code> to
+aggregate operating characteristics across many simulated trials.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trial</span><span class="op">$</span><span class="va">results</span></span>
 <span><span class="co">#&gt; $time_4</span></span>

@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,11 +29,17 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
+<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+    <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
+    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
     <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
@@ -42,10 +48,9 @@
     <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
     <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
     <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-usecase.html">Example usecase</a></li>
-    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -73,47 +78,122 @@
 
     
     
+<p>This vignette walks through a complete rxsim simulation from start to
+finish: defining a trial scenario, building arm populations, registering
+an analysis trigger, running replicates, and collecting results. By the
+end you will have seen the full rxsim workflow in one place and will be
+ready to adapt it to your own design. For deeper explanations of each
+building block, see the <a href="concepts.html">Core Concepts</a>
+vignette.</p>
 <div class="section level2">
-<h2 id="setup-package">Setup package<a class="anchor" aria-label="anchor" href="#setup-package"></a>
+<h2 id="load-the-package">Load the package<a class="anchor" aria-label="anchor" href="#load-the-package"></a>
 </h2>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://boehringer-ingelheim.github.io/rxsim">rxsim</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="scenario">Scenario<a class="anchor" aria-label="anchor" href="#scenario"></a>
+<h2 id="step-1-define-the-scenario">Step 1 — Define the scenario<a class="anchor" aria-label="anchor" href="#step-1-define-the-scenario"></a>
 </h2>
-<p>Capture essential trial parameters. These will form scenarios.</p>
+<p>The <code>scenario</code> tibble captures the design parameters you
+want to track in your results — sample size, allocation ratios, or any
+other factors you might vary across simulation runs. Wrapping them in
+<code><a href="https://tidyr.tidyverse.org/reference/expand_grid.html" class="external-link">tidyr::expand_grid()</a></code> produces a one-row data frame that
+gets embedded in every analysis result. When you later stack results
+across many scenarios or sensitivity analyses, this metadata keeps each
+row traceable back to its design.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">15</span></span>
-<span><span class="va">allocation</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">30</span></span>
+<span><span class="va">arms</span>        <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"control"</span>, <span class="st">"treatment"</span><span class="op">)</span></span>
+<span><span class="va">allocation</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">true_delta</span>  <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
+<span></span>
 <span><span class="va">scenario</span> <span class="op">&lt;-</span> <span class="fu">tidyr</span><span class="fu">::</span><span class="fu"><a href="https://tidyr.tidyverse.org/reference/expand_grid.html" class="external-link">expand_grid</a></span><span class="op">(</span></span>
 <span>  sample_size <span class="op">=</span> <span class="va">sample_size</span>,</span>
-<span>  allocation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">allocation</span><span class="op">)</span></span>
+<span>  allocation  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">allocation</span><span class="op">)</span>,</span>
+<span>  true_delta  <span class="op">=</span> <span class="va">true_delta</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="arm-population-cohort">Arm / Population / Cohort<a class="anchor" aria-label="anchor" href="#arm-population-cohort"></a>
+<h2 id="step-2-define-arm-populations">Step 2 — Define arm populations<a class="anchor" aria-label="anchor" href="#step-2-define-arm-populations"></a>
 </h2>
-<p>Let’s assume a continuous endpoint that follows a normal
-distribution.</p>
+<p>Each trial arm is represented by a <strong>generator
+function</strong> — a plain R function that takes <code>n</code> (the
+number of subjects planned for that arm) and returns a data frame of
+subject-level endpoint data. rxsim calls these functions once per
+replicate to draw a fresh population, so every replicate gets
+independent data.</p>
+<p>The data frame must contain at least three columns:</p>
+<ul>
+<li>
+<code>id</code> — a unique integer identifier per subject</li>
+<li>
+<code>readout_time</code> — the time (in trial-time units) after
+enrollment when the endpoint is observed (use <code>0</code> for
+baseline or immediately-available data)</li>
+<li>at least one endpoint column</li>
+</ul>
+<p><code><a href="../reference/vector_to_dataframe.html">vector_to_dataframe()</a></code> is a convenience helper that wraps
+a numeric vector into this standard format with <code>id</code>,
+<code>data</code>, and <code>readout_time = 0</code>.</p>
+<p>Here we simulate a simple continuous endpoint: the control arm is
+standard-normal, the treatment arm has a mean shift of
+<code>true_delta</code>.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">population_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  control <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span></span>
+<span>  control   <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  treatment <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="va">true_delta</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="trial-parameters">Trial Parameters<a class="anchor" aria-label="anchor" href="#trial-parameters"></a>
+<h2 id="step-3-define-enrollment-and-dropout">Step 3 — Define enrollment and dropout<a class="anchor" aria-label="anchor" href="#step-3-define-enrollment-and-dropout"></a>
 </h2>
-<p>Define enrollment and dropout profiles.</p>
+<p>Enrollment and dropout are modelled as random processes. Each
+function takes <code>n</code> and returns a vector of
+<strong>inter-event times</strong> — the waiting times between
+successive enrollments (or dropouts). These times are drawn
+independently for every replicate, giving each trial its own enrollment
+trajectory.</p>
+<p><code>rexp(n, rate = 1)</code> generates exponentially-distributed
+inter-arrival times with a mean gap of 1 time unit between enrolments —
+a common approximation for Poisson arrivals. A lower dropout rate
+(<code>0.05</code>) reflects a trial where most subjects complete the
+study.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">arms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"control"</span><span class="op">)</span></span>
-<span><span class="va">enrollment</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">dropout</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">enrollment</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1.0</span><span class="op">)</span></span>
+<span><span class="va">dropout</span>    <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="event-triggers">Event Triggers<a class="anchor" aria-label="anchor" href="#event-triggers"></a>
+<h2 id="step-4-define-analysis-triggers">Step 4 — Define analysis triggers<a class="anchor" aria-label="anchor" href="#step-4-define-analysis-triggers"></a>
 </h2>
-<p>Define analysis conditions.</p>
+<p>Analysis triggers are the heart of rxsim. Each trigger pairs a
+<strong>condition</strong> (when to fire) with an <strong>analysis
+function</strong> (what to compute when it fires).</p>
+<p>The condition is written as a <code>dplyr</code>-style boolean
+expression inside <code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code>. It is evaluated against a
+snapshot of all currently enrolled subjects at each timepoint. Here the
+condition fires once full enrollment is reached, i.e.,
+<code>sample_size</code> subjects have accumulated a non-<code>NA</code>
+<code>enroll_time</code>.</p>
+<p>The <code>!!</code> operator (pronounced “bang-bang”) <strong>injects
+the current value</strong> of <code>sample_size</code> into the
+expression at definition time, rather than looking it up at evaluation
+time. This is necessary because the expression is stored and evaluated
+later inside the simulation loop.</p>
+<p>When the condition is met, rxsim calls the analysis function with two
+arguments:</p>
+<ul>
+<li>
+<code>df</code>: a data frame snapshot of all enrolled subjects at
+the triggering timepoint, with columns from the population data plus
+<code>enroll_time</code>, <code>drop_time</code>, and
+<code>arm</code>
+</li>
+<li>
+<code>time</code>: the current trial clock time at which the trigger
+fired</li>
+</ul>
+<p>The function should return a data frame (one row per trigger event is
+the conventional pattern).</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">analysis_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -121,10 +201,12 @@ distribution.</p>
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">!</span><span class="op">!</span><span class="va">sample_size</span></span>
 <span>    <span class="op">)</span>,</span>
 <span>    analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">timer</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>        <span class="va">scenario</span>,</span>
-<span>        n_enrolled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>        mean_data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">data</span><span class="op">)</span>,</span>
+<span>        n_enrolled  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>,</span>
+<span>        mean_ctrl   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>        mean_trt    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">]</span><span class="op">)</span>,</span>
 <span>        stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>      <span class="op">)</span></span>
 <span>    <span class="op">}</span></span>
@@ -132,31 +214,40 @@ distribution.</p>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
-<h2 id="collect-run">Collect &amp; Run<a class="anchor" aria-label="anchor" href="#collect-run"></a>
+<h2 id="step-5-create-replicates-and-run">Step 5 — Create replicates and run<a class="anchor" aria-label="anchor" href="#step-5-create-replicates-and-run"></a>
 </h2>
-<p>Create multiple replicates of the trial:</p>
+<p><code><a href="../reference/replicate_trial.html">replicate_trial()</a></code> generates <code>n</code> fully
+independent <code>Trial</code> objects. For each replicate it:</p>
+<ol style="list-style-type: decimal">
+<li>Samples a fresh enrollment/dropout timeline from your functions</li>
+<li>Calls each population generator to draw new subject-level data</li>
+<li>Registers your analysis triggers on the trial’s internal timer</li>
+</ol>
+<p><code><a href="../reference/run_trials.html">run_trials()</a></code> then executes every replicate’s simulation
+loop in sequence.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/replicate_trial.html">replicate_trial</a></span><span class="op">(</span></span>
-<span>  trial_name <span class="op">=</span> <span class="st">"test_trial"</span>,</span>
-<span>  sample_size <span class="op">=</span> <span class="va">sample_size</span>,</span>
-<span>  arms <span class="op">=</span> <span class="va">arms</span>,</span>
-<span>  allocation <span class="op">=</span> <span class="va">allocation</span>,</span>
-<span>  enrollment <span class="op">=</span> <span class="va">enrollment</span>,</span>
-<span>  dropout <span class="op">=</span> <span class="va">dropout</span>,</span>
-<span>  analysis_generators <span class="op">=</span> <span class="va">analysis_generators</span>,</span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/replicate_trial.html">replicate_trial</a></span><span class="op">(</span></span>
+<span>  trial_name            <span class="op">=</span> <span class="st">"getting_started"</span>,</span>
+<span>  sample_size           <span class="op">=</span> <span class="va">sample_size</span>,</span>
+<span>  arms                  <span class="op">=</span> <span class="va">arms</span>,</span>
+<span>  allocation            <span class="op">=</span> <span class="va">allocation</span>,</span>
+<span>  enrollment            <span class="op">=</span> <span class="va">enrollment</span>,</span>
+<span>  dropout               <span class="op">=</span> <span class="va">dropout</span>,</span>
+<span>  analysis_generators   <span class="op">=</span> <span class="va">analysis_generators</span>,</span>
 <span>  population_generators <span class="op">=</span> <span class="va">population_generators</span>,</span>
-<span>  n <span class="op">=</span> <span class="fl">3</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>Run all replicates:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/run_trials.html">run_trials</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
+<span>  n                     <span class="op">=</span> <span class="fl">5</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/run_trials.html">run_trials</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [[1]]</span></span>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: test_trial_1</span></span>
+<span><span class="co">#&gt;     name: getting_started_1</span></span>
 <span><span class="co">#&gt;     population: list</span></span>
 <span><span class="co">#&gt;     results: list</span></span>
 <span><span class="co">#&gt;     run: function () </span></span>
@@ -169,7 +260,7 @@ distribution.</p>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: test_trial_2</span></span>
+<span><span class="co">#&gt;     name: getting_started_2</span></span>
 <span><span class="co">#&gt;     population: list</span></span>
 <span><span class="co">#&gt;     results: list</span></span>
 <span><span class="co">#&gt;     run: function () </span></span>
@@ -182,268 +273,451 @@ distribution.</p>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: test_trial_3</span></span>
+<span><span class="co">#&gt;     name: getting_started_3</span></span>
 <span><span class="co">#&gt;     population: list</span></span>
 <span><span class="co">#&gt;     results: list</span></span>
 <span><span class="co">#&gt;     run: function () </span></span>
 <span><span class="co">#&gt;     seed: NULL</span></span>
 <span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span></span>
-<span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    replicate <span class="op">=</span> <span class="va">i</span>,</span>
-<span>    <span class="va">trials</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">results</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">final</span>,</span>
-<span>    stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; [[4]]</span></span>
+<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
+<span><span class="co">#&gt;   Public:</span></span>
+<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
+<span><span class="co">#&gt;     locked_data: list</span></span>
+<span><span class="co">#&gt;     name: getting_started_4</span></span>
+<span><span class="co">#&gt;     population: list</span></span>
+<span><span class="co">#&gt;     results: list</span></span>
+<span><span class="co">#&gt;     run: function () </span></span>
+<span><span class="co">#&gt;     seed: NULL</span></span>
+<span><span class="co">#&gt;     timer: Timer, R6</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; [[5]]</span></span>
+<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
+<span><span class="co">#&gt;   Public:</span></span>
+<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
+<span><span class="co">#&gt;     locked_data: list</span></span>
+<span><span class="co">#&gt;     name: getting_started_5</span></span>
+<span><span class="co">#&gt;     population: list</span></span>
+<span><span class="co">#&gt;     results: list</span></span>
+<span><span class="co">#&gt;     run: function () </span></span>
+<span><span class="co">#&gt;     seed: NULL</span></span>
+<span><span class="co">#&gt;     timer: Timer, R6</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="step-6-collect-and-interpret-results">Step 6 — Collect and interpret results<a class="anchor" aria-label="anchor" href="#step-6-collect-and-interpret-results"></a>
+</h2>
+<div class="section level3">
+<h3 id="analysis-results">Analysis results<a class="anchor" aria-label="anchor" href="#analysis-results"></a>
+</h3>
+<p>After running, each <code>Trial</code> object exposes a
+<code>results</code> list. It is indexed first by the
+<strong>timepoint</strong> at which an analysis fired (e.g.,
+<code>"time_30.4"</code>), then by the <strong>analysis name</strong>
+you gave it (here <code>"final"</code>). The value is whatever your
+analysis function returned.</p>
+<p>The <code><a href="../reference/collect_results.html">collect_results()</a></code> helper gathers every analysis from
+every timepoint across all replicates into one tidy data frame:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
 <span><span class="va">replicate_results</span></span>
-<span><span class="co">#&gt;   replicate sample_size allocation n_enrolled   mean_data</span></span>
-<span><span class="co">#&gt; 1         1          15          1         15  0.24991547</span></span>
-<span><span class="co">#&gt; 2         2          15          1         15 -0.12779334</span></span>
-<span><span class="co">#&gt; 3         3          15          1         15 -0.03437337</span></span></code></pre></div>
-<p>You can also inspect locked data from any replicate:</p>
+<span><span class="co">#&gt;     replicate timepoint analysis sample_size allocation true_delta n_enrolled</span></span>
+<span><span class="co">#&gt; 1           1  29.71727    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 2           1  71.75884    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 3           1  81.71066    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 4           1  88.80173    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 5           1 123.92991    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 6           1 138.67989    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 7           1 139.25641    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 8           1 146.28070    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 9           1 154.13389    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 10          1 192.17561    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 11          1 207.74148    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 12          1 220.86782    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 13          1 228.59602    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 14          1 256.91786    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 15          1 287.38043    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 16          1 296.15466    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 17          1 379.51726    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 18          1 403.41940    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 19          1 403.99571    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 20          1 540.92715    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 21          1 544.19131    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 22          1 577.18203    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 23          1 599.76724    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 24          1 605.59251    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 25          1 616.62545    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 26          1 619.17132    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 27          1 648.08404    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 28          1 666.36446    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 29          1 673.06152    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 30          1 842.30823    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 31          2  27.31408    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 32          2  48.00359    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 33          2 109.71186    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 34          2 131.84283    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 35          2 133.73988    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 36          2 136.11920    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 37          2 137.84044    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 38          2 142.18902    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 39          2 160.61632    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 40          2 198.01478    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 41          2 264.40849    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 42          2 294.33890    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 43          2 366.11547    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 44          2 367.31573    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 45          2 394.88895    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 46          2 438.12156    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 47          2 440.57908    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 48          2 484.79892    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 49          2 526.34752    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 50          2 528.33233    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 51          2 544.26888    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 52          2 560.74408    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 53          2 561.97384    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 54          2 638.74485    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 55          2 650.69527    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 56          2 699.76729    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 57          2 704.52535    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 58          3  35.29848    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 59          3  69.62658    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 60          3  70.81995    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 61          3  78.09509    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 62          3 112.62422    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 63          3 120.26618    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 64          3 166.04672    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 65          3 244.41745    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 66          3 244.94703    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 67          3 250.17608    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 68          3 277.54075    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 69          3 279.03777    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 70          3 294.09805    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 71          3 342.65569    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 72          3 367.39120    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 73          3 411.00304    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 74          3 443.18313    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 75          3 457.78388    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 76          3 468.89933    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 77          3 483.59472    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 78          3 508.70768    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 79          3 510.42419    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 80          3 555.17049    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 81          3 573.74553    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 82          3 574.31182    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 83          3 574.90874    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 84          3 576.72932    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 85          3 591.75515    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 86          3 662.12355    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 87          4  23.61616    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 88          4  29.72873    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 89          4  72.60486    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 90          4  88.63264    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 91          4  99.34682    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 92          4 139.98048    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 93          4 206.27598    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 94          4 266.56996    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 95          4 283.19883    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 96          4 304.96656    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 97          4 314.46469    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 98          4 328.46072    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 99          4 329.15820    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 100         4 339.53599    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 101         4 344.97937    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 102         4 385.33577    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 103         4 385.34138    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 104         4 456.78964    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 105         4 534.01374    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 106         4 570.68747    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 107         4 611.73903    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 108         4 639.27803    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 109         4 657.52944    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 110         4 670.87695    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 111         4 695.91081    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 112         4 710.49484    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 113         4 728.27773    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 114         4 739.33553    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 115         4 757.50669    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 116         4 758.12874    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 117         4 774.26422    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 118         5  25.83584    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 119         5  42.69936    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 120         5  55.30675    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 121         5  78.63514    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 122         5  98.58472    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 123         5 124.76022    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 124         5 137.43827    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 125         5 185.54669    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 126         5 204.11105    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 127         5 209.57048    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 128         5 217.52736    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 129         5 218.93812    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 130         5 224.62617    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 131         5 292.09763    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 132         5 303.22840    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 133         5 306.62372    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 134         5 356.25605    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 135         5 381.40767    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 136         5 418.34338    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 137         5 447.44924    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 138         5 461.90921    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 139         5 464.03910    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 140         5 495.45607    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 141         5 508.54993    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 142         5 516.79836    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 143         5 547.04878    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 144         5 633.22196    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 145         5 640.68178    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 146         5 647.93051    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt; 147         5 653.59243    final          30       1, 1        0.5         30</span></span>
+<span><span class="co">#&gt;      mean_ctrl   mean_trt</span></span>
+<span><span class="co">#&gt; 1   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 2   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 3   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 4   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 5   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 6   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 7   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 8   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 9   -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 10  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 11  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 12  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 13  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 14  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 15  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 16  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 17  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 18  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 19  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 20  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 21  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 22  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 23  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 24  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 25  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 26  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 27  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 28  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 29  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 30  -0.1657292 0.61748974</span></span>
+<span><span class="co">#&gt; 31  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 32  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 33  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 34  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 35  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 36  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 37  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 38  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 39  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 40  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 41  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 42  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 43  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 44  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 45  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 46  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 47  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 48  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 49  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 50  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 51  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 52  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 53  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 54  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 55  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 56  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 57  -0.0978443 0.64303730</span></span>
+<span><span class="co">#&gt; 58  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 59  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 60  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 61  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 62  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 63  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 64  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 65  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 66  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 67  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 68  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 69  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 70  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 71  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 72  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 73  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 74  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 75  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 76  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 77  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 78  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 79  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 80  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 81  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 82  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 83  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 84  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 85  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 86  -0.2573593 0.07050019</span></span>
+<span><span class="co">#&gt; 87  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 88  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 89  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 90  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 91  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 92  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 93  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 94  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 95  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 96  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 97  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 98  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 99  -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 100 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 101 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 102 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 103 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 104 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 105 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 106 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 107 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 108 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 109 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 110 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 111 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 112 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 113 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 114 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 115 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 116 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 117 -0.4199802 0.25120329</span></span>
+<span><span class="co">#&gt; 118 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 119 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 120 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 121 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 122 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 123 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 124 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 125 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 126 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 127 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 128 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 129 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 130 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 131 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 132 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 133 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 134 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 135 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 136 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 137 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 138 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 139 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 140 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 141 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 142 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 143 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 144 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 145 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 146 -0.4170091 0.59879107</span></span>
+<span><span class="co">#&gt; 147 -0.4170091 0.59879107</span></span></code></pre></div>
+<p>Each row is one replicate. The <code>mean_ctrl</code> and
+<code>mean_trt</code> columns show the arm-level sample means at the
+moment the final analysis fired. The <code>timepoint</code> and
+<code>analysis</code> columns identify when and which analysis produced
+each row — essential when a trial has both interim and final analyses.
+Variation across replicates reflects both the stochastic endpoint data
+and the randomness in enrollment timing; exactly what operating
+characteristic simulations are designed to characterise.</p>
+</div>
+<div class="section level3">
+<h3 id="locked-data-snapshots">Locked data snapshots<a class="anchor" aria-label="anchor" href="#locked-data-snapshots"></a>
+</h3>
+<p>Every time an analysis fires, rxsim also saves a <strong>locked data
+snapshot</strong>, the full subject-level data frame at that timepoint.
+You can inspect it directly to debug your analysis function, audit which
+subjects were enrolled, or compute additional statistics post-hoc.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">trials</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">locked_data</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">head</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $time_20.8297407415279</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811        NA          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
+<code class="sourceCode R"><span><span class="co"># One snapshot per timepoint that fired in replicate 1</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">trials</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">locked_data</span><span class="op">)</span></span>
+<span><span class="co">#&gt;  [1] "time_29.7172711929598" "time_71.7588397920052" "time_81.7106552388439"</span></span>
+<span><span class="co">#&gt;  [4] "time_88.8017284464011" "time_123.929908531333" "time_138.679889248391"</span></span>
+<span><span class="co">#&gt;  [7] "time_139.256406634753" "time_146.280697615524" "time_154.133894694986"</span></span>
+<span><span class="co">#&gt; [10] "time_192.175611581853" "time_207.741484369442" "time_220.867823778942"</span></span>
+<span><span class="co">#&gt; [13] "time_228.5960165945"   "time_256.917855072035" "time_287.380430737777"</span></span>
+<span><span class="co">#&gt; [16] "time_296.154664244769" "time_379.517257070982" "time_403.419397851426"</span></span>
+<span><span class="co">#&gt; [19] "time_403.995706183809" "time_540.927149055388" "time_544.191309155759"</span></span>
+<span><span class="co">#&gt; [22] "time_577.182029686913" "time_599.767237766782" "time_605.592512902939"</span></span>
+<span><span class="co">#&gt; [25] "time_616.625447408432" "time_619.171321070889" "time_648.084043521793"</span></span>
+<span><span class="co">#&gt; [28] "time_666.364456690367" "time_673.061517277252" "time_842.308234163735"</span></span>
+<span></span>
+<span><span class="co"># First six rows of the snapshot</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">trials</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">locked_data</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   id       data readout_time     arm enroll_time drop_time subject_id</span></span>
+<span><span class="co">#&gt; 1  1 -2.6882473            0 control   0.8592321        NA          1</span></span>
+<span><span class="co">#&gt; 2  2  0.8666502            0 control  11.6939492        NA          2</span></span>
+<span><span class="co">#&gt; 3  3  0.1687397            0 control  26.6106187        NA          3</span></span>
+<span><span class="co">#&gt; 4  4 -1.0908241            0 control   1.6540916        NA          4</span></span>
+<span><span class="co">#&gt; 5  5 -0.3803481            0 control   9.5016932        NA          5</span></span>
+<span><span class="co">#&gt; 6  6 -0.9480918            0 control  13.9319792        NA          6</span></span>
 <span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 20.82974</span></span>
-<span><span class="co">#&gt; 2        14.224811 20.82974</span></span>
-<span><span class="co">#&gt; 3        10.060903 20.82974</span></span>
-<span><span class="co">#&gt; 4        16.176464 20.82974</span></span>
-<span><span class="co">#&gt; 5         3.040110 20.82974</span></span>
-<span><span class="co">#&gt; 6         4.885593 20.82974</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_21.5488625294756</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811        NA          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 21.54886</span></span>
-<span><span class="co">#&gt; 2        14.224811 21.54886</span></span>
-<span><span class="co">#&gt; 3        10.060903 21.54886</span></span>
-<span><span class="co">#&gt; 4        16.176464 21.54886</span></span>
-<span><span class="co">#&gt; 5         3.040110 21.54886</span></span>
-<span><span class="co">#&gt; 6         4.885593 21.54886</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_21.9054609428141</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811        NA          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 21.90546</span></span>
-<span><span class="co">#&gt; 2        14.224811 21.90546</span></span>
-<span><span class="co">#&gt; 3        10.060903 21.90546</span></span>
-<span><span class="co">#&gt; 4        16.176464 21.90546</span></span>
-<span><span class="co">#&gt; 5         3.040110 21.90546</span></span>
-<span><span class="co">#&gt; 6         4.885593 21.90546</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_25.8219385224375</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 25.82194</span></span>
-<span><span class="co">#&gt; 2        14.224811 25.82194</span></span>
-<span><span class="co">#&gt; 3        10.060903 25.82194</span></span>
-<span><span class="co">#&gt; 4        16.176464 25.82194</span></span>
-<span><span class="co">#&gt; 5         3.040110 25.82194</span></span>
-<span><span class="co">#&gt; 6         4.885593 25.82194</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_29.5930585901234</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 29.59306</span></span>
-<span><span class="co">#&gt; 2        14.224811 29.59306</span></span>
-<span><span class="co">#&gt; 3        10.060903 29.59306</span></span>
-<span><span class="co">#&gt; 4        16.176464 29.59306</span></span>
-<span><span class="co">#&gt; 5         3.040110 29.59306</span></span>
-<span><span class="co">#&gt; 6         4.885593 29.59306</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_65.8138979666</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time    time</span></span>
-<span><span class="co">#&gt; 1        17.483763 65.8139</span></span>
-<span><span class="co">#&gt; 2        14.224811 65.8139</span></span>
-<span><span class="co">#&gt; 3        10.060903 65.8139</span></span>
-<span><span class="co">#&gt; 4        16.176464 65.8139</span></span>
-<span><span class="co">#&gt; 5         3.040110 65.8139</span></span>
-<span><span class="co">#&gt; 6         4.885593 65.8139</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_69.9425747219538</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903        NA          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 69.94257</span></span>
-<span><span class="co">#&gt; 2        14.224811 69.94257</span></span>
-<span><span class="co">#&gt; 3        10.060903 69.94257</span></span>
-<span><span class="co">#&gt; 4        16.176464 69.94257</span></span>
-<span><span class="co">#&gt; 5         3.040110 69.94257</span></span>
-<span><span class="co">#&gt; 6         4.885593 69.94257</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_71.1925878081882</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 71.19259</span></span>
-<span><span class="co">#&gt; 2        14.224811 71.19259</span></span>
-<span><span class="co">#&gt; 3        10.060903 71.19259</span></span>
-<span><span class="co">#&gt; 4        16.176464 71.19259</span></span>
-<span><span class="co">#&gt; 5         3.040110 71.19259</span></span>
-<span><span class="co">#&gt; 6         4.885593 71.19259</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_74.7958461599836</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 74.79585</span></span>
-<span><span class="co">#&gt; 2        14.224811 74.79585</span></span>
-<span><span class="co">#&gt; 3        10.060903 74.79585</span></span>
-<span><span class="co">#&gt; 4        16.176464 74.79585</span></span>
-<span><span class="co">#&gt; 5         3.040110 74.79585</span></span>
-<span><span class="co">#&gt; 6         4.885593 74.79585</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_82.3929067106495</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763        NA          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 82.39291</span></span>
-<span><span class="co">#&gt; 2        14.224811 82.39291</span></span>
-<span><span class="co">#&gt; 3        10.060903 82.39291</span></span>
-<span><span class="co">#&gt; 4        16.176464 82.39291</span></span>
-<span><span class="co">#&gt; 5         3.040110 82.39291</span></span>
-<span><span class="co">#&gt; 6         4.885593 82.39291</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_87.7864027965392</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763  87.78640          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time    time</span></span>
-<span><span class="co">#&gt; 1        17.483763 87.7864</span></span>
-<span><span class="co">#&gt; 2        14.224811 87.7864</span></span>
-<span><span class="co">#&gt; 3        10.060903 87.7864</span></span>
-<span><span class="co">#&gt; 4        16.176464 87.7864</span></span>
-<span><span class="co">#&gt; 5         3.040110 87.7864</span></span>
-<span><span class="co">#&gt; 6         4.885593 87.7864</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_90.4840121289538</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763  87.78640          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593        NA          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 90.48401</span></span>
-<span><span class="co">#&gt; 2        14.224811 90.48401</span></span>
-<span><span class="co">#&gt; 3        10.060903 90.48401</span></span>
-<span><span class="co">#&gt; 4        16.176464 90.48401</span></span>
-<span><span class="co">#&gt; 5         3.040110 90.48401</span></span>
-<span><span class="co">#&gt; 6         4.885593 90.48401</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_100.025154031562</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763  87.78640          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464        NA          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593 100.02515          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 100.0252</span></span>
-<span><span class="co">#&gt; 2        14.224811 100.0252</span></span>
-<span><span class="co">#&gt; 3        10.060903 100.0252</span></span>
-<span><span class="co">#&gt; 4        16.176464 100.0252</span></span>
-<span><span class="co">#&gt; 5         3.040110 100.0252</span></span>
-<span><span class="co">#&gt; 6         4.885593 100.0252</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_117.862169160347</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763  87.78640          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464 117.86217          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593 100.02515          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 117.8622</span></span>
-<span><span class="co">#&gt; 2        14.224811 117.8622</span></span>
-<span><span class="co">#&gt; 3        10.060903 117.8622</span></span>
-<span><span class="co">#&gt; 4        16.176464 117.8622</span></span>
-<span><span class="co">#&gt; 5         3.040110 117.8622</span></span>
-<span><span class="co">#&gt; 6         4.885593 117.8622</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_118.493639975626</span></span>
-<span><span class="co">#&gt;   id        data readout_time     arm enroll_time drop_time subject_id</span></span>
-<span><span class="co">#&gt; 1  1  0.89496163            0 control   17.483763  87.78640          1</span></span>
-<span><span class="co">#&gt; 2  2  0.06730444            0 control   14.224811  25.82194          2</span></span>
-<span><span class="co">#&gt; 3  3 -0.16267634            0 control   10.060903  71.19259          3</span></span>
-<span><span class="co">#&gt; 4  4 -0.82731017            0 control   16.176464 117.86217          4</span></span>
-<span><span class="co">#&gt; 5  5  1.87650562            0 control    3.040110        NA          5</span></span>
-<span><span class="co">#&gt; 6  6  0.76644020            0 control    4.885593 100.02515          6</span></span>
-<span><span class="co">#&gt;   measurement_time     time</span></span>
-<span><span class="co">#&gt; 1        17.483763 118.4936</span></span>
-<span><span class="co">#&gt; 2        14.224811 118.4936</span></span>
-<span><span class="co">#&gt; 3        10.060903 118.4936</span></span>
-<span><span class="co">#&gt; 4        16.176464 118.4936</span></span>
-<span><span class="co">#&gt; 5         3.040110 118.4936</span></span>
-<span><span class="co">#&gt; 6         4.885593 118.4936</span></span></code></pre></div>
+<span><span class="co">#&gt; 1        0.8592321 29.71727</span></span>
+<span><span class="co">#&gt; 2       11.6939492 29.71727</span></span>
+<span><span class="co">#&gt; 3       26.6106187 29.71727</span></span>
+<span><span class="co">#&gt; 4        1.6540916 29.71727</span></span>
+<span><span class="co">#&gt; 5        9.5016932 29.71727</span></span>
+<span><span class="co">#&gt; 6       13.9319792 29.71727</span></span></code></pre></div>
+<p>The locked data contains the population columns (<code>id</code>,
+<code>data</code>, <code>arm</code>, <code>readout_time</code>) plus
+three columns added by rxsim:</p>
+<table class="table">
+<colgroup>
+<col width="47%">
+<col width="52%">
+</colgroup>
+<thead><tr class="header">
+<th>Column</th>
+<th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>enroll_time</code></td>
+<td>Calendar time the subject was enrolled (<code>NA</code> if not yet
+enrolled)</td>
+</tr>
+<tr class="even">
+<td><code>drop_time</code></td>
+<td>Calendar time the subject dropped out (<code>NA</code> if still
+active)</td>
+</tr>
+<tr class="odd">
+<td><code>time</code></td>
+<td>The trial clock time at which this snapshot was taken</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section level2">
+<h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
+</h2>
+<p>Now that you have seen the full workflow, here is where to go
+next:</p>
+<ul>
+<li>
+<strong><a href="concepts.html">Core Concepts</a></strong> —
+understand how <code>Population</code>, <code>Timer</code>, and
+<code>Trial</code> compose, and how to write more advanced trigger
+expressions</li>
+<li>
+<strong><a href="enrollment-dropout.html">Enrollment &amp; Dropout
+Modeling</a></strong> — choose between stochastic
+(<code>gen_plan</code>) and piecewise-constant
+(<code>gen_timepoints</code>) schedules</li>
+<li>
+<strong><a href="example-1.html">Example 1</a></strong> through
+<strong><a href="example-7.html">Example 7</a></strong> — progressively
+complex designs: correlated endpoints, time-to-event, multi-arm
+dose-finding, subgroup analyses, and Bayesian Go/No-Go rules</li>
+</ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

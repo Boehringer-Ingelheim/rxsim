@@ -24,6 +24,14 @@ library(dplyr)
 set.seed(8808)
 ```
 
+Seamless Phase IIa/IIb designs allow a single trial to serve both
+exploratory and confirmatory objectives, starting with a limited arm set
+and expanding enrollment based on interim evidence. This example
+simulates a seamless design where the trial begins as a two-arm study
+(placebo + one active dose), conducts a Bayesian Go/No-Go interim at
+time 4, then expands to a full multi-arm dose-finding phase in Phase
+IIb, concluding with a Bayesian MCP-Mod analysis across all dose groups.
+
 ## Scenario
 
 A **seamless Ph2a/2b** trial with one continuous endpoint:
@@ -33,6 +41,16 @@ A **seamless Ph2a/2b** trial with one continuous endpoint:
 - **Interim**: Bayesian Go/No-Go based on treatment effect for the Ph2a
   dose.
 - **Final**: Bayesian MCP-Mod across all doses.
+
+`dose_map` defines five arms: `d0` (placebo, 0 mg), `d5` (5 mg), `d10`
+(10 mg), `d20` (20 mg), and `d40` (40 mg). The Emax truth has
+`emax = 0.9` and `ed50 = 15`, meaning the dose-response curve saturates
+around 30–40 mg. The interim Go/No-Go at time 4 uses
+`delta_interim = 0.1` and `gamma_interim = 0.8` (same convention as
+[Example
+7](https://boehringer-ingelheim.github.io/rxsim/articles/example-7.md)),
+while `alpha_final = 0.05` controls the Type I error at the final
+Bayesian MCP-Mod step.
 
 ``` r
 # Dose levels and arm labels
@@ -63,6 +81,14 @@ final_time   <- 12
 
 In this implementation, all arms are pre-defined, but enrollment
 switches from two-arm to multi-arm by time.
+
+The `enroll_plan` data frame specifies integer subject counts
+(`enroller`) per arm per time unit. During time 1–4 (Ph2a), only `d0`
+and `d20` enroll (8 per time each). From time 5 onward (Ph2b), three new
+doses (`d5`, `d10`, `d40`) begin enrolling while the d20 arm tapers off;
+`d0` continues at 8 per time throughout. `dropper` is set to 0 (no
+dropout). `tr_timer$get_end_timepoint()` confirms the last time point at
+which any enrollment occurs.
 
 ``` r
 time <- 1:12
@@ -99,6 +125,12 @@ tr_timer$get_end_timepoint()
 
 ## Populations
 
+`mk_pop()` creates `Population` objects directly from pre-generated data
+(not from generator functions), computing each arm’s `n` from
+`sum(enroller)` in the enrollment plan. This approach pre-generates the
+full cohort up-front; `Trial$new()` then draws from each population’s
+pool according to the time-specific enrollment counts.
+
 ``` r
 # Planned max N by arm from enrollment schedule
 n_by_arm <- enroll_plan |>
@@ -129,6 +161,14 @@ For interim Go/No-Go, we use placebo borrowing from small historical
 placebo data and a non-informative prior for active.
 
 For final Bayesian MCP-Mod, we pass arm-wise priors to `BayesianMCPMod`.
+
+The same historical borrowing approach as [Example
+7](https://boehringer-ingelheim.github.io/rxsim/articles/example-7.md)
+is used for the interim and final placebo priors. `prior_list_final` has
+five entries — `Ctrl` (the robustified historical placebo prior) and
+`DG_1` through `DG_4` (non-informative priors for d5, d10, d20, d40) —
+matching the five dose groups expected by
+[`BayesianMCPMod::assessDesign()`](https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html).
 
 ``` r
 # Historical placebo summary data
@@ -171,6 +211,19 @@ We add two trigger conditions:
 
 1.  `time == interim_time`: Bayesian Go/No-Go on d20 vs placebo.
 2.  `time == final_time`: Bayesian MCP-Mod over all dose groups.
+
+`trigger_by_calendar(interim_time, tr_timer, ...)` registers the interim
+analysis to fire when calendar time reaches `interim_time = 4`. The
+`<<-` operator in `go_interim <<- as.integer(...)` writes the interim
+Go/No-Go decision to the enclosing environment, making it available to
+downstream analyses or conditional logic in the final step. The final
+analysis calls
+[`BayesianMCPMod::assessDesign()`](https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html)
+with arm-level sample sizes (`n_patients`), the candidate dose-response
+models (`mods`), the five-arm prior list (`prior_list`), and arm-level
+posterior mean estimates (`estimates_sim`);
+`alpha_crit_val = alpha_final` sets the significance threshold for the
+Bayesian MCP contrast step.
 
 ``` r
 # shared state between interim and final trigger
@@ -292,6 +345,21 @@ trial$run()
 ## Results
 
 Interim and final analyses are stored under the corresponding time keys.
+
+`trial$results` is a named list indexed by time-point keys (`"time_4"`,
+`"time_12"`); each entry holds the named results from analyses
+registered for that time. The interim results (under `"time_4"`) contain
+the Bayesian Go/No-Go metrics for d20 vs placebo. The final results
+(under `"time_12"`) include a `final_bayesian_mcpmod` entry whose
+sub-list components can be inspected with
+`names(trial$results[[final_key]]$final_bayesian_mcpmod)`. Note that
+this single-run demonstration shows the structural output; in practice
+you would replicate using
+[`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md) +
+[`run_trials()`](https://boehringer-ingelheim.github.io/rxsim/reference/run_trials.md)
+and then
+[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
+to aggregate operating characteristics across many simulated trials.
 
 ``` r
 trial$results

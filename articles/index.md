@@ -1,6 +1,18 @@
 # Articles
 
-### All vignettes
+### Getting started
+
+- [Getting
+  Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.md):
+
+### Concepts
+
+- [Core
+  Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.md):
+- [Enrollment & Dropout
+  Modeling](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.md):
+
+### Examples
 
 - [Example 1: Two arm \| Fixed design \|
   Continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md):
@@ -26,7 +38,3 @@
   MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-8.md):
 - [Example Multi Run: Two arm \| Interim \| Continuous \|
   t-test](https://boehringer-ingelheim.github.io/rxsim/articles/example-multi-run.md):
-- [Example
-  usecase](https://boehringer-ingelheim.github.io/rxsim/articles/example-usecase.md):
-- [Getting
-  Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.md):

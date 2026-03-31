@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -29,11 +29,17 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
+<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+    <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
+    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
     <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
     <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
@@ -42,10 +48,9 @@
     <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
     <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
     <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-usecase.html">Example usecase</a></li>
-    <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
   </ul>
 </li>
+<li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -93,13 +98,20 @@
 <span><span class="co">#&gt; The following object is masked from 'package:dplyr':</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt;     select</span></span></code></pre></div>
+<p>Many trials evaluate co-primary or key secondary endpoints
+simultaneously. Ignoring endpoint correlation when planning a study
+leads to incorrect power estimates. This example shows how to simulate
+two correlated continuous endpoints (e.g., a primary efficacy score and
+a key secondary biomarker) and apply multiplicity adjustment via Holm’s
+procedure. See <a href="example-1.html">Example 1</a> for the simpler
+single-endpoint baseline.</p>
 <div class="section level2">
 <h2 id="scenario">Scenario<a class="anchor" aria-label="anchor" href="#scenario"></a>
 </h2>
 <p>We consider a <strong>two-arm, fixed design</strong> with <strong>two
-correlated continuous endpoints</strong> per subject.<br>
-Enrollment is piece-wise linear; analysis happens <strong>once at the
-final time</strong>.</p>
+correlated continuous endpoints</strong> per subject. Enrollment is
+piece-wise linear; analysis happens <strong>once at the final
+time</strong>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Total target sample size</span></span>
 <span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">100</span></span>
@@ -150,6 +162,14 @@ final time</strong>.</p>
 <span>  delta1 <span class="op">=</span> <span class="va">delta1</span>,</span>
 <span>  delta2 <span class="op">=</span> <span class="va">delta2</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p><code>rho = 0.60</code> represents a moderate positive correlation
+between the two endpoints — plausible when both reflect the same
+underlying biological process. The covariance matrix <code>Sigma</code>
+is constructed from the marginal SDs and correlation using the standard
+identity cov(y1, y2) = rho × sd1 × sd2. Treatment shifts are delta1 =
+0.30 SD for the primary endpoint and delta2 = 0.20 SD for the secondary,
+reflecting a scenario where the primary endpoint is more sensitive to
+treatment.</p>
 </div>
 <div class="section level2">
 <h2 id="time-points">Time points<a class="anchor" aria-label="anchor" href="#time-points"></a>
@@ -171,13 +191,19 @@ final time</strong>.</p>
 <span><span class="va">final_time</span> <span class="op">&lt;-</span> <span class="va">t</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">final_time</span></span>
 <span><span class="co">#&gt; [1] 12</span></span></code></pre></div>
+<p><code><a href="../reference/gen_timepoints.html">gen_timepoints()</a></code> converts piecewise-constant enrollment
+and dropout rate lists into a deterministic set of calendar timepoints —
+in contrast to the stochastic <code>rexp</code> calls used in <a href="example-1.html">Examples 1</a> and <a href="example-2.html">2</a>.
+<code>t$get_end_timepoint()</code> returns the latest timepoint at which
+all expected enrollment and follow-up will have completed, providing the
+calendar time for the single final analysis.</p>
 </div>
 <div class="section level2">
 <h2 id="arms-populations">Arms (Populations)<a class="anchor" aria-label="anchor" href="#arms-populations"></a>
 </h2>
 <p>For each arm we simulate <strong>two correlated endpoints</strong>
-per subject using <code><a href="https://rdrr.io/pkg/MASS/man/mvrnorm.html" class="external-link">MASS::mvrnorm</a></code>.<br>
-We keep <strong>50</strong> subjects per arm (consistent with
+per subject using <code><a href="https://rdrr.io/pkg/MASS/man/mvrnorm.html" class="external-link">MASS::mvrnorm</a></code>. We keep
+<strong>50</strong> subjects per arm (consistent with
 <code>sample_size = 100</code> and equal allocation).</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create closure to capture parameters</span></span>
@@ -201,6 +227,16 @@ We keep <strong>50</strong> subjects per arm (consistent with
 <span>  pbo <span class="op">=</span> <span class="fu">mk_population_generator</span><span class="op">(</span><span class="va">mu1_pbo</span>, <span class="va">mu2_pbo</span><span class="op">)</span>,</span>
 <span>  trt <span class="op">=</span> <span class="fu">mk_population_generator</span><span class="op">(</span><span class="va">mu1_trt</span>, <span class="va">mu2_trt</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="https://rdrr.io/pkg/MASS/man/mvrnorm.html" class="external-link">MASS::mvrnorm</a></code> draws <code>n</code> samples from a
+multivariate normal with the given mean vector and covariance matrix
+<code>Sigma</code>. The closure pattern
+(<code>mk_population_generator</code>) captures the arm-specific means
+at definition time, so each call to
+<code>population_generators$pbo(n)</code> or
+<code>population_generators$trt(n)</code> produces data under the
+correct arm parameters. Endpoint correlation flows entirely through the
+shared <code>Sigma</code> matrix — changing <code>rho</code> in the
+scenario automatically updates both arms.</p>
 </div>
 <div class="section level2">
 <h2 id="trial-parameters">Trial Parameters<a class="anchor" aria-label="anchor" href="#trial-parameters"></a>
@@ -211,6 +247,14 @@ We keep <strong>50</strong> subjects per arm (consistent with
 <span><span class="va">allocation</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">enrollment_fn</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">dropout_fn</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span></code></pre></div>
+<p>Note that <code>enrollment_fn</code> and <code>dropout_fn</code> here
+are stochastic functions passed to <code><a href="../reference/replicate_trial.html">replicate_trial()</a></code>, which
+uses them in <code><a href="../reference/gen_plan.html">gen_plan()</a></code> to generate per-replicate
+enrollment and dropout times. They are separate from the
+piecewise-constant <code>enrollment</code> and <code>dropout</code>
+lists used by <code><a href="../reference/gen_timepoints.html">gen_timepoints()</a></code> above — those lists drive
+the deterministic timer, while these functions drive per-subject event
+times within each simulated replicate.</p>
 </div>
 <div class="section level2">
 <h2 id="trigger-analysis">Trigger &amp; Analysis<a class="anchor" aria-label="anchor" href="#trigger-analysis"></a>
@@ -245,13 +289,21 @@ We run two independent two-sample t-tests (one per endpoint).</p>
 <span>    <span class="op">}</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<p>The two t-tests are run independently on the enrolled subset,
+producing unadjusted p-values <code>p_y1</code> and <code>p_y2</code>.
+<code>p.adjust(..., method = "holm")</code> applies Holm’s stepwise
+procedure: <code>padj[1]</code> corresponds to the endpoint with the
+smaller raw p-value (most significant) and <code>padj[2]</code> to the
+larger. The adjusted values account for the familywise error rate across
+the two endpoints, so <code>p_holm_y1 &gt;= p_y1</code> always
+holds.</p>
 </div>
 <div class="section level2">
 <h2 id="trial">Trial<a class="anchor" aria-label="anchor" href="#trial"></a>
 </h2>
-<p>Create and run the trial.<br>
-(We supply a <code>seed</code> for reproducibility inside the trial
-engine—e.g., enrollment/dropout sampling.)</p>
+<p>Create and run the trial. (We supply a <code>seed</code> for
+reproducibility inside the trial engine—e.g., enrollment/dropout
+sampling.)</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/replicate_trial.html">replicate_trial</a></span><span class="op">(</span></span>
 <span>  trial_name <span class="op">=</span> <span class="st">"two_endpoints_fixed_design"</span>,</span>
@@ -314,23 +366,614 @@ engine—e.g., enrollment/dropout sampling.)</p>
 </h2>
 <p>One row per replicate, row-bound across all replicates:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    replicate <span class="op">=</span> <span class="va">i</span>,</span>
-<span>    <span class="va">trials</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">results</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">$</span><span class="va">final</span>,</span>
-<span>    stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
+<code class="sourceCode R"><span><span class="va">replicate_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
 <span><span class="va">replicate_results</span></span>
-<span><span class="co">#&gt;   replicate sample_size allocation rho delta1 delta2       p_y1      p_y2</span></span>
-<span><span class="co">#&gt; 1         1         100       1, 1 0.6    0.3    0.2 0.07643188 0.6506456</span></span>
-<span><span class="co">#&gt; 2         2         100       1, 1 0.6    0.3    0.2 0.01064244 0.2144255</span></span>
-<span><span class="co">#&gt; 3         3         100       1, 1 0.6    0.3    0.2 0.17952451 0.3090734</span></span>
-<span><span class="co">#&gt;    p_holm_y1 p_holm_y2 n_total n_pbo n_trt</span></span>
-<span><span class="co">#&gt; 1 0.15286377 0.6506456     100    50    50</span></span>
-<span><span class="co">#&gt; 2 0.02128487 0.2144255     100    50    50</span></span>
-<span><span class="co">#&gt; 3 0.35904902 0.3590490     100    50    50</span></span></code></pre></div>
+<span><span class="co">#&gt;     replicate  timepoint analysis sample_size allocation rho delta1 delta2</span></span>
+<span><span class="co">#&gt; 1           1   87.36847    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 2           1  347.10044    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 3           1  364.07755    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 4           1  448.68714    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 5           1  469.18697    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 6           1  487.15448    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 7           1  538.98616    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 8           1  606.20122    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 9           1  658.76511    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 10          1  794.98780    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 11          1  944.07711    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 12          1 1181.37320    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 13          1 1212.56973    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 14          1 1232.97050    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 15          1 1264.36967    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 16          1 1365.41125    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 17          1 1414.98418    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 18          1 1580.61613    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 19          1 1905.27865    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 20          1 1928.66156    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 21          1 1948.35656    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 22          1 2080.41273    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 23          1 2116.29566    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 24          1 2471.76965    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 25          1 2506.45921    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 26          1 2624.28188    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 27          1 2670.38674    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 28          1 2721.59496    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 29          1 2730.16239    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 30          1 2897.71439    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 31          1 2943.10416    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 32          1 2970.64127    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 33          1 3098.51997    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 34          1 3101.99965    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 35          1 3117.23713    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 36          1 3264.59026    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 37          1 3324.84528    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 38          1 3376.45601    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 39          1 3382.96904    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 40          1 3392.33000    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 41          1 3653.75656    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 42          1 3778.41117    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 43          1 3954.92212    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 44          1 3993.06729    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 45          1 4028.10899    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 46          1 4041.70989    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 47          1 4165.86312    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 48          1 4195.93190    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 49          1 4258.85114    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 50          1 4480.33893    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 51          1 4485.70500    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 52          1 4538.39996    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 53          1 4621.85701    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 54          1 4980.81111    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 55          1 5022.77206    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 56          1 5025.26114    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 57          1 5283.65388    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 58          1 5322.97061    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 59          1 5454.57682    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 60          1 5667.53959    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 61          1 5807.36313    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 62          1 5822.36146    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 63          1 6024.11144    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 64          1 6033.82973    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 65          1 6099.33001    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 66          1 6240.00557    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 67          1 6313.79473    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 68          1 6398.47626    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 69          1 6843.06418    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 70          1 6893.26695    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 71          1 6937.06974    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 72          1 6940.14080    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 73          1 6951.95172    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 74          1 7300.51551    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 75          1 7357.70574    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 76          1 7422.76732    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 77          1 7434.85486    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 78          1 7455.60494    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 79          1 7516.69768    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 80          1 7811.33067    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 81          1 7857.91280    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 82          1 7997.65149    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 83          1 8034.86411    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 84          1 8063.25236    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 85          1 8163.50249    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 86          1 8287.81000    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 87          1 8329.31008    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 88          1 8368.84116    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 89          1 8400.65785    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 90          1 8571.29608    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 91          1 8584.67803    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 92          1 8625.88371    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 93          1 8644.56538    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 94          1 8700.35951    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 95          1 8828.78289    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 96          1 8850.81043    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 97          1 9065.76198    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 98          1 9187.05539    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 99          2   83.92580    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 100         2  162.86506    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 101         2  164.52703    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 102         2  409.86390    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 103         2  410.46923    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 104         2  711.15813    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 105         2  775.96471    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 106         2  859.67365    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 107         2 1025.88990    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 108         2 1131.25232    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 109         2 1156.72552    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 110         2 1221.70859    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 111         2 1376.43033    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 112         2 1382.39410    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 113         2 1383.07312    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 114         2 1452.59714    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 115         2 1458.82499    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 116         2 1487.90153    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 117         2 1574.45724    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 118         2 1687.75601    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 119         2 1885.57444    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 120         2 1930.83150    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 121         2 2103.96690    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 122         2 2266.56908    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 123         2 2482.22496    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 124         2 2829.74784    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 125         2 2876.89371    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 126         2 2904.98490    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 127         2 2982.17747    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 128         2 3051.66387    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 129         2 3207.73134    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 130         2 3233.42137    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 131         2 3329.18229    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 132         2 3335.55715    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 133         2 3383.11618    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 134         2 3397.06429    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 135         2 3436.36201    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 136         2 3476.51551    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 137         2 3781.58448    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 138         2 3890.17196    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 139         2 3907.82140    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 140         2 3957.68072    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 141         2 4046.83243    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 142         2 4070.13216    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 143         2 4236.18139    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 144         2 4366.13531    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 145         2 5058.56822    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 146         2 5195.06935    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 147         2 5247.85622    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 148         2 5306.75175    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 149         2 5447.39854    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 150         2 5453.48043    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 151         2 5578.89134    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 152         2 5613.89604    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 153         2 5872.18930    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 154         2 6068.78939    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 155         2 6175.40092    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 156         2 6190.98047    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 157         2 6229.16404    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 158         2 6323.41052    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 159         2 6401.16754    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 160         2 6496.77482    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 161         2 6560.01235    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 162         2 6569.19544    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 163         2 6571.86589    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 164         2 6807.20046    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 165         2 6896.87699    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 166         2 7109.88073    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 167         2 7124.19290    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 168         2 7159.79051    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 169         2 7197.93433    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 170         2 7316.61338    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 171         2 7581.32242    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 172         2 7847.68211    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 173         2 7902.64242    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 174         2 8062.46831    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 175         2 8189.62566    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 176         2 8233.68681    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 177         2 8338.28947    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 178         2 8346.03816    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 179         2 8349.95850    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 180         2 8359.23202    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 181         2 8429.83124    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 182         2 8441.34870    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 183         2 8555.06586    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 184         2 8585.46590    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 185         2 8614.05634    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 186         2 8780.06920    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 187         2 8849.20991    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 188         2 8851.85363    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 189         2 8867.06403    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 190         2 8968.75154    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 191         2 9149.58844    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 192         2 9263.90968    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 193         2 9389.80570    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 194         2 9399.46535    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 195         2 9476.42755    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 196         2 9483.19609    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 197         2 9531.04625    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 198         2 9574.95081    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 199         2 9650.05829    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 200         3   96.44952    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 201         3  641.30535    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 202         3  642.31945    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 203         3  674.93478    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 204         3  769.22693    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 205         3  842.08596    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 206         3  875.35735    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 207         3  907.68533    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 208         3  997.34185    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 209         3 1072.05718    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 210         3 1163.39035    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 211         3 1191.59587    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 212         3 1562.07009    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 213         3 1899.90611    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 214         3 1940.35632    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 215         3 2154.49290    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 216         3 2447.37535    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 217         3 2822.93260    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 218         3 2941.35975    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 219         3 3110.94827    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 220         3 3148.98925    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 221         3 3217.53725    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 222         3 3337.18543    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 223         3 3367.90075    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 224         3 3529.54127    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 225         3 3561.12345    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 226         3 3709.40028    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 227         3 3840.98646    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 228         3 3981.35337    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 229         3 4027.76788    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 230         3 4160.72530    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 231         3 4186.89686    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 232         3 4399.55299    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 233         3 4557.13615    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 234         3 4638.33157    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 235         3 4639.82467    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 236         3 4671.16697    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 237         3 4728.99685    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 238         3 4770.76598    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 239         3 4982.05892    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 240         3 4984.32119    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 241         3 5183.69330    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 242         3 5246.51642    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 243         3 5277.27244    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 244         3 5387.88795    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 245         3 5407.20693    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 246         3 5452.74780    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 247         3 5468.71062    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 248         3 5542.58750    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 249         3 5763.47315    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 250         3 5771.96148    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 251         3 5984.73519    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 252         3 6004.08873    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 253         3 6300.91345    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 254         3 6311.73592    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 255         3 6313.31644    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 256         3 6417.45507    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 257         3 6569.04139    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 258         3 6679.38170    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 259         3 6809.27436    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 260         3 6813.54794    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 261         3 6849.44519    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 262         3 6970.02494    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 263         3 6987.69901    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 264         3 7057.59733    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 265         3 7120.24351    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 266         3 7148.95843    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 267         3 7367.40178    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 268         3 7413.14504    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 269         3 7447.56728    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 270         3 7511.52748    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 271         3 7545.62878    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 272         3 7575.01451    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 273         3 7653.02453    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 274         3 7718.38987    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 275         3 7742.26552    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 276         3 7810.47626    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 277         3 7929.15282    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 278         3 8138.48451    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 279         3 8213.91817    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 280         3 8356.04399    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 281         3 8394.89321    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 282         3 8567.68352    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 283         3 8612.32526    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 284         3 8683.38045    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 285         3 8693.11929    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 286         3 8832.87024    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 287         3 8900.00150    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 288         3 8988.58802    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 289         3 9110.43423    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 290         3 9272.97598    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 291         3 9283.41623    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 292         3 9313.77786    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 293         3 9394.88550    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 294         3 9562.00349    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 295         3 9594.28157    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 296         3 9701.40004    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 297         3 9706.49654    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt; 298         3 9730.28383    final         100       1, 1 0.6    0.3    0.2</span></span>
+<span><span class="co">#&gt;           p_y1      p_y2  p_holm_y1 p_holm_y2 n_total n_pbo n_trt</span></span>
+<span><span class="co">#&gt; 1   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 2   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 3   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 4   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 5   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 6   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 7   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 8   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 9   0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 10  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 11  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 12  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 13  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 14  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 15  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 16  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 17  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 18  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 19  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 20  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 21  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 22  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 23  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 24  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 25  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 26  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 27  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 28  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 29  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 30  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 31  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 32  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 33  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 34  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 35  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 36  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 37  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 38  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 39  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 40  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 41  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 42  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 43  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 44  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 45  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 46  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 47  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 48  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 49  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 50  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 51  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 52  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 53  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 54  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 55  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 56  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 57  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 58  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 59  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 60  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 61  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 62  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 63  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 64  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 65  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 66  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 67  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 68  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 69  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 70  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 71  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 72  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 73  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 74  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 75  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 76  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 77  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 78  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 79  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 80  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 81  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 82  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 83  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 84  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 85  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 86  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 87  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 88  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 89  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 90  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 91  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 92  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 93  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 94  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 95  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 96  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 97  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 98  0.07643188 0.6506456 0.15286377 0.6506456     100    50    50</span></span>
+<span><span class="co">#&gt; 99  0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 100 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 101 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 102 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 103 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 104 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 105 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 106 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 107 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 108 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 109 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 110 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 111 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 112 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 113 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 114 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 115 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 116 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 117 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 118 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 119 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 120 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 121 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 122 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 123 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 124 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 125 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 126 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 127 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 128 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 129 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 130 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 131 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 132 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 133 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 134 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 135 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 136 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 137 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 138 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 139 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 140 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 141 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 142 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 143 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 144 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 145 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 146 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 147 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 148 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 149 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 150 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 151 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 152 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 153 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 154 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 155 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 156 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 157 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 158 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 159 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 160 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 161 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 162 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 163 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 164 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 165 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 166 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 167 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 168 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 169 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 170 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 171 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 172 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 173 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 174 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 175 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 176 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 177 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 178 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 179 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 180 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 181 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 182 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 183 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 184 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 185 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 186 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 187 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 188 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 189 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 190 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 191 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 192 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 193 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 194 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 195 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 196 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 197 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 198 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 199 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50</span></span>
+<span><span class="co">#&gt; 200 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 201 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 202 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 203 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 204 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 205 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 206 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 207 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 208 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 209 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 210 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 211 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 212 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 213 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 214 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 215 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 216 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 217 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 218 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 219 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 220 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 221 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 222 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 223 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 224 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 225 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 226 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 227 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 228 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 229 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 230 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 231 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 232 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 233 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 234 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 235 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 236 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 237 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 238 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 239 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 240 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 241 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 242 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 243 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 244 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 245 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 246 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 247 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 248 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 249 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 250 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 251 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 252 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 253 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 254 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 255 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 256 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 257 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 258 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 259 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 260 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 261 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 262 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 263 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 264 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 265 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 266 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 267 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 268 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 269 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 270 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 271 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 272 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 273 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 274 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 275 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 276 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 277 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 278 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 279 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 280 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 281 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 282 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 283 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 284 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 285 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 286 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 287 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 288 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 289 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 290 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 291 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 292 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 293 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 294 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 295 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 296 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 297 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span>
+<span><span class="co">#&gt; 298 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50</span></span></code></pre></div>
+<p><code><a href="../reference/collect_results.html">collect_results()</a></code> prepends <code>replicate</code>,
+<code>timepoint</code>, and <code>analysis</code> columns to the four
+p-value columns. <code>p_holm_y1</code> and <code>p_holm_y2</code> will
+always be ≥ their unadjusted counterparts because Holm correction is
+more conservative. Because the two endpoints are positively correlated
+(rho = 0.6), replicates that reject for y1 tend to also reject for y2 —
+joint rejection probability exceeds what you would expect for
+independent endpoints under the same effect sizes.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

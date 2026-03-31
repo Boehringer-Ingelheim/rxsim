@@ -1,6 +1,8 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/404.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/LICENSE.html</loc></url>
+<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html</loc></url>
+<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html</loc></url>
@@ -10,7 +12,6 @@
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-7.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-8.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-multi-run.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-usecase.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/index.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/authors.html</loc></url>
@@ -20,6 +21,7 @@
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.html</loc></url>
+<url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/gen_population.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.html</loc></url>

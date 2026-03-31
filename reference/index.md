@@ -12,6 +12,8 @@
   : Add Timepoints to a Timer
 - [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md)
   : Clone a Trial Object Multiple Times
+- [`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
+  : Collect Trial Results Across Replicates
 - [`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
   : Generate Trial Enrollment and Dropout Plan
 - [`gen_population()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_population.md)
