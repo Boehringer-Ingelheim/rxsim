@@ -110,27 +110,27 @@ testthat::test_that("Population initialize: inputs correctly provided enrolled/d
   testthat::expect_equal(pop$dropped, dropped)
 })
 
-# testthat::test_that("set_enrolled: validates n type and preserves numeric time values", {
-#
-#
-#   set.seed(10)
-#   df <- data.frame(
-#     id = 1:10,
-#     readout_time = 1,
-#     value = rnorm(10)
-#   )
-#   pop <- Population$new("Arm A", data = df)
-#
-#   # bad n
-#   testthat::expect_error(pop$set_enrolled(n = -1, time = 1), "`n` must be a single non-negative integer")
-#   testthat::expect_error(pop$set_enrolled(n = NA, time = 1), "`n` must be a single non-negative integer")
-#   testthat::expect_error(pop$set_enrolled(n = c(1, 2), time = 1), "`n` must be a single non-negative integer")
-#
-#   # time confirm time stored as provided
-#   pop$set_enrolled(n = 3, time = 4.5)
-#   testthat::expect_true(any(pop$enrolled == 4.5, na.rm = TRUE))
-#   testthat::expect_true(is.numeric(pop$enrolled))
-# })
+testthat::test_that("set_enrolled: validates n type and preserves numeric time values", {
+
+
+  set.seed(10)
+  df <- data.frame(
+    id = 1:10,
+    readout_time = 1,
+    value = rnorm(10)
+  )
+  pop <- Population$new("Arm A", data = df)
+
+  # bad n
+  testthat::expect_error(pop$set_enrolled(n = -1, time = 1), "`n` must be a single non-negative integer")
+  testthat::expect_error(pop$set_enrolled(n = NA, time = 1), "`n` must be a single non-negative integer")
+  testthat::expect_error(pop$set_enrolled(n = c(1, 2), time = 1), "`n` must be a single non-negative integer")
+
+  # time confirm time stored as provided
+  pop$set_enrolled(n = 3, time = 4.5)
+  testthat::expect_true(any(pop$enrolled == 4.5, na.rm = TRUE))
+  testthat::expect_true(is.numeric(pop$enrolled))
+})
 
 testthat::test_that("set_enrolled: Don't enroll more subjects than available and dont replace already enrolled ", {
 

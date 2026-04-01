@@ -95,7 +95,7 @@ Population <- R6::R6Class(
 
       self$data <- data
       self$n <- length(unique(self$data$id))
-      self$n_readouts <- as.integer((dim(self$data)[1] / self$n))
+      self$n_readouts <- as.integer((nrow(self$data) / self$n))
 
       # Initialize enrollment/dropout status if not provided
       ifelse(
