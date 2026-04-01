@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -23,10 +24,18 @@ library(dplyr)
 library(MASS)   # for mvrnorm (simulate correlated endpoints)
 ```
 
+Many trials evaluate co-primary or key secondary endpoints simultaneously.
+Ignoring endpoint correlation when planning a study leads to incorrect power
+estimates. This example shows how to simulate two correlated continuous
+endpoints (e.g., a primary efficacy score and a key secondary biomarker) and
+apply multiplicity adjustment via Holm's procedure. See [Example
+1](example-1.html) for the simpler single-endpoint baseline.
+
 ## Scenario
 
-We consider a **two-arm, fixed design** with **two correlated continuous endpoints** per subject.  
-Enrollment is piece-wise linear; analysis happens **once at the final time**.
+We consider a **two-arm, fixed design** with **two correlated continuous
+endpoints** per subject. Enrollment is piece-wise linear; analysis happens
+**once at the final time**.
 
 ```{r scenario}
 # Total target sample size
@@ -80,6 +89,14 @@ scenario <- tidyr::expand_grid(
 )
 ```
 
+`rho = 0.60` represents a moderate positive correlation between the two
+endpoints — plausible when both reflect the same underlying biological process.
+The covariance matrix `Sigma` is constructed from the marginal SDs and
+correlation using the standard identity cov(y1, y2) = rho × sd1 × sd2. Treatment
+shifts are delta1 = 0.30 SD for the primary endpoint and delta2 = 0.20 SD for
+the secondary, reflecting a scenario where the primary endpoint is more
+sensitive to treatment.
+
 ## Time points
 
 Generate timeline of discrete timepoints and add them to a `Timer`.
@@ -100,10 +117,18 @@ final_time <- t$get_end_timepoint()
 final_time
 ```
 
+`gen_timepoints()` converts piecewise-constant enrollment and dropout rate lists
+into a deterministic set of calendar timepoints — in contrast to the stochastic
+`rexp` calls used in [Examples 1](example-1.html) and [2](example-2.html).
+`t$get_end_timepoint()` returns the latest timepoint at which all expected
+enrollment and follow-up will have completed, providing the calendar time for
+the single final analysis.
+
 ## Arms (Populations)
 
-For each arm we simulate **two correlated endpoints** per subject using `MASS::mvrnorm`.  
-We keep **50** subjects per arm (consistent with `sample_size = 100` and equal allocation).
+For each arm we simulate **two correlated endpoints** per subject using
+`MASS::mvrnorm`. We keep **50** subjects per arm (consistent with `sample_size =
+100` and equal allocation).
 
 ```{r population}
 # Create closure to capture parameters
@@ -129,6 +154,14 @@ population_generators <- list(
 )
 ```
 
+`MASS::mvrnorm` draws `n` samples from a multivariate normal with the given mean
+vector and covariance matrix `Sigma`. The closure pattern
+(`mk_population_generator`) captures the arm-specific means at definition time,
+so each call to `population_generators$pbo(n)` or `population_generators$trt(n)`
+produces data under the correct arm parameters. Endpoint correlation flows
+entirely through the shared `Sigma` matrix — changing `rho` in the scenario
+automatically updates both arms.
+
 ## Trial Parameters
 
 Define enrollment/dropout profiles and parameters.
@@ -139,6 +172,13 @@ allocation <- c(1, 1)
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 ```
+
+Note that `enrollment_fn` and `dropout_fn` here are stochastic functions passed
+to `replicate_trial()`, which uses them in `gen_plan()` to generate
+per-replicate enrollment and dropout times. They are separate from the
+piecewise-constant `enrollment` and `dropout` lists used by `gen_timepoints()`
+above — those lists drive the deterministic timer, while these functions drive
+per-subject event times within each simulated replicate.
 
 ## Trigger & Analysis
 
@@ -174,10 +214,17 @@ analysis_generators <- list(
 )
 ```
 
+The two t-tests are run independently on the enrolled subset, producing
+unadjusted p-values `p_y1` and `p_y2`. `p.adjust(..., method = "holm")` applies
+Holm's stepwise procedure: `padj[1]` corresponds to the endpoint with the
+smaller raw p-value (most significant) and `padj[2]` to the larger. The adjusted
+values account for the familywise error rate across the two endpoints, so
+`p_holm_y1 >= p_y1` always holds.
+
 ## Trial
 
-Create and run the trial.  
-(We supply a `seed` for reproducibility inside the trial engine—e.g., enrollment/dropout sampling.)
+Create and run the trial. (We supply a `seed` for reproducibility inside the
+trial engine—e.g., enrollment/dropout sampling.)
 
 ```{r trial}
 trials <- replicate_trial(
@@ -204,13 +251,13 @@ run_trials(trials)
 One row per replicate, row-bound across all replicates:
 
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
+
+`collect_results()` prepends `replicate`, `timepoint`, and `analysis` columns to
+the four p-value columns. `p_holm_y1` and `p_holm_y2` will always be ≥ their
+unadjusted counterparts because Holm correction is more conservative. Because
+the two endpoints are positively correlated (rho = 0.6), replicates that reject
+for y1 tend to also reject for y2 — joint rejection probability exceeds what you
+would expect for independent endpoints under the same effect sizes.

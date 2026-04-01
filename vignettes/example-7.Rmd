@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -27,11 +28,21 @@ library(dplyr)
 set.seed(777)
 ```
 
+Early development trials often face small sample sizes where borrowing
+information from historical placebo data can increase efficiency and reduce
+required sample size. This example demonstrates a Bayesian Go/No-Go decision
+rule for a Phase IIa trial, where the placebo posterior is informed by
+historical data via a robust mixture prior, and the treatment posterior uses a
+non-informative prior. A "Go" decision is issued when the posterior probability
+of a meaningful treatment effect (Δ > δ) exceeds a predefined threshold γ.
+
 ## Scenario
 
-A **two-arm, fixed design** trial (placebo vs treatment) with a **single continuous endpoint** and a **single final analysis**.
+A **two-arm, fixed design** trial (placebo vs treatment) with a **single
+continuous endpoint** and a **single final analysis**.
 
-- Placebo arm uses **historical borrowing** through an informative prior derived from historical placebo data and robustified with a non-informative component.
+- Placebo arm uses **historical borrowing** through an informative prior derived
+  from historical placebo data and robustified with a non-informative component.
 - Treatment arm uses a **non-informative prior**.
 - Go/No-Go rule at final analysis:
 
@@ -41,6 +52,13 @@ A **two-arm, fixed design** trial (placebo vs treatment) with a **single continu
 
 where \(\Delta = \mu_T - \mu_P\), with \(\delta = 0.1\) and \(\gamma = 0.8\).
 
+`delta = 0.1` defines the minimum treatment-placebo difference of clinical
+relevance — the effect must exceed this threshold for the drug to be worth
+advancing. `gamma = 0.8` requires 80% posterior probability of exceeding that
+threshold before a Go decision is issued, balancing false-positive risk against
+the cost of a missed opportunity. The true simulated effect `mu_treat = 0.30`
+lies above `delta`, so a well-powered trial should frequently result in a Go.
+
 ```{r scenario}
 # Trial design
 sample_size <- 80
@@ -49,7 +67,7 @@ arms        <- c("placebo", "treatment")
 
 # Data-generating truth for this simulation example
 mu_placebo_true <- 0.00
-mu_treat_true   <- 0.30
+delta_true      <- 0.30  # true treatment - placebo mean difference
 sigma_known     <- 1.0
 
 # Enrollment/dropout profile (fixed design timeline)
@@ -68,15 +86,27 @@ gamma <- 0.8
 
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation),
-  delta = delta,
-  gamma = gamma
+  allocation  = list(allocation),
+  delta_true  = delta_true,
+  delta       = delta,
+  gamma       = gamma
 )
 ```
 
 ## Historical placebo dataset and priors
 
-We include a small historical placebo dataset as study-level means and sample sizes.
+We include a small historical placebo dataset as study-level means and sample
+sizes.
+
+Studies H1, H2, and H3 contribute a combined 62 historical placebo observations
+and are summarised into an informative prior via `postmix()` — a Bayesian update
+of the non-informative starting prior with the pooled historical data.
+`robustify()` blends this informative component with a vague component (20%
+weight), producing a mixture prior that protects against prior-data conflict: if
+the current trial's placebo behaves unexpectedly, the vague component limits how
+strongly the historical data pulls the posterior. The treatment arm uses
+`prior_noninf` (effectively a flat prior), so the treatment posterior is driven
+entirely by the current data.
 
 ```{r priors}
 hist_placebo <- data.frame(
@@ -135,7 +165,7 @@ population_generators <- list(
   treatment = function(n) {
     data.frame(
       id = 1:n,
-      y = rnorm(n, mean = mu_treat_true, sd = sigma_known),
+      y = rnorm(n, mean = mu_placebo_true + delta_true, sd = sigma_known),
       readout_time = 1
     )
   }
@@ -143,6 +173,10 @@ population_generators <- list(
 ```
 
 ## Trial Parameters
+
+`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
+distributions for individual subjects. These are passed to `replicate_trial()`,
+which uses them when building each replicate's enrollment schedule.
 
 ```{r trial_params}
 enrollment_fn <- function(n) rexp(n, rate = 1)
@@ -152,6 +186,12 @@ dropout_fn <- function(n) rexp(n, rate = 0.01)
 ## Final analysis trigger (Bayesian Go/No-Go)
 
 Only one trigger is added at final analysis.
+
+`RBesT::pmixdiff(post_treat, post_placebo, delta, lower.tail = FALSE)` evaluates
+P(μ_T − μ_P > δ | data) by numerical integration over the mixture posterior
+distributions for treatment and placebo. `qmixdiff()` computes quantiles of the
+same posterior difference distribution, yielding a 95% credible interval for Δ =
+μ_T − μ_P.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -225,17 +265,23 @@ run_trials(trials)
 
 ## Results
 
-```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
+`collect_results()` row-binds analysis outputs across all replicates and
+prepends `replicate` (integer index), `timepoint` (calendar time at which the
+analysis fired), and `analysis` (the analysis name) to each row.
+`post_prob_delta` is the key decision metric: values at or above `gamma = 0.8`
+yield `decision_go = 1` (Go) and values below yield `decision_go = 0` (No-Go).
+The credible interval columns `delta_q025`, `delta_q500`, and `delta_q975`
+characterise the posterior uncertainty about the treatment effect Δ; with n=80
+and σ=1, the posterior is still relatively wide. In practice you would run
+thousands of replicates and report the Go probability under both the null (Δ =
+0) and the alternative (e.g., Δ = 0.30) to assess the design's operating
+characteristics. See [Example 8](example-8.html) for a seamless design that
+builds on this Bayesian decision rule.
 
+```{r results}
+replicate_results <- collect_results(trials)
 replicate_results
 ```
 
-`decision_go = 1` indicates **Go**, and `decision_go = 0` indicates **No-Go** under the criterion
-\(P(\Delta > 0.1 \mid \text{data}) \ge 0.8\).
+`decision_go = 1` indicates **Go**, and `decision_go = 0` indicates **No-Go**
+under the criterion \(P(\Delta > 0.1 \mid \text{data}) \ge 0.8\).

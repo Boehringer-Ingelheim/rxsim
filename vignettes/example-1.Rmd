@@ -10,13 +10,22 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
 ```{r setup}
 library(rxsim)
 ```
+
+This example simulates a Phase II/III parallel-group trial evaluating a new
+treatment against placebo on a continuous primary endpoint (e.g., a biomarker
+score or symptom scale). With 100 subjects randomised 1:1, we run a two-sample
+t-test at full enrollment and track the p-value and arm means across simulation
+replicates. This is the simplest complete rxsim workflow and a good starting
+point before moving to more complex designs. See
+[Getting Started](getting-started.html) for an overview of the package.
 
 ## Scenario
 Capture scenario parameters. We will assume piece-wise linear enrollment.
@@ -25,13 +34,20 @@ Capture scenario parameters. We will assume piece-wise linear enrollment.
 sample_size <- 100
 arms <- c("pbo", "trt")
 allocation <- c(1,1)
+delta <- 0.2
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation)
+  allocation = list(allocation),
+  delta = delta
 )
 ```
+
+`allocation = c(1, 1)` specifies balanced randomisation, equal expected numbers
+per arm. Using `tidyr::expand_grid()` to build the `scenario` data.frame embeds
+the design parameters directly into each analysis result row, making results
+self-documenting and easy to compare across parameter sweeps.
 
 ## Populations
 Define population generators.
@@ -45,14 +61,19 @@ population_generators <- list(
   ),
   trt = function(n) data.frame(
     id = 1:n,
-    value = rnorm(n, 0.2),
+    value = rnorm(n, delta),
     readout_time = 1
   )
 )
 ```
 
+Each population generator is a function of `n` that returns a `data.frame` with
+one row per subject. `readout_time = 1` means the endpoint is observed exactly
+1 time unit after a subject enrolls. The placebo arm has a mean of 0 and the
+treatment arm a mean of `delta`, a small-to-moderate standardised effect.
+
 ## Triggers & Analysis
-We want to do a t-test when 100 subjects have been enrolled.
+We want to do a t-test when `sample_size` subjects have been enrolled.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -75,6 +96,13 @@ analysis_generators <- list(
   )
 )
 ```
+
+The trigger fires when the cumulative count of enrolled subjects
+(`sum(!is.na(enroll_time))`) reaches `sample_size`. Inside the analysis
+function, `subset(!is.na(enroll_time))` drops subjects who have been allocated
+but not yet enrolled. rxsim pre-generates the full allocation list so filtering
+is essential. The two-sample t-test then compares endpoint values between the
+two enrolled arms.
 
 ## Trial
 Make multiple trial replicates.
@@ -102,13 +130,10 @@ run_trials(trials)
 
 Bind one row per replicate into one data frame.
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
+
+`collect_results()` returns a data.frame with `replicate`, `timepoint`, and
+`analysis` columns prepended to your analysis columns. The `p_value` column
+varies across replicates because each replicate draws fresh random data.

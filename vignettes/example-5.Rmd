@@ -10,7 +10,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  cache = TRUE
 )
 ```
 
@@ -27,13 +28,31 @@ library(dplyr)
 set.seed(4566)
 ```
 
+Dose-finding trials aim to identify the dose-response relationship and establish
+an effective dose level. This example simulates a multi-arm fixed design across
+a placebo and four active doses, with the endpoint generated from an Emax
+dose-response model. At the final analysis, two methods are applied: a Dunnett
+test (comparing each active dose against placebo while controlling family-wise
+error rate) and MCP-Mod (a model-based contrast approach that selects the
+best-fitting dose-response shape from a candidate set).
+
 ## Scenario
 
-A **multi-arm, fixed design** (placebo + 4 active doses) with a **single continuous endpoint**.  
-At the **final analysis**, we perform:
+A **multi-arm, fixed design** (placebo + 4 active doses) with a **single
+continuous endpoint**. At the **final analysis**, we perform:
 
-- **Dunnett test**: all active doses vs placebo using a normal-theory linear model.
-- **MCP-Mod**: model-based multiple contrast test + model fitting on a candidate set of dose–response shapes.
+- **Dunnett test**: all active doses vs placebo using a normal-theory linear
+  model.
+- **MCP-Mod**: model-based multiple contrast test + model fitting on a candidate
+  set of dose–response shapes.
+
+The Emax model generates mean responses via `E(d) = e0 + emax × d / (ed50 + d)`,
+where `e0 = 0` (placebo baseline), `emax = 1` (maximum achievable effect), and
+`ed50 = 20` (dose at half-maximum effect). `arm_names = paste0("d", doses)`
+creates human-readable labels (`d0`, `d5`, `d10`, `d20`, `d50`) that propagate
+through trial data and analysis results. `delta = 0.1` is the minimum effect
+size of clinical relevance used by MCP-Mod, and `alpha = 0.05` controls the
+family-wise Type I error rate for both testing procedures.
 
 ```{r scenario}
 # Dose levels (placebo + 4 actives)
@@ -77,7 +96,11 @@ scenario <- tidyr::expand_grid(
 
 ## Time points
 
-Create a `Timer` with discrete time points to reach the target sample size.
+`gen_timepoints()` generates a piecewise-constant enrollment schedule with rates
+that increase in steps (6, 12, 18, 24 subjects per unit time), reflecting a
+realistic ramp-up in site activation. `tr_timer$get_end_timepoint()` returns the
+earliest calendar time at which all `sample_size` subjects are expected to be
+enrolled — this value is used as the trigger time for the final analysis.
 
 ```{r timepoints}
 timepoints <- gen_timepoints(
@@ -97,7 +120,11 @@ final_time
 
 ## Populations
 
-Define population generators for each dose level using the Emax model.
+`mk_pop_gen` is a closure factory: it captures the dose value `d` and returns a
+generator function that, when called with `n`, draws `n` responses from N(E(d),
+σ²). Each arm's generator stores `dose` as a numeric column because MCP-Mod
+requires actual dose values — not just arm labels — to fit dose-response models
+and evaluate contrasts at analysis time.
 
 ```{r population}
 mk_pop_gen <- function(d) {
@@ -121,6 +148,10 @@ names(population_generators) <- arm_names
 
 ## Trial Parameters
 
+`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
+distributions for individual subjects. These are passed to `replicate_trial()`,
+which uses them internally when building each replicate's enrollment schedule.
+
 ```{r trial_params}
 enrollment_fn <- function(n) rexp(n, rate = 1)
 dropout_fn <- function(n) rexp(n, rate = 0.01)
@@ -133,6 +164,15 @@ At the **final time**, run:
 1) **Dunnett test** (active vs placebo) using `multcomp::glht` on `lm(y ~ arm)`.
 
 2) **MCP-Mod** using `DoseFinding::MCPMod` with a candidate model set (`Mods`).
+
+The Dunnett test (`multcomp::glht` with `mcp(arm = "Dunnett")`) simultaneously
+compares each active dose against placebo while controlling the family-wise
+error rate at `alpha`. MCP-Mod is run with five candidate dose-response shapes;
+`selModel = "aveAIC"` selects the best model by AIC-weighted averaging, and
+`Delta = delta` sets the minimum effect size of clinical relevance for the
+contrast step. `mct_min_p` extracts the minimum p-value across all candidate
+model contrast tests — a small value indicates that at least one candidate model
+detects a dose-response signal.
 
 ```{r trigger}
 # Candidate model set for MCP-Mod
@@ -212,16 +252,21 @@ run_trials(trials)
 
 ## Results
 
+`collect_results()` row-binds analysis outputs across all replicates and
+prepends three bookkeeping columns: `replicate` (integer index), `timepoint`
+(calendar time at which the analysis fired), and `analysis` (the analysis name,
+here `"final"`). `dunn_min_p` is the smallest Dunnett-adjusted p-value across
+the four active-dose comparisons — a value below `alpha` indicates that at least
+one dose is significantly different from placebo after multiplicity correction.
+`mcpmod_min_p` is the minimum MCP-Mod contrast test p-value across candidate
+models; both metrics test for the presence of a dose-response signal, but
+MCP-Mod is generally more powerful when the true dose-response shape is
+well-captured by one of the candidate models. See [Core Concepts](concepts.html)
+for background on trial parameters.
+
 One row per replicate, row-bound across all replicates:
 
 ```{r results}
-replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
-  data.frame(
-    replicate = i,
-    trials[[i]]$results[[1]]$final,
-    stringsAsFactors = FALSE
-  )
-}))
-
+replicate_results <- collect_results(trials)
 replicate_results
 ```
