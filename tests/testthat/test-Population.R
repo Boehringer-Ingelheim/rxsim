@@ -365,3 +365,61 @@ testthat::test_that("Set_data: Test that repeated measures parameters are inputt
   testthat::expect_equal(length(pop$dropped), pop$n)
 
 })
+
+testthat::test_that("set_data: errors when required columns are missing", {
+
+
+  # Missing readout_time
+  df <- data.frame(
+    id = 1:1,
+    value = rnorm(1),
+    readout_time = 0
+  )
+  df_bad <- data.frame(
+    value = rnorm(5)
+  )
+  pop <- Population$new("Arm A", data = df)
+
+  testthat::expect_error(
+    pop$set_data(df_bad),
+    "Data frame is missing required columns",
+    fixed = FALSE
+  )
+
+  # Missing endpoint data
+  df_no_endpoint <- data.frame(
+    id = 1:5,
+    arm = "Arm A",
+    readout_time = 1
+  )
+  testthat::expect_error(
+    pop$set_data(df_no_endpoint),
+    "Data frame is missing endpoint data",
+    fixed = FALSE
+  )
+})
+
+testthat::test_that("set_data: computes n and n_readouts correctly (repeated measures)", {
+
+
+  set.seed(1)
+  df <- rbind(
+    data.frame(id = 1:10, readout_time = 1, value = rnorm(10)),
+    data.frame(id = 1:10, readout_time = 4, value = rnorm(10))
+  )
+
+  pop <- Population$new("Arm A", data = df)
+
+  df_new <- rbind(
+    data.frame(id = 1:5, readout_time = 1, value = rnorm(5)),
+    data.frame(id = 1:5, readout_time = 4, value = rnorm(5)),
+    data.frame(id = 1:5, readout_time = 9, value = rnorm(5))
+  )
+  pop$set_data(df_new)
+
+  testthat::expect_equal(pop$n, 5)
+  testthat::expect_equal(pop$n_readouts, 3)
+
+  testthat::expect_equal(length(pop$enrolled), 5)
+  testthat::expect_equal(length(pop$dropped), 5)
+})
