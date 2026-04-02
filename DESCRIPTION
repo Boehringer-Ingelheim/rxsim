@@ -1,7 +1,7 @@
 Package: rxsim
 Type: Package
 Title: Reducing friction for Randomized Clinical Trial simulations
-Version: 0.1.1.9000
+Version: 0.1.2.9000
 Authors@R: c(
     person(
       "Matthew", "Valko",
@@ -46,7 +46,8 @@ Suggests:
     DoseFinding,
     RBesT,
     BayesianMCPMod,
-    survival
+    survival,
+    testthat (>= 3.0.0)
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
 Imports: 
@@ -55,3 +56,4 @@ Imports:
 Roxygen: list(markdown = TRUE)
 Config/renv/profiles/ci/dependencies: pak, rcmdcheck
 URL: https://boehringer-ingelheim.github.io/rxsim
+Config/testthat/edition: 3

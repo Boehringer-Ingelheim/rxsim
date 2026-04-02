@@ -95,7 +95,7 @@ Population <- R6::R6Class(
 
       self$data <- data
       self$n <- length(unique(self$data$id))
-      self$n_readouts <- as.integer((dim(self$data)[1] / self$n))
+      self$n_readouts <- as.integer((nrow(self$data) / self$n))
 
       # Initialize enrollment/dropout status if not provided
       ifelse(
@@ -194,9 +194,20 @@ Population <- R6::R6Class(
       if (!("arm" %in% names(data))) {
         data$arm <- self$name
       }
+
+      # Check required data frame columns
+      col_names <- c("id", "arm", "readout_time")
+      missing_cols <- setdiff(col_names, names(data))
+      if (length(missing_cols) > 0) {
+        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
+      }
+      if (length(names(data)) < 4) {
+        stop(sprintf("Data frame is missing endpoint data."))
+      }
+
       self$data <- data
       self$n <- length(unique(self$data$id))
-      self$n_readouts <- as.integer((dim(self$data)[1] / self$n))
+      self$n_readouts <- as.integer((nrow(self$data) / self$n))
       self$dropped <- rep(NA_real_, self$n)
       self$enrolled <- rep(NA_real_, self$n)
       invisible(self)
