@@ -79,6 +79,8 @@ Timer <- R6::R6Class(
     #' - `where` `expr` filter conditions in [dplyr::filter()] style
     #' - `analysis` `function` or `NULL` analysis applied to filtered data
     #' - `name` `character` or `NULL` unique key for the condition
+    #' - `cooldown` `numeric` minimum time between consecutive triggers
+    #' - `max_triggers` `integer` maximum number of times this condition can trigger
     conditions = NULL,
 
     # --- constructor ---
@@ -134,6 +136,8 @@ Timer <- R6::R6Class(
     #' @param ... `expression` Boolean expression(s) for `dplyr::filter()`.
     #' @param analysis `function` or `NULL` Optional function to apply.
     #' @param name `character` Unique condition identifier.
+    #' @param cooldown `numeric` Minimum time between consecutive triggers (default: 0, no cooldown).
+    #' @param max_triggers `integer` Maximum number of times this condition can trigger (default: 1, single trigger).
      #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
@@ -167,15 +171,12 @@ Timer <- R6::R6Class(
       ...,
       analysis = NULL,
       name = NULL,
-      mode = c("once","always","once_per_time","cooldown","crossing"),
       cooldown = 0,
-      max_fires = Inf
+      max_triggers = 1L
 
     ) {
       # Capture filter predicates as quosures (with caller env)
       where_quos <- rlang::enquos(..., .named = FALSE)
-
-      mode <- match.arg(mode)
 
       # Variable Checks and Error catching
       cooldown <- as.numeric(cooldown)
@@ -183,9 +184,9 @@ Timer <- R6::R6Class(
         stop("`cooldown` must be a single non-negative number.")
       }
 
-      max_fires <- as.numeric(max_fires)
-      if (length(max_fires) != 1L || is.na(max_fires) || max_fires < 0) {
-        stop("`max_fires` must be a single non-negative number (use Inf for unlimited).")
+      max_triggers <- as.integer(max_triggers)
+      if (length(max_triggers) != 1L || is.na(max_triggers) || max_triggers < 0) {
+        stop("`max_triggers` must be a single non-negative integer (use Inf for unlimited).")
       }
 
 
@@ -193,13 +194,10 @@ Timer <- R6::R6Class(
         where = where_quos,
         analysis = analysis,
         name = name,
-        mode = mode,
         cooldown = cooldown,
-        max_fires = max_fires,
-        fire_count = 0L,
-        fired_times = numeric(0),
-        last_fired_time = NA_real_,
-        last_match = FALSE
+        max_triggers = max_triggers,
+        trigger_count = 0L,
+        last_trigger_time = NA_real_
 
       )
       self$conditions <- append(self$conditions, list(cond))
@@ -349,64 +347,34 @@ Timer <- R6::R6Class(
         }
 
 
-        if (is.null(cond$fire_count)) cond$fire_count <- 0L
-        if (is.null(cond$max_fires))  cond$max_fires <- Inf
-        if (is.null(cond$fired_times)) cond$fired_times <- numeric(0)
-        if (is.null(cond$last_fired_time)) cond$last_fired_time <- NA_real_
-        if (is.null(cond$last_match)) cond$last_match <- FALSE
+        if (is.null(cond$trigger_count)) cond$trigger_count <- 0L
+        if (is.null(cond$max_triggers))  cond$max_triggers <- 1L
+        if (is.null(cond$last_trigger_time)) cond$last_trigger_time <- NA_real_
         if (is.null(cond$cooldown)) cond$cooldown <- 0
-        if (is.null(cond$mode)) cond$mode <- "always"
 
         match_now <- nrow(df_i) > 0L
 
 
-        # If no match, update last_match and skip
+        # If no match, skip
         if (!match_now) {
-          cond$last_match <- FALSE
           self$conditions[[i]] <- cond
           next
         }
 
 
-        # Hard cap on number of fires
-        if (is.finite(cond$max_fires) && cond$fire_count >= cond$max_fires) {
+        # Hard cap on number of triggers
+        if (is.finite(cond$max_triggers) && cond$trigger_count >= cond$max_triggers) {
           self$conditions[[i]] <- cond
           next
         }
 
-        # Mode: once
-        if (identical(cond$mode, "once") && cond$fire_count >= 1L) {
-          self$conditions[[i]] <- cond
-          next
-        }
-
-
-        # Mode: once per timepoint
-        if (identical(cond$mode, "once_per_time") && (current_time %in% cond$fired_times)) {
-          self$conditions[[i]] <- cond
-          next
-        }
-
-        # Mode: cooldown
-        if (identical(cond$mode, "cooldown") && is.finite(cond$last_fired_time)) {
-          if ((current_time - cond$last_fired_time) < cond$cooldown) {
+        # Check cooldown
+        if (is.finite(cond$last_trigger_time)) {
+          if ((current_time - cond$last_trigger_time) < cond$cooldown) {
             self$conditions[[i]] <- cond
             next
           }
         }
-
-
-        # Mode: crossing (FALSE -> TRUE edge case)
-        if (identical(cond$mode, "crossing")) {
-          if (isTRUE(cond$last_match)) {
-            # still true; do not fire again
-            self$conditions[[i]] <- cond
-            next
-          }
-          cond$last_match <- TRUE
-        }
-
-
 
 
         if (is.function(cond$analysis)) {
@@ -416,11 +384,9 @@ Timer <- R6::R6Class(
           warning(sprintf(" returning filtered data as is because condition '%s' has no applicable analysis \n", key), call. = FALSE)
         }
 
-        # Update firing state after a successful fire
-        cond$fire_count <- cond$fire_count + 1L
-        cond$fired_times <- c(cond$fired_times, current_time)
-        cond$last_fired_time <- current_time
-        if (!identical(cond$mode, "crossing")) cond$last_match <- TRUE
+        # Update trigger info after a successful trigger
+        cond$trigger_count <- cond$trigger_count + 1L
+        cond$last_trigger_time <- current_time
 
         # Persist state back into Timer
         self$conditions[[i]] <- cond
