@@ -1,9 +1,9 @@
+# user added
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
 *.Rproj
-.DS_Store
 inst/doc
 docs
 renv/profile
@@ -11,6 +11,7 @@ renv/profile
 .copilot-tracking/
 .github/agents/
 vignettes/.build.timestamp
+/vignettes/*_cache/
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=r,windows,macos,linux

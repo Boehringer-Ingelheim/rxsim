@@ -79,6 +79,8 @@ Timer <- R6::R6Class(
     #' - `where` `expr` filter conditions in [dplyr::filter()] style
     #' - `analysis` `function` or `NULL` analysis applied to filtered data
     #' - `name` `character` or `NULL` unique key for the condition
+    #' - `cooldown` `numeric` minimum time between consecutive triggers
+    #' - `max_triggers` `integer` maximum number of times this condition can trigger
     conditions = NULL,
 
     # --- constructor ---
@@ -134,6 +136,8 @@ Timer <- R6::R6Class(
     #' @param ... `expression` Boolean expression(s) for `dplyr::filter()`.
     #' @param analysis `function` or `NULL` Optional function to apply.
     #' @param name `character` Unique condition identifier.
+    #' @param cooldown `numeric` Minimum time between consecutive triggers (default: 0, no cooldown).
+    #' @param max_triggers `integer` Maximum number of times this condition can trigger (default: 1, single trigger).
      #'
     #' @examples
     #' #' t <- Timer$new(name = "Timer")
@@ -166,15 +170,35 @@ Timer <- R6::R6Class(
     add_condition = function(
       ...,
       analysis = NULL,
-      name = NULL
+      name = NULL,
+      cooldown = 0,
+      max_triggers = 1L
+
     ) {
       # Capture filter predicates as quosures (with caller env)
       where_quos <- rlang::enquos(..., .named = FALSE)
 
+      # Variable Checks and Error catching
+      cooldown <- as.numeric(cooldown)
+      if (length(cooldown) != 1L || is.na(cooldown) || cooldown < 0) {
+        stop("`cooldown` must be a single non-negative number.")
+      }
+
+      max_triggers <- as.integer(max_triggers)
+      if (length(max_triggers) != 1L || is.na(max_triggers) || max_triggers < 0) {
+        stop("`max_triggers` must be a single non-negative integer (use Inf for unlimited).")
+      }
+
+
       cond <- list(
         where = where_quos,
         analysis = analysis,
-        name = name
+        name = name,
+        cooldown = cooldown,
+        max_triggers = max_triggers,
+        trigger_count = 0L,
+        last_trigger_time = NA_real_
+
       )
       self$conditions <- append(self$conditions, list(cond))
       invisible(self)
@@ -322,10 +346,36 @@ Timer <- R6::R6Class(
           locked_data
         }
 
-        if (nrow(df_i) == 0L) {
-          # warning(sprintf("Skipping condition '%s' at time %s: filtered data is empty", key, as.character(current_time)), call. = FALSE)
+
+        if (is.null(cond$trigger_count)) cond$trigger_count <- 0L
+        if (is.null(cond$max_triggers))  cond$max_triggers <- 1L
+        if (is.null(cond$last_trigger_time)) cond$last_trigger_time <- NA_real_
+        if (is.null(cond$cooldown)) cond$cooldown <- 0
+
+        match_now <- nrow(df_i) > 0L
+
+
+        # If no match, skip
+        if (!match_now) {
+          self$conditions[[i]] <- cond
           next
         }
+
+
+        # Hard cap on number of triggers
+        if (is.finite(cond$max_triggers) && cond$trigger_count >= cond$max_triggers) {
+          self$conditions[[i]] <- cond
+          next
+        }
+
+        # Check cooldown
+        if (is.finite(cond$last_trigger_time)) {
+          if ((current_time - cond$last_trigger_time) < cond$cooldown) {
+            self$conditions[[i]] <- cond
+            next
+          }
+        }
+
 
         if (is.function(cond$analysis)) {
           results[[key]] <- cond$analysis(df_i, current_time)
@@ -333,6 +383,14 @@ Timer <- R6::R6Class(
           results[[key]] <- df_i
           warning(sprintf(" returning filtered data as is because condition '%s' has no applicable analysis \n", key), call. = FALSE)
         }
+
+        # Update trigger info after a successful trigger
+        cond$trigger_count <- cond$trigger_count + 1L
+        cond$last_trigger_time <- current_time
+
+        # Persist state back into Timer
+        self$conditions[[i]] <- cond
+
       }
 
       results
