@@ -207,6 +207,8 @@ to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for c
 \item \code{where} \code{expr} filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
 \item \code{analysis} \code{function} or \code{NULL} analysis applied to filtered data
 \item \code{name} \code{character} or \code{NULL} unique key for the condition
+\item \code{cooldown} \code{numeric} minimum time between consecutive triggers
+\item \code{max_triggers} \code{integer} maximum number of times this condition can trigger
 }}
 }
 \if{html}{\out{</div>}}
@@ -300,7 +302,13 @@ t$add_timepoint(
 \subsection{Method \code{add_condition()}}{
 Add a trigger condition to a timer.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_condition(..., analysis = NULL, name = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$add_condition(
+  ...,
+  analysis = NULL,
+  name = NULL,
+  cooldown = 0,
+  max_triggers = 1L
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -311,6 +319,10 @@ Add a trigger condition to a timer.
 \item{\code{analysis}}{\code{function} or \code{NULL} Optional function to apply.}
 
 \item{\code{name}}{\code{character} Unique condition identifier.}
+
+\item{\code{cooldown}}{\code{numeric} Minimum time between consecutive triggers (default: 0, no cooldown).}
+
+\item{\code{max_triggers}}{\code{integer} Maximum number of times this condition can trigger (default: 1, single trigger).}
 }
 \if{html}{\out{</div>}}
 }
