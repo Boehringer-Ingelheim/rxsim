@@ -57,6 +57,11 @@ for condition syntax.
 
   - `name` `character` or `NULL` unique key for the condition
 
+  - `cooldown` `numeric` minimum time between consecutive triggers
+
+  - `max_triggers` `integer` maximum number of times this condition can
+    trigger
+
 ## Methods
 
 ### Public methods
@@ -157,7 +162,13 @@ Add a trigger condition to a timer.
 
 #### Usage
 
-    Timer$add_condition(..., analysis = NULL, name = NULL)
+    Timer$add_condition(
+      ...,
+      analysis = NULL,
+      name = NULL,
+      cooldown = 0,
+      max_triggers = 1L
+    )
 
 #### Arguments
 
@@ -173,6 +184,16 @@ Add a trigger condition to a timer.
 - `name`:
 
   `character` Unique condition identifier.
+
+- `cooldown`:
+
+  `numeric` Minimum time between consecutive triggers (default: 0, no
+  cooldown).
+
+- `max_triggers`:
+
+  `integer` Maximum number of times this condition can trigger (default:
+  1, single trigger).
 
 #### Examples
 

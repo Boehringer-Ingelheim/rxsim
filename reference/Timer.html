@@ -98,6 +98,8 @@ to attach multiple timepoints, <code><a href="https://dplyr.tidyverse.org/refere
 <dd><p><code>list</code> A list of condition entries. Each entry is a list with keys:</p><ul><li><p><code>where</code> <code>expr</code> filter conditions in <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">dplyr::filter()</a></code> style</p></li>
 <li><p><code>analysis</code> <code>function</code> or <code>NULL</code> analysis applied to filtered data</p></li>
 <li><p><code>name</code> <code>character</code> or <code>NULL</code> unique key for the condition</p></li>
+<li><p><code>cooldown</code> <code>numeric</code> minimum time between consecutive triggers</p></li>
+<li><p><code>max_triggers</code> <code>integer</code> maximum number of times this condition can trigger</p></li>
 </ul></dd>
 
 
@@ -194,7 +196,13 @@ to attach multiple timepoints, <code><a href="https://dplyr.tidyverse.org/refere
 <h3 id="method-add-condition-">Method <code>add_condition()</code><a class="anchor" aria-label="anchor" href="#method-add-condition-"></a></h3>
 <p>Add a trigger condition to a timer.</p><div class="section">
 <h4 id="usage-2">Usage<a class="anchor" aria-label="anchor" href="#usage-2"></a></h4>
-<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">Timer</span><span class="op">$</span><span class="fu">add_condition</span><span class="op">(</span><span class="va">...</span>, analysis <span class="op">=</span> <span class="cn">NULL</span>, name <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r"><div class="sourceCode"><pre><code><span><span class="va">Timer</span><span class="op">$</span><span class="fu">add_condition</span><span class="op">(</span></span>
+<span>  <span class="va">...</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  name <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  cooldown <span class="op">=</span> <span class="fl">0</span>,</span>
+<span>  max_triggers <span class="op">=</span> <span class="fl">1L</span></span>
+<span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 <div class="section">
@@ -209,6 +217,14 @@ to attach multiple timepoints, <code><a href="https://dplyr.tidyverse.org/refere
 
 <dt><code>name</code></dt>
 <dd><p><code>character</code> Unique condition identifier.</p></dd>
+
+
+<dt><code>cooldown</code></dt>
+<dd><p><code>numeric</code> Minimum time between consecutive triggers (default: 0, no cooldown).</p></dd>
+
+
+<dt><code>max_triggers</code></dt>
+<dd><p><code>integer</code> Maximum number of times this condition can trigger (default: 1, single trigger).</p></dd>
 
 
 </dl><p></p></div>
