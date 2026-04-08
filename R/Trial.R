@@ -66,6 +66,9 @@ Trial <- R6::R6Class(
     #' @field population `list` of [Population] objects, one per arm.
     population = NULL,
 
+    #' @field conditions `list` of [Condition object] objects.
+   conditions = NULL,
+
     #' @field locked_data `list` Snapshots at each timepoint.
     locked_data = NULL,
 
@@ -82,7 +85,7 @@ Trial <- R6::R6Class(
     #' @param population `list` of [Population] objects, one per arm.
     #' @param locked_data `list` Generated at each `$run()` call.
     #' @param results `list` Analysis outputs generated at each `$run()` call.
-    #'
+    #' @param conditions `list` of [Condition object] objects.
     #' @return A new `Trial` instance.
     #'
     #' @examples
@@ -99,6 +102,7 @@ Trial <- R6::R6Class(
       timer = NULL,
       population = list(), # default empty list
       locked_data = list(),
+      conditions =list(),
       results = list()
     ) {
       stopifnot(is.character(name))
@@ -130,6 +134,8 @@ Trial <- R6::R6Class(
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
+      self$conditions <- conditions
+
 
     },
 
@@ -183,11 +189,6 @@ Trial <- R6::R6Class(
         return(invisible(self))
       }
 
-      # if( self$timer$get_n_arms() != length(self$population))
-      # {
-      #   stop("Need timers for the same amount of arms run()")
-      #
-      # }
 
       for (i in sort(unique(plan_df$time))) {
         # Apply enrollment/dropout updates to each population at this timepoint
@@ -232,11 +233,12 @@ Trial <- R6::R6Class(
         combined$time <- rep(i, nrow(combined))
 
         # Check all conditions on the combined snapshot
-        results <- self$timer$check_conditions(
+        for (conds in self$conditions){
+        results <- conds$check_conditions(
           locked_data  = combined,
           current_time = i
         )
-
+        }
         # Store only if there are results
         if (length(results) > 0) {
           self$locked_data[[paste0("time_", i)]] <- combined
