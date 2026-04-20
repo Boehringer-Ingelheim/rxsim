@@ -210,18 +210,25 @@ Trial <- R6::R6Class(
         # Create snapshots of enrolled subjects from all populations
         locked_snapshot_list <- lapply(self$population, function(p) {
           keep <- !is.na(p$enrolled)
-          cbind(
+                    cbind(
             p$data[keep, , drop = FALSE],
             enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
             drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
           )
         })
 
-        combined <- do.call(rbind, locked_snapshot_list)
-        combined$subject_id <- rep(
-          x=seq_len(as.integer(dim(combined)[1] / p$n_readouts)),
-          times = p$n_readouts
-        )
+        combined <- do.call(rbind, locked_snapshot_list) 
+        offset <- 0L
+        global_ids <- integer(0)
+        for (idx in seq_along(self$population)) {
+          snap <- locked_snapshot_list[[idx]]
+          if (is.null(snap) || nrow(snap) == 0L) next
+          nr <- self$population[[idx]]$n_readouts
+          n_subj <- as.integer(nrow(snap) / nr)
+          global_ids <- c(global_ids, rep(offset + seq_len(n_subj), each = nr))
+          offset <- offset + n_subj
+        }
+        combined$subject_id <- global_ids        
 
         if (is.null(combined) || nrow(combined) == 0L) {
           next
