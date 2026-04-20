@@ -4,28 +4,38 @@
 \alias{trigger_by_fraction}
 \title{Trigger Analysis at a Sample Fraction}
 \usage{
-trigger_by_fraction(fraction, timer, sample_size, analysis = NULL)
+trigger_by_fraction(fraction, sample_size, analysis = NULL, name = NULL)
 }
 \arguments{
 \item{fraction}{\code{numeric} Sample fraction (0 < fraction <= 1).}
 
-\item{timer}{\code{\link{Timer}} instance to update.}
-
 \item{sample_size}{\code{integer} Target sample size.}
 
-\item{analysis}{\code{function} or \code{NULL} Optional function to apply.}
+\item{analysis}{\code{function} or \code{NULL} Optional analysis function called as
+\code{analysis(filtered_data, current_time)}. If \code{NULL}, the filtered snapshot
+is returned as-is with a warning.}
+
+\item{name}{\code{character} or \code{NULL} Result key. Defaults to
+\code{"frac_<fraction>"}.}
 }
 \value{
-Invisible \code{\link{Timer}}.
+A \code{\link{Condition}} object.
 }
 \description{
-Adds an analysis trigger when a fraction of the target sample enrolls.
+Builds a \code{\link{Condition}} that fires when a given fraction of the target sample
+has been enrolled. The returned \code{Condition} should be passed to
+\code{Trial$new(conditions = list(...))}.
 }
 \examples{
-t <- Timer$new("timer")
-trigger_by_fraction(0.5, t, sample_size = 100, analysis = function(df, current_time) nrow(df))
+cond <- trigger_by_fraction(
+  fraction    = 0.5,
+  sample_size = 100,
+  analysis    = function(df, current_time) {
+    data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
+  }
+)
 
 }
 \seealso{
-\link{Timer}, \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}.
+\link{Condition}, \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}, \link{Trial}.
 }

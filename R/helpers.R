@@ -1,66 +1,86 @@
 #' Trigger Analysis at a Calendar Time
 #'
-#' Adds an analysis trigger at a specified calendar time.
+#' Builds a [`Condition`] that fires when the trial clock reaches a specified
+#' calendar time. The returned `Condition` should be passed to
+#' `Trial$new(conditions = list(...))`.
 #'
-#' @param cal_time `numeric` Calendar time(s) to trigger.
-#' @param timer [`Timer`] instance to update.
-#' @param analysis `function` or `NULL` Optional function to apply.
+#' @param cal_time `numeric` Calendar time(s) at which to trigger.
+#' @param analysis `function` or `NULL` Optional analysis function called as
+#'   `analysis(filtered_data, current_time)`. If `NULL`, the filtered snapshot
+#'   is returned as-is with a warning.
+#' @param name `character` or `NULL` Result key. Defaults to
+#'   `"cal_time_<cal_time>"`.
 #'
-#' @return Invisible [`Timer`].
+#' @return A [`Condition`] object.
 #'
-#' @seealso [Timer], [trigger_by_fraction()].
+#' @seealso [Condition], [trigger_by_fraction()], [Trial].
 #'
 #' @export
 #'
 #' @examples
-#' t <- Timer$new("timer")
-#' trigger_by_calendar(2, t, analysis = function(df, current_time) nrow(df))
-#' 
-#' @importFrom rlang :=
+#' cond <- trigger_by_calendar(
+#'   cal_time = 12,
+#'   analysis = function(df, current_time) {
+#'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
+#'   }
+#' )
+#'
+#' @importFrom rlang quos
 #' @importFrom dplyr .data
-trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
-  if (missing(cal_time) || missing(timer)) stop("`cal_time` and `timer` are required.")
+trigger_by_calendar <- function(cal_time, analysis = NULL, name = NULL) {
+  if (missing(cal_time)) stop("`cal_time` is required.")
   stopifnot(is.numeric(cal_time))
-  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
+  if (is.null(name)) name <- paste0("cal_time_", paste(cal_time, collapse = "_"))
 
-  timer$add_condition(
-    .data$time %in% cal_time,
+  Condition$new(
+    where    = rlang::quos(.data$time %in% !!cal_time),
     analysis = analysis,
-    name = paste0("cal_time_", do.call(paste, c(cal_time, sep = "_") |> as.list()))
+    name     = name
   )
 }
 
 #' Trigger Analysis at a Sample Fraction
 #'
-#' Adds an analysis trigger when a fraction of the target sample enrolls.
+#' Builds a [`Condition`] that fires when a given fraction of the target sample
+#' has been enrolled. The returned `Condition` should be passed to
+#' `Trial$new(conditions = list(...))`.
 #'
 #' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
-#' @param timer [`Timer`] instance to update.
 #' @param sample_size `integer` Target sample size.
-#' @param analysis `function` or `NULL` Optional function to apply.
+#' @param analysis `function` or `NULL` Optional analysis function called as
+#'   `analysis(filtered_data, current_time)`. If `NULL`, the filtered snapshot
+#'   is returned as-is with a warning.
+#' @param name `character` or `NULL` Result key. Defaults to
+#'   `"frac_<fraction>"`.
 #'
-#' @return Invisible [`Timer`].
+#' @return A [`Condition`] object.
 #'
-#' @seealso [Timer], [trigger_by_calendar()].
+#' @seealso [Condition], [trigger_by_calendar()], [Trial].
 #'
 #' @export
 #'
 #' @examples
-#' t <- Timer$new("timer")
-#' trigger_by_fraction(0.5, t, sample_size = 100, analysis = function(df, current_time) nrow(df))
-#' 
-#' @importFrom rlang :=
+#' cond <- trigger_by_fraction(
+#'   fraction    = 0.5,
+#'   sample_size = 100,
+#'   analysis    = function(df, current_time) {
+#'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
+#'   }
+#' )
+#'
+#' @importFrom rlang quos
 #' @importFrom dplyr .data
-trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
-  if (missing(fraction) || missing(timer) || missing(sample_size)) stop("`fraction`, `timer`, and `sample_size` are required.")
+trigger_by_fraction <- function(fraction, sample_size, analysis = NULL, name = NULL) {
+  if (missing(fraction) || missing(sample_size)) stop("`fraction` and `sample_size` are required.")
   stopifnot(is.numeric(sample_size) && length(sample_size) == 1L)
   stopifnot(fraction > 0 && fraction <= 1)
-  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
+  if (is.null(name)) name <- paste0("frac_", fraction)
+  target_n <- fraction * sample_size
 
-  timer$add_condition(
-    sum(!is.na(.data$enroll_time)) >= fraction * sample_size,
+  Condition$new(
+    where    = rlang::quos(sum(!is.na(.data$enroll_time)) >= !!target_n),
     analysis = analysis,
-    name = paste0("frac_", fraction)
+    name     = name
   )
 }
 
