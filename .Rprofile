@@ -10,4 +10,4 @@ options(renv.config.pak.enabled = TRUE)
 source("renv/activate.R")
 
 # Use the most recent snapshot of the BI's PPM
-options(repos = c(RSPM = "https://packagemanager.posit.co/cran/latest"))
+options(repos = c(RSPM = "https://packagemanager.posit.co/cran/2026-04-11"))
