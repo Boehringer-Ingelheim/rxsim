@@ -1,20 +1,25 @@
-#' Timer: Track timed events and apply condition-triggered analyses
+#' Timer: Track timed events across arms
 #'
 #' @description
-#' A class to collect and query _timepoints_, time-based events, across arms.
-#' Timer class also supports conditions that filter data using [dplyr::filter()]
-#' and apply custom analyses.
+#' A class to collect and query _timepoints_ — time-based enrollment and
+#' dropout events — across trial arms.
 #'
-#' Use `add_timepoint()` to append timepoints, `get_timepoint()` for a lookup,
-#' and `check_conditions()` to filter a data frame based on a trigger condition
-#' and return either analysis results or the filtered data.
+#' Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
+#' `get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
+#' summary queries.
 #'
 #' @details
-#' Helper functions [trigger_by_calendar()] and [trigger_by_fraction()] provide
-#' convenient shortcuts for common trigger patterns.
+#' Trigger conditions (filtering + analysis) are now managed by the separate
+#' [`Condition`] class. `Condition` objects are stored in `trial$conditions`
+#' and evaluated by [`Trial`]`$run()` at each timepoint.
 #'
-#' @seealso [Trial] to coordinate simulations with populations, [add_timepoints()]
-#'   to attach multiple timepoints, [dplyr::filter()] for condition syntax.
+#' Helper functions [`trigger_by_calendar()`] and [`trigger_by_fraction()`]
+#' provide convenient shortcuts for building `Condition` objects; both return
+#' a [`Condition`] that you pass to `Trial$new(conditions = list(...))`.
+#'
+#' @seealso [`Trial`] to coordinate simulations with populations,
+#'   [`Condition`] for trigger/analysis logic,
+#'   [`add_timepoints()`] to attach multiple timepoints.
 #'
 #' @examples
 #' # Basic construction
@@ -27,36 +32,10 @@
 #'
 #' # Query
 #' t$get_end_timepoint() # max time => 2
-#' t$get_n_arms() # unique arms => 2
-#' t$get_unique_times() # unique times => c(1, 2)
+#' t$get_n_arms()        # unique arms => 2
+#' t$get_unique_times()  # unique times => c(1, 2)
 #' t$get_timepoint("A", 1) # returns a single timepoint
-#'
-#' # Add conditions using trigger helpers or dplyr style
-#' # Suppose you have a data.frame:
-#' df <- data.frame(
-#'   id = 1:6,
-#'   arm = c("A", "A", "B", "B", "A", "B"),
-#'   status = c("active", "inactive", "active", "active", "inactive", "active"),
-#'   visit = c(1, 2, 1, 3, 3, 2)
-#' )
-#'
-#' # Analysis function: count rows at/after a given visit, per arm
-#' my_analysis <- function(dat, current_time) {
-#'   out <- aggregate(id ~ arm, dat, length)
-#'   out$current_time <- current_time
-#'   out
-#' }
-#'
-#' # Or add conditions manually with dplyr style
-#' # Condition: arm A, visit >= 2, no analysis -> returns filtered df
-#' t$add_condition(
-#'   arm == "A", visit >= 2,
-#'   name = "armA_visit2plus"
-#' )
-#'
-#' # Run checks
-#' res <- t$check_conditions(locked_data = df, current_time = 3)
-#' names(res)
+
 #'
 #' @importFrom rlang enquos
 #' @importFrom dplyr filter
@@ -71,17 +50,9 @@ Timer <- R6::R6Class(
     #' @field timelist `list` A list of timepoints. Each timepoint is a list with keys:
     #' - `time` `numeric` Calendar time
     #' - `arm` `character` Unique identifier of the arm
-    #' - `dropper` `integer` # of subjects dropper at `time`
+    #' - `dropper` `integer` # of subjects dropped at `time`
     #' - `enroller` `integer` # of subjects enrolled at `time`
     timelist = NULL,
-
-    #' @field conditions `list` A list of condition entries. Each entry is a list with keys:
-    #' - `where` `expr` filter conditions in [dplyr::filter()] style
-    #' - `analysis` `function` or `NULL` analysis applied to filtered data
-    #' - `name` `character` or `NULL` unique key for the condition
-    #' - `cooldown` `numeric` minimum time between consecutive triggers
-    #' - `max_triggers` `integer` maximum number of times this condition can trigger
-    conditions = NULL,
 
     # --- constructor ---
     #' @description
@@ -89,7 +60,6 @@ Timer <- R6::R6Class(
     #'
     #' @param name `character` Unique identifier.
     #' @param timelist `list` Optional list of timepoints.
-    #' @param conditions `list` Optional list of condition entries.
     #'
     #' @return A new `Timer` instance.
     #'
@@ -97,13 +67,11 @@ Timer <- R6::R6Class(
     #' t <- Timer$new(name = "Timer")
     initialize = function(
       name,
-      timelist = NULL,
-      conditions = NULL
+      timelist = NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
       self$timelist <- if (is.null(timelist)) list() else timelist
-      self$conditions <- if (is.null(conditions)) list() else conditions
     },
 
     # --- methods ---
@@ -127,80 +95,6 @@ Timer <- R6::R6Class(
       stopifnot(is.integer(dropper), is.integer(enroller))
       tp <- list(time = time, arm = arm, dropper = dropper, enroller = enroller)
       self$timelist <- append(self$timelist, list(tp))
-      invisible(self)
-    },
-
-    #' @description
-    #' Add a trigger condition to a timer.
-    #'
-    #' @param ... `expression` Boolean expression(s) for `dplyr::filter()`.
-    #' @param analysis `function` or `NULL` Optional function to apply.
-    #' @param name `character` Unique condition identifier.
-    #' @param cooldown `numeric` Minimum time between consecutive triggers (default: 0, no cooldown).
-    #' @param max_triggers `integer` Maximum number of times this condition can trigger (default: 1, single trigger).
-     #'
-    #' @examples
-    #' #' t <- Timer$new(name = "Timer")
-    #'
-    #' # Add timepoints
-    #' t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-    #'
-    #' # Add conditions using `dplyr` style
-    #' # Suppose you have a data.frame:
-    #' df <- data.frame(
-    #'   id = 1:6,
-    #'   arm = c("A","A","B","B","A","B"),
-    #'   status = c("active","inactive","active","active","inactive","active"),
-    #'   visit = c(1,2,1,3,3,2)
-    #' )
-    #'
-    #' # Analysis function: count rows at/after a given visit, per arm
-    #' my_analysis <- function(dat, current_time) {
-    #'   out <- aggregate(id ~ arm, dat, length)
-    #'   out$current_time <- current_time
-    #'   out
-    #' }
-    #'
-    #' # Condition 1: active only
-    #' t$add_condition(
-    #'   status == "active",
-    #'   analysis = my_analysis,
-    #'   name = "active_only"
-    #' )
-    add_condition = function(
-      ...,
-      analysis = NULL,
-      name = NULL,
-      cooldown = 0,
-      max_triggers = 1L
-
-    ) {
-      # Capture filter predicates as quosures (with caller env)
-      where_quos <- rlang::enquos(..., .named = FALSE)
-
-      # Variable Checks and Error catching
-      cooldown <- as.numeric(cooldown)
-      if (length(cooldown) != 1L || is.na(cooldown) || cooldown < 0) {
-        stop("`cooldown` must be a single non-negative number.")
-      }
-
-      max_triggers <- as.integer(max_triggers)
-      if (length(max_triggers) != 1L || is.na(max_triggers) || max_triggers < 0) {
-        stop("`max_triggers` must be a single non-negative integer (use Inf for unlimited).")
-      }
-
-
-      cond <- list(
-        where = where_quos,
-        analysis = analysis,
-        name = name,
-        cooldown = cooldown,
-        max_triggers = max_triggers,
-        trigger_count = 0L,
-        last_trigger_time = NA_real_
-
-      )
-      self$conditions <- append(self$conditions, list(cond))
       invisible(self)
     },
 
@@ -276,124 +170,7 @@ Timer <- R6::R6Class(
       }
 
       self$timelist[[idx]]
-    },
-
-    #' @description
-    #' Check conditions and return filtered data or analysis results.
-    #'
-    #' @param locked_data `data.frame` Trial data.
-    #' @param current_time `numeric` Calendar time.
-    #'
-     #' @return `list` of filtered data or analysis results per condition.
-    #'
-    #' @examples
-    #' #' t <- Timer$new(name = "Timer")
-    #'
-    #' # Add timepoints
-    #' t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-    #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-    #' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
-    #'
-    #' # Query
-    #' t$get_end_timepoint()     # max time => 2
-    #' t$get_n_arms()            # unique arms => 2
-    #' t$get_unique_times()      # unique times => c(1, 2)
-    #' t$get_timepoint("A", 1)   # returns a single timepoint
-    #'
-    #' # Add conditions using dplyr style
-    #' # Suppose you have a data.frame:
-    #' df <- data.frame(
-    #'   id = 1:6,
-    #'   arm = c("A","A","B","B","A","B"),
-     #'   status = c("active", "inactive", "active", "active", "inactive", "active"),
-    #'   visit = c(1,2,1,3,3,2)
-    #' )
-    #'
-    #' # Analysis function: count rows at/after a given visit, per arm
-    #' my_analysis <- function(dat, current_time) {
-    #'   out <- aggregate(id ~ arm, dat, length)
-    #'   out$current_time <- current_time
-    #'   out
-    #' }
-    #'
-    #' # Condition: active only
-    #' t$add_condition(
-    #'   status == "active",
-     #'   analysis = my_analysis,
-    #'   name = "active_only"
-    #' )
-    check_conditions = function(
-      locked_data,
-      current_time
-    ) {
-      stopifnot(is.data.frame(locked_data))
-
-      results <- list()
-
-      for (i in seq_along(self$conditions)) {
-        cond <- self$conditions[[i]]
-
-        key <- ifelse(
-          !is.null(cond$name) && nzchar(cond$name),
-          cond$name,
-          i
-        )
-
-        # Per-reader filtering (dplyr semantics: NA in predicates drops rows)
-        df_i <- if (!is.null(cond$where) && length(cond$where) > 0) {
-          dplyr::filter(locked_data, !!!cond$where)
-        } else {
-          locked_data
-        }
-
-
-        if (is.null(cond$trigger_count)) cond$trigger_count <- 0L
-        if (is.null(cond$max_triggers))  cond$max_triggers <- 1L
-        if (is.null(cond$last_trigger_time)) cond$last_trigger_time <- NA_real_
-        if (is.null(cond$cooldown)) cond$cooldown <- 0
-
-        match_now <- nrow(df_i) > 0L
-
-
-        # If no match, skip
-        if (!match_now) {
-          self$conditions[[i]] <- cond
-          next
-        }
-
-
-        # Hard cap on number of triggers
-        if (is.finite(cond$max_triggers) && cond$trigger_count >= cond$max_triggers) {
-          self$conditions[[i]] <- cond
-          next
-        }
-
-        # Check cooldown
-        if (is.finite(cond$last_trigger_time)) {
-          if ((current_time - cond$last_trigger_time) < cond$cooldown) {
-            self$conditions[[i]] <- cond
-            next
-          }
-        }
-
-
-        if (is.function(cond$analysis)) {
-          results[[key]] <- cond$analysis(df_i, current_time)
-        } else {
-          results[[key]] <- df_i
-          warning(sprintf(" returning filtered data as is because condition '%s' has no applicable analysis \n", key), call. = FALSE)
-        }
-
-        # Update trigger info after a successful trigger
-        cond$trigger_count <- cond$trigger_count + 1L
-        cond$last_trigger_time <- current_time
-
-        # Persist state back into Timer
-        self$conditions[[i]] <- cond
-
-      }
-
-      results
     }
+
   ) # end public
 ) # end class

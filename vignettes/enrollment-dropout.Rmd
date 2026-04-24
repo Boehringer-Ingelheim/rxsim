@@ -417,7 +417,7 @@ pattern is:
 1. Call `gen_timepoints()` to get the schedule data frame.
 2. Create a `Timer$new()`.
 3. Register timepoints with `add_timepoints()`.
-4. Add analysis triggers (e.g., with `trigger_by_calendar()`).
+4. Build `Condition` objects and pass them to `Trial$new(conditions = ...)`.
 5. Build populations and construct a `Trial$new()`.
 6. Use `clone_trial()` if you want multiple independent replicates sharing
    the same fixed schedule.
@@ -438,15 +438,15 @@ fixed_plan <- gen_timepoints(
 tmr3 <- Timer$new(name = "fixed_timer")
 add_timepoints(tmr3, fixed_plan)
 
-# Add an analysis at the final calendar time
+# Condition: fire at the final calendar time
 final_t <- tmr3$get_end_timepoint()
-trigger_by_calendar(
-  cal_time = final_t,
-  timer    = tmr3,
+cond_final <- Condition$new(
+  where    = rlang::quos(.data$time %in% !!final_t),
   analysis = function(df, current_time) {
     enrolled <- subset(df, !is.na(enroll_time))
     data.frame(n_enrolled = nrow(enrolled), time = current_time)
-  }
+  },
+  name = "final"
 )
 
 # Build populations (sized to match the fixed plan)
@@ -469,7 +469,8 @@ trial_fixed <- Trial$new(
   name       = "fixed_schedule_trial",
   timer      = tmr3,
   seed       = 123,
-  population = list(pop_pbo, pop_trt)
+  population = list(pop_pbo, pop_trt),
+  conditions = list(cond_final)
 )
 
 trial_fixed$run()
@@ -485,7 +486,7 @@ contributes to simulation noise.
 - **[Getting Started](getting-started.html)** — end-to-end walkthrough of a
   complete simulation using stochastic enrollment via `replicate_trial()`.
 - **[Core Concepts](concepts.html)** — detailed explanations of `Timer`,
-  `Population`, `Trial`, and how they interact during a simulation run.
+  `Population`, `Condition`, `Trial`, and how they interact during a simulation run.
 - **[Example 3](example-3.html)** — a worked example using `gen_timepoints()`
   with two correlated continuous endpoints and a piecewise-linear enrollment
   ramp.
