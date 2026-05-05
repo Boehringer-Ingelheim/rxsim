@@ -108,6 +108,16 @@ Trial <- R6::R6Class(
       if (!is.null(timer) && !inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
       stopifnot(is.list(population))
 
+      if (length(population) > 1) {
+        readouts <- sapply(population, function(p) p$n_readouts)
+        if (length(unique(readouts)) > 1) {
+          stop(sprintf(
+            "All populations must have the same n_readouts. Found: %s",
+            paste(sprintf("%s=%d", sapply(population, function(p) p$name), readouts), collapse = ", ")
+          ))
+        }
+      }
+
       if (is.null(timer) || length(timer$timelist) == 0) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
