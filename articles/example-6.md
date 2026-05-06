@@ -253,6 +253,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: example_6_two_arm_fixed_subgroup_1
@@ -266,6 +267,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: example_6_two_arm_fixed_subgroup_2
@@ -279,6 +281,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: example_6_two_arm_fixed_subgroup_3

@@ -506,8 +506,8 @@ exposes, you can assemble the `Timer` directly. The pattern is:
 2.  Create a `Timer$new()`.
 3.  Register timepoints with
     [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md).
-4.  Add analysis triggers (e.g., with
-    [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)).
+4.  Build `Condition` objects and pass them to
+    `Trial$new(conditions = ...)`.
 5.  Build populations and construct a `Trial$new()`.
 6.  Use
     [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md)
@@ -530,15 +530,15 @@ fixed_plan <- gen_timepoints(
 tmr3 <- Timer$new(name = "fixed_timer")
 add_timepoints(tmr3, fixed_plan)
 
-# Add an analysis at the final calendar time
+# Condition: fire at the final calendar time
 final_t <- tmr3$get_end_timepoint()
-trigger_by_calendar(
-  cal_time = final_t,
-  timer    = tmr3,
+cond_final <- Condition$new(
+  where    = rlang::quos(.data$time %in% !!final_t),
   analysis = function(df, current_time) {
     enrolled <- subset(df, !is.na(enroll_time))
     data.frame(n_enrolled = nrow(enrolled), time = current_time)
-  }
+  },
+  name = "final"
 )
 
 # Build populations (sized to match the fixed plan)
@@ -561,13 +561,14 @@ trial_fixed <- Trial$new(
   name       = "fixed_schedule_trial",
   timer      = tmr3,
   seed       = 123,
-  population = list(pop_pbo, pop_trt)
+  population = list(pop_pbo, pop_trt),
+  conditions = list(cond_final)
 )
 
 trial_fixed$run()
 prettify_results(trial_fixed$results)
-#>   time cal_time_5.n_enrolled cal_time_5.time
-#> 1    5                    12               5
+#>   time final.n_enrolled final.time
+#> 1    5               12          5
 ```
 
 Because every replicate cloned from `trial_fixed` uses the same
@@ -583,8 +584,8 @@ endpoint variability contributes to simulation noise.
   [`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md).
 - **[Core
   Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.md)**
-  — detailed explanations of `Timer`, `Population`, `Trial`, and how
-  they interact during a simulation run.
+  — detailed explanations of `Timer`, `Population`, `Condition`,
+  `Trial`, and how they interact during a simulation run.
 - **[Example
   3](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md)**
   — a worked example using

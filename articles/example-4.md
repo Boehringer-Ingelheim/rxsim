@@ -274,6 +274,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: two_endpoints_continuous_tte_fixed_1
@@ -287,6 +288,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: two_endpoints_continuous_tte_fixed_2
@@ -300,6 +302,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: two_endpoints_continuous_tte_fixed_3

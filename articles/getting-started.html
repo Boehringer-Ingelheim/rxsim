@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -221,7 +221,8 @@ independent <code>Trial</code> objects. For each replicate it:</p>
 <ol style="list-style-type: decimal">
 <li>Samples a fresh enrollment/dropout timeline from your functions</li>
 <li>Calls each population generator to draw new subject-level data</li>
-<li>Registers your analysis triggers on the trial’s internal timer</li>
+<li>Builds <code>Condition</code> objects from your
+<code>analysis_generators</code> and attaches them to each trial</li>
 </ol>
 <p><code><a href="../reference/run_trials.html">run_trials()</a></code> then executes every replicate’s simulation
 loop in sequence.</p>
@@ -245,6 +246,7 @@ loop in sequence.</p>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     conditions: list</span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
 <span><span class="co">#&gt;     name: getting_started_1</span></span>
@@ -258,6 +260,7 @@ loop in sequence.</p>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     conditions: list</span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
 <span><span class="co">#&gt;     name: getting_started_2</span></span>
@@ -271,6 +274,7 @@ loop in sequence.</p>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     conditions: list</span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
 <span><span class="co">#&gt;     name: getting_started_3</span></span>
@@ -284,6 +288,7 @@ loop in sequence.</p>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     conditions: list</span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
 <span><span class="co">#&gt;     name: getting_started_4</span></span>
@@ -297,6 +302,7 @@ loop in sequence.</p>
 <span><span class="co">#&gt; &lt;Trial&gt;</span></span>
 <span><span class="co">#&gt;   Public:</span></span>
 <span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
+<span><span class="co">#&gt;     conditions: list</span></span>
 <span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
 <span><span class="co">#&gt;     locked_data: list</span></span>
 <span><span class="co">#&gt;     name: getting_started_5</span></span>
@@ -411,9 +417,9 @@ next:</p>
 <ul>
 <li>
 <strong><a href="concepts.html">Core Concepts</a></strong> —
-understand how <code>Population</code>, <code>Timer</code>, and
-<code>Trial</code> compose, and how to write more advanced trigger
-expressions</li>
+understand how <code>Population</code>, <code>Timer</code>,
+<code>Condition</code>, and <code>Trial</code> compose, and how to write
+more advanced trigger expressions</li>
 <li>
 <strong><a href="enrollment-dropout.html">Enrollment &amp; Dropout
 Modeling</a></strong> — choose between stochastic

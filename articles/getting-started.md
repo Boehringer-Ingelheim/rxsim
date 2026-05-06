@@ -143,7 +143,8 @@ generates `n` fully independent `Trial` objects. For each replicate it:
 
 1.  Samples a fresh enrollment/dropout timeline from your functions
 2.  Calls each population generator to draw new subject-level data
-3.  Registers your analysis triggers on the trial’s internal timer
+3.  Builds `Condition` objects from your `analysis_generators` and
+    attaches them to each trial
 
 [`run_trials()`](https://boehringer-ingelheim.github.io/rxsim/reference/run_trials.md)
 then executes every replicate’s simulation loop in sequence.
@@ -168,6 +169,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: getting_started_1
@@ -181,6 +183,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: getting_started_2
@@ -194,6 +197,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: getting_started_3
@@ -207,6 +211,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: getting_started_4
@@ -220,6 +225,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: getting_started_5
@@ -314,8 +320,8 @@ Now that you have seen the full workflow, here is where to go next:
 
 - **[Core
   Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.md)**
-  — understand how `Population`, `Timer`, and `Trial` compose, and how
-  to write more advanced trigger expressions
+  — understand how `Population`, `Timer`, `Condition`, and `Trial`
+  compose, and how to write more advanced trigger expressions
 - **[Enrollment & Dropout
   Modeling](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.md)**
   — choose between stochastic (`gen_plan`) and piecewise-constant

@@ -1,31 +1,39 @@
-# Timer: Track timed events and apply condition-triggered analyses
+# Timer: Track timed events across arms
 
-A class to collect and query *timepoints*, time-based events, across
-arms. Timer class also supports conditions that filter data using
-[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-and apply custom analyses.
+A class to collect and query *timepoints* — time-based enrollment and
+dropout events — across trial arms.
 
-Use `add_timepoint()` to append timepoints, `get_timepoint()` for a
-lookup, and `check_conditions()` to filter a data frame based on a
-trigger condition and return either analysis results or the filtered
-data.
+Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
+`get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
+summary queries.
 
 ## Details
+
+Trigger conditions (filtering + analysis) are now managed by the
+separate
+[`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+class. `Condition` objects are stored in `trial$conditions` and
+evaluated by
+[`Trial`](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)`$run()`
+at each timepoint.
 
 Helper functions
 [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
 and
 [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
-provide convenient shortcuts for common trigger patterns.
+provide convenient shortcuts for building `Condition` objects; both
+return a
+[`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+that you pass to `Trial$new(conditions = list(...))`.
 
 ## See also
 
-[Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)
+[`Trial`](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)
 to coordinate simulations with populations,
+[`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+for trigger/analysis logic,
 [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
-to attach multiple timepoints,
-[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-for condition syntax.
+to attach multiple timepoints.
 
 ## Public fields
 
@@ -41,26 +49,9 @@ for condition syntax.
 
   - `arm` `character` Unique identifier of the arm
 
-  - `dropper` `integer` \# of subjects dropper at `time`
+  - `dropper` `integer` \# of subjects dropped at `time`
 
   - `enroller` `integer` \# of subjects enrolled at `time`
-
-- `conditions`:
-
-  `list` A list of condition entries. Each entry is a list with keys:
-
-  - `where` `expr` filter conditions in
-    [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-    style
-
-  - `analysis` `function` or `NULL` analysis applied to filtered data
-
-  - `name` `character` or `NULL` unique key for the condition
-
-  - `cooldown` `numeric` minimum time between consecutive triggers
-
-  - `max_triggers` `integer` maximum number of times this condition can
-    trigger
 
 ## Methods
 
@@ -70,8 +61,6 @@ for condition syntax.
 
 - [`Timer$add_timepoint()`](#method-Timer-add_timepoint)
 
-- [`Timer$add_condition()`](#method-Timer-add_condition)
-
 - [`Timer$get_end_timepoint()`](#method-Timer-get_end_timepoint)
 
 - [`Timer$get_n_arms()`](#method-Timer-get_n_arms)
@@ -79,8 +68,6 @@ for condition syntax.
 - [`Timer$get_unique_times()`](#method-Timer-get_unique_times)
 
 - [`Timer$get_timepoint()`](#method-Timer-get_timepoint)
-
-- [`Timer$check_conditions()`](#method-Timer-check_conditions)
 
 - [`Timer$clone()`](#method-Timer-clone)
 
@@ -92,7 +79,7 @@ Create a new `Timer` instance.
 
 #### Usage
 
-    Timer$new(name, timelist = NULL, conditions = NULL)
+    Timer$new(name, timelist = NULL)
 
 #### Arguments
 
@@ -103,10 +90,6 @@ Create a new `Timer` instance.
 - `timelist`:
 
   `list` Optional list of timepoints.
-
-- `conditions`:
-
-  `list` Optional list of condition entries.
 
 #### Returns
 
@@ -152,77 +135,6 @@ Add a timepoint to a timer.
       arm = "A",
       dropper = 1L,
       enroller = 3L
-    )
-
-------------------------------------------------------------------------
-
-### Method `add_condition()`
-
-Add a trigger condition to a timer.
-
-#### Usage
-
-    Timer$add_condition(
-      ...,
-      analysis = NULL,
-      name = NULL,
-      cooldown = 0,
-      max_triggers = 1L
-    )
-
-#### Arguments
-
-- `...`:
-
-  `expression` Boolean expression(s) for
-  [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html).
-
-- `analysis`:
-
-  `function` or `NULL` Optional function to apply.
-
-- `name`:
-
-  `character` Unique condition identifier.
-
-- `cooldown`:
-
-  `numeric` Minimum time between consecutive triggers (default: 0, no
-  cooldown).
-
-- `max_triggers`:
-
-  `integer` Maximum number of times this condition can trigger (default:
-  1, single trigger).
-
-#### Examples
-
-    #' t <- Timer$new(name = "Timer")
-
-    # Add timepoints
-    t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-
-    # Add conditions using `dplyr` style
-    # Suppose you have a data.frame:
-    df <- data.frame(
-      id = 1:6,
-      arm = c("A","A","B","B","A","B"),
-      status = c("active","inactive","active","active","inactive","active"),
-      visit = c(1,2,1,3,3,2)
-    )
-
-    # Analysis function: count rows at/after a given visit, per arm
-    my_analysis <- function(dat, current_time) {
-      out <- aggregate(id ~ arm, dat, length)
-      out$current_time <- current_time
-      out
-    }
-
-    # Condition 1: active only
-    t$add_condition(
-      status == "active",
-      analysis = my_analysis,
-      name = "active_only"
     )
 
 ------------------------------------------------------------------------
@@ -317,68 +229,6 @@ Get a timepoint by arm and index.
 
 ------------------------------------------------------------------------
 
-### Method `check_conditions()`
-
-Check conditions and return filtered data or analysis results.
-
-#### Usage
-
-    Timer$check_conditions(locked_data, current_time)
-
-#### Arguments
-
-- `locked_data`:
-
-  `data.frame` Trial data.
-
-- `current_time`:
-
-  `numeric` Calendar time.
-
-#### Returns
-
-`list` of filtered data or analysis results per condition.
-
-#### Examples
-
-    #' t <- Timer$new(name = "Timer")
-
-    # Add timepoints
-    t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-    t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-    t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
-
-    # Query
-    t$get_end_timepoint()     # max time => 2
-    t$get_n_arms()            # unique arms => 2
-    t$get_unique_times()      # unique times => c(1, 2)
-    t$get_timepoint("A", 1)   # returns a single timepoint
-
-    # Add conditions using dplyr style
-    # Suppose you have a data.frame:
-    df <- data.frame(
-      id = 1:6,
-      arm = c("A","A","B","B","A","B"),
-      status = c("active", "inactive", "active", "active", "inactive", "active"),
-      visit = c(1,2,1,3,3,2)
-    )
-
-    # Analysis function: count rows at/after a given visit, per arm
-    my_analysis <- function(dat, current_time) {
-      out <- aggregate(id ~ arm, dat, length)
-      out$current_time <- current_time
-      out
-    }
-
-    # Condition: active only
-    t$add_condition(
-      status == "active",
-      analysis = my_analysis,
-      name = "active_only"
-    )
-
-------------------------------------------------------------------------
-
 ### Method `clone()`
 
 The objects of this class are cloneable with this method.
@@ -407,9 +257,9 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
 # Query
 t$get_end_timepoint() # max time => 2
 #> [1] 2
-t$get_n_arms() # unique arms => 2
+t$get_n_arms()        # unique arms => 2
 #> [1] 2
-t$get_unique_times() # unique times => c(1, 2)
+t$get_unique_times()  # unique times => c(1, 2)
 #> [1] 1 2
 t$get_timepoint("A", 1) # returns a single timepoint
 #> $time
@@ -424,35 +274,6 @@ t$get_timepoint("A", 1) # returns a single timepoint
 #> $enroller
 #> [1] 10
 #> 
-
-# Add conditions using trigger helpers or dplyr style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A", "A", "B", "B", "A", "B"),
-  status = c("active", "inactive", "active", "active", "inactive", "active"),
-  visit = c(1, 2, 1, 3, 3, 2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Or add conditions manually with dplyr style
-# Condition: arm A, visit >= 2, no analysis -> returns filtered df
-t$add_condition(
-  arm == "A", visit >= 2,
-  name = "armA_visit2plus"
-)
-
-# Run checks
-res <- t$check_conditions(locked_data = df, current_time = 3)
-#> Warning:  returning filtered data as is because condition 'armA_visit2plus' has no applicable analysis 
-names(res)
-#> [1] "armA_visit2plus"
 
 
 ## ------------------------------------------------
@@ -471,38 +292,6 @@ t$add_timepoint(
   arm = "A",
   dropper = 1L,
   enroller = 3L
-)
-
-## ------------------------------------------------
-## Method `Timer$add_condition`
-## ------------------------------------------------
-
-#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-
-# Add conditions using `dplyr` style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition 1: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
 )
 
 ## ------------------------------------------------
@@ -544,59 +333,4 @@ t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
 
 t$get_timepoint("A", 1)
 #> NULL
-
-## ------------------------------------------------
-## Method `Timer$check_conditions`
-## ------------------------------------------------
-
-#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
-
-# Query
-t$get_end_timepoint()     # max time => 2
-#> [1] 3.28
-t$get_n_arms()            # unique arms => 2
-#> [1] 2
-t$get_unique_times()      # unique times => c(1, 2)
-#> [1] 3.14 3.28 1.00 2.00
-t$get_timepoint("A", 1)   # returns a single timepoint
-#> $time
-#> [1] 1
-#> 
-#> $arm
-#> [1] "A"
-#> 
-#> $dropper
-#> [1] 2
-#> 
-#> $enroller
-#> [1] 10
-#> 
-
-# Add conditions using dplyr style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active", "inactive", "active", "active", "inactive", "active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
-)
 ```

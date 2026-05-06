@@ -1,7 +1,7 @@
 # Trial: Simulate a multi‑arm clinical trial
 
-The `Trial` class coordinates one or more `Population` objects and a
-`Timer` to simulate a clinical trial.
+The `Trial` class coordinates one or more `Population` objects, a
+`Timer`, and a list of `Condition` objects to simulate a clinical trial.
 
 At each unique time defined in the trial's `Timer`, the `Trial`:
 
@@ -9,26 +9,32 @@ At each unique time defined in the trial's `Timer`, the `Trial`:
 
 - builds a snapshot of all currently enrolled subjects
 
-- evaluates all conditions in the `Timer`
+- evaluates each
+  [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+  in `self$conditions` against the snapshot
 
-- stores both the snapshot `locked_data` and the analysis outputs
-  `results`
+- stores both the snapshot (`locked_data`) and the analysis outputs
+  (`results`)
 
-Use `run()` to execute the simulation. Trigger conditions are best added
-with helper functions
+Use `run()` to execute the simulation. Trigger conditions are built with
+[`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)`$new()`
+(or helpers
 [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
-or
-[`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md).
+/
+[`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md))
+and stored in `trial$conditions`.
 
 ## See also
 
 [Population](https://boehringer-ingelheim.github.io/rxsim/reference/Population.md),
 [Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md),
+[Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md),
 [`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md),
 [`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md),
 [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md).
 
 [Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md),
+[Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md),
 [`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md).
 
 ## Public fields
@@ -43,13 +49,19 @@ or
 
 - `timer`:
 
-  `Timer` object with timepoints and conditions.
+  `Timer` object with timepoints.
 
 - `population`:
 
   `list` of
   [Population](https://boehringer-ingelheim.github.io/rxsim/reference/Population.md)
   objects, one per arm.
+
+- `conditions`:
+
+  `list` of
+  [Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+  objects evaluated at each timepoint.
 
 - `locked_data`:
 
@@ -83,6 +95,7 @@ Create a new `Trial` instance.
       timer = NULL,
       population = list(),
       locked_data = list(),
+      conditions = list(),
       results = list()
     )
 
@@ -98,7 +111,7 @@ Create a new `Trial` instance.
 
 - `timer`:
 
-  `Timer` object defining timepoints and conditions.
+  `Timer` object defining timepoints.
 
 - `population`:
 
@@ -109,6 +122,12 @@ Create a new `Trial` instance.
 - `locked_data`:
 
   `list` Generated at each `$run()` call.
+
+- `conditions`:
+
+  `list` of
+  [Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+  objects to evaluate at each timepoint.
 
 - `results`:
 
@@ -142,7 +161,9 @@ At each unique time defined by the trial's `Timer`:
 
 - Attach a `time` column to the snapshot
 
-- Evaluate all condition readers via `Timer$check_conditions()`
+- Evaluate each
+  [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
+  in `self$conditions` against the snapshot
 
 - Store snapshots and condition outputs under time‑indexed list keys
 
@@ -210,25 +231,28 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 
-# Add trigger for final analysis at time 2
-trigger_by_calendar(2, t, analysis = function(df, current_time) {
-  nrow(df)
-})
+# Build a condition: fire at time 2 and count enrolled rows
+cond <- Condition$new(
+  where    = rlang::quos(.data$time %in% 2),
+  analysis = function(df, current_time) nrow(df),
+  name     = "final"
+)
 
 # Create a trial
 trial <- Trial$new(
-  name = "ExampleTrial",
-  seed = 123,
-  timer = t,
-  population = list(popA, popB)
+  name       = "ExampleTrial",
+  seed       = 123,
+  timer      = t,
+  population = list(popA, popB),
+  conditions = list(cond)
 )
 
 # Run the simulation
 trial$run()
 
 prettify_results(trial$results)
-#>   time cal_time_2
-#> 1    2         14
+#>   time final
+#> 1    2    14
 
 
 ## ------------------------------------------------
@@ -245,6 +269,7 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: simple_trial

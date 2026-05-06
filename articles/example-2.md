@@ -139,6 +139,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: test_trial_1
@@ -152,6 +153,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: test_trial_2
@@ -165,6 +167,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: test_trial_3

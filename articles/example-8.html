@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.2.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -287,27 +287,28 @@ d5, d10, d20, d40) — matching the five dose groups expected by
 <div class="section level2">
 <h2 id="analyses">Analyses<a class="anchor" aria-label="anchor" href="#analyses"></a>
 </h2>
-<p>We add two trigger conditions:</p>
+<p>We define two <code>Condition</code> objects:</p>
 <ol style="list-style-type: decimal">
 <li>
-<code>time == interim_time</code>: Bayesian Go/No-Go on d20 vs
-placebo.</li>
+<code>cond_interim</code> — fires when
+<code>time == interim_time</code> (calendar time 4). Runs a Bayesian
+Go/No-Go analysis on d20 vs placebo. The <code>&lt;&lt;-</code> operator
+in <code>go_interim &lt;&lt;- as.integer(...)</code> writes the Go/No-Go
+decision to the enclosing environment, making it available to downstream
+logic in the final condition.</li>
 <li>
-<code>time == final_time</code>: Bayesian MCP-Mod over all dose
-groups.</li>
-</ol>
-<p><code>trigger_by_calendar(interim_time, tr_timer, ...)</code>
-registers the interim analysis to fire when calendar time reaches
-<code>interim_time = 4</code>. The <code>&lt;&lt;-</code> operator in
-<code>go_interim &lt;&lt;- as.integer(...)</code> writes the interim
-Go/No-Go decision to the enclosing environment, making it available to
-downstream analyses or conditional logic in the final step. The final
-analysis calls <code><a href="https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html" class="external-link">BayesianMCPMod::assessDesign()</a></code> with
-arm-level sample sizes (<code>n_patients</code>), the candidate
+<code>cond_final</code> — fires when <code>time == final_time</code>
+(calendar time 12). Calls <code><a href="https://boehringer-ingelheim.github.io/BayesianMCPMod/reference/assessDesign.html" class="external-link">BayesianMCPMod::assessDesign()</a></code>
+with arm-level sample sizes (<code>n_patients</code>), the candidate
 dose-response models (<code>mods</code>), the five-arm prior list
 (<code>prior_list</code>), and arm-level posterior mean estimates
-(<code>estimates_sim</code>); <code>alpha_crit_val = alpha_final</code>
-sets the significance threshold for the Bayesian MCP contrast step.</p>
+(<code>estimates_sim</code>);
+<code>alpha_crit_val =    alpha_final</code> sets the significance
+threshold for the Bayesian MCP contrast step.</li>
+</ol>
+<p>Both conditions are passed to
+<code>Trial$new(conditions = ...)</code> and are evaluated by
+<code>Trial$run()</code> at each timepoint.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># shared state between interim and final trigger</span></span>
 <span><span class="va">go_interim</span> <span class="op">&lt;-</span> <span class="cn">NA_integer_</span></span>
@@ -322,7 +323,9 @@ sets the significance threshold for the Bayesian MCP contrast step.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Interim: Bayesian Go/No-Go (d20 vs placebo)</span></span>
-<span><span class="fu"><a href="../reference/trigger_by_calendar.html">trigger_by_calendar</a></span><span class="op">(</span><span class="va">interim_time</span>, <span class="va">tr_timer</span>, analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
+<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">time</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">interim_time</span><span class="op">)</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">dat</span> <span class="op">&lt;-</span> <span class="va">df</span> <span class="op">|&gt;</span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span>, <span class="va">arm</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"d0"</span>, <span class="st">"d20"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -351,11 +354,13 @@ sets the significance threshold for the Bayesian MCP contrast step.</p>
 <span>    delta_q975 <span class="op">=</span> <span class="va">delta_q</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span>,</span>
 <span>    decision_go <span class="op">=</span> <span class="va">go_interim</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="op">}</span>,</span>
+<span>  name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"interim_t"</span>, <span class="va">interim_time</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Final: Bayesian MCP-Mod across all dose groups</span></span>
-<span><span class="va">tr_timer</span><span class="op">$</span><span class="fu">add_condition</span><span class="op">(</span></span>
-<span>  <span class="va">time</span> <span class="op">==</span> <span class="va">final_time</span>,</span>
+<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">time</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">final_time</span><span class="op">)</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">dat</span> <span class="op">&lt;-</span> <span class="va">df</span> <span class="op">|&gt;</span></span>
 <span>      <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
@@ -412,7 +417,8 @@ sets the significance threshold for the Bayesian MCP contrast step.</p>
 <span>  name <span class="op">=</span> <span class="st">"example_8_seamless_ph2a2b"</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">8808</span>,</span>
 <span>  timer <span class="op">=</span> <span class="va">tr_timer</span>,</span>
-<span>  population <span class="op">=</span> <span class="va">pops</span></span>
+<span>  population <span class="op">=</span> <span class="va">pops</span>,</span>
+<span>  conditions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_interim</span>, <span class="va">cond_final</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -444,26 +450,26 @@ aggregate operating characteristics across many simulated trials.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trial</span><span class="op">$</span><span class="va">results</span></span>
 <span><span class="co">#&gt; $time_4</span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4</span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$n_placebo</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$n_placebo</span></span>
 <span><span class="co">#&gt; [1] 32</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$n_d20</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$n_d20</span></span>
 <span><span class="co">#&gt; [1] 32</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$post_prob_delta</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$post_prob_delta</span></span>
 <span><span class="co">#&gt; [1] 0.9448993</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$delta_q025</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$delta_q025</span></span>
 <span><span class="co">#&gt; [1] 0.01981831</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$delta_q500</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$delta_q500</span></span>
 <span><span class="co">#&gt; [1] 0.4387862</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$delta_q975</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$delta_q975</span></span>
 <span><span class="co">#&gt; [1] 0.8449165</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $time_4$cal_time_4$decision_go</span></span>
+<span><span class="co">#&gt; $time_4$interim_t4$decision_go</span></span>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>

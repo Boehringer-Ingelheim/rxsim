@@ -272,6 +272,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: multiarm_dunnett_mcpmod_1
@@ -285,6 +286,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: multiarm_dunnett_mcpmod_2
@@ -298,6 +300,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: multiarm_dunnett_mcpmod_3

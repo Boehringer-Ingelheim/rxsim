@@ -2,19 +2,22 @@
 
 ## Overview
 
-rxsim organises a clinical trial simulation around three collaborating
+rxsim organises a clinical trial simulation around four collaborating
 objects. A `Population` owns the subject-level data and tracks each
 subject’s enrollment and dropout times. A `Timer` drives the trial
-clock. It stores discrete timepoints per arm and evaluates
-condition-triggered analyses when the data meet a criterion. A `Trial`
-orchestrates the simulation by iterating over timepoints, updating
-populations, snapshotting the enrolled cohort, and collecting results.
+clock: it stores discrete timepoints per arm and defines when the
+simulation clock advances. A `Condition` pairs a filter expression with
+an optional analysis function and manages its own trigger state — it
+fires when the snapshot data meets a criterion. A `Trial` orchestrates
+the simulation by iterating over timepoints, updating populations,
+snapshotting the enrolled cohort, and collecting results.
 
 ``` mermaid
 graph LR
   P1(Control) --> TR(Trial)
   P2(Treatment) --> TR
   TI(Timer) --> TR
+  CO(Condition) --> TR
   TR --> LD(Locked Data)
   TR --> RS(Results)
 #> <div class="mermaid">
@@ -22,6 +25,7 @@ graph LR
 #>   P1(Control) --> TR(Trial)
 #>   P2(Treatment) --> TR
 #>   TI(Timer) --> TR
+#>   CO(Condition) --> TR
 #>   TR --> LD(Locked Data)
 #>   TR --> RS(Results)
 #> </div>
@@ -176,12 +180,14 @@ the `Timer`’s schedule — you rarely need to call them directly.
 
 ## Timer
 
-A `Timer` drives the trial clock. It holds two data structures: a
-`timelist` that specifies how many subjects to enroll or drop in each
-arm at each time unit, and a `conditions` list that defines
-analysis-triggering criteria. At each unique time in the `timelist`,
-`Trial$run()` asks the `Timer` to evaluate its conditions against the
-current snapshot.
+A `Timer` drives the trial clock. It holds a `timelist` that specifies
+how many subjects to enroll or drop in each arm at each time unit. At
+each unique time in the `timelist`, `Trial$run()` processes enrollment
+and dropout events, then evaluates analysis triggers.
+
+Analysis triggers are now managed by the separate \[`Condition`\] class
+(see [Conditions](#conditions) below). `Condition` objects live in
+`trial$conditions`, not inside `Timer`.
 
 ### Timepoints
 
@@ -228,17 +234,32 @@ for details.
 
 ### Conditions
 
-A condition pairs a filter expression with an optional analysis
-function. When the `Trial` calls `check_conditions()` at each timepoint,
-each condition’s expression is evaluated against the current snapshot
-using
-[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html).
-If the filtered result is non-empty (the condition is satisfied), the
-associated analysis function is called and its return value is stored.
+A `Condition` pairs a filter expression with an optional analysis
+function and manages its own trigger state. It is a separate R6 object
+that lives in `trial$conditions`.
 
-Conditions are added with `add_condition()`. The `...` arguments are
-[`dplyr::filter`](https://dplyr.tidyverse.org/reference/filter.html)-style
-boolean expressions, evaluated lazily against the snapshot columns:
+When `Trial$run()` reaches each timepoint, it iterates over every
+`Condition` in `trial$conditions` and calls
+`cond$check_conditions(snapshot, current_time)`. Each condition applies
+a three-gate check:
+
+1.  **Filter gate** —
+    [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
+    is applied to the snapshot using the condition’s `where` quosures.
+    If the result is empty (no rows match), the condition does not fire.
+2.  **Max-triggers gate** — if `trigger_count >= max_triggers`, the
+    condition does not fire again.
+3.  **Cooldown gate** — if
+    `current_time - last_trigger_time < cooldown`, the condition does
+    not fire yet.
+
+If all three gates pass, the analysis function is called on the filtered
+data and the result is stored. Trigger state (`trigger_count`,
+`last_trigger_time`) is updated automatically.
+
+Construct a `Condition` with
+[`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html)
+to capture the filter predicates:
 
 ``` r
 # A toy snapshot data frame
@@ -249,11 +270,9 @@ snapshot <- data.frame(
   data        = rnorm(8)
 )
 
-t2 <- Timer$new(name = "demo")
-
 # Fire when at least 4 subjects are enrolled
-t2$add_condition(
-  sum(!is.na(enroll_time)) >= 4,
+cond_interim <- Condition$new(
+  where    = rlang::quos(sum(!is.na(enroll_time)) >= 4),
   analysis = function(df, current_time) {
     data.frame(n_enrolled = sum(!is.na(df$enroll_time)),
                fired_at   = current_time)
@@ -261,15 +280,15 @@ t2$add_condition(
   name = "interim"
 )
 
-res <- t2$check_conditions(locked_data = snapshot, current_time = 5)
+res <- cond_interim$check_conditions(locked_data = snapshot, current_time = 5)
 res[["interim"]]
 #>   n_enrolled fired_at
 #> 1          4        5
 ```
 
 If no analysis function is provided, `check_conditions()` returns the
-filtered subset instead of calling a function — convenient for
-inspection or debugging.
+filtered subset as-is with a warning — convenient for inspection or
+debugging.
 
 ## Trial
 
@@ -283,7 +302,8 @@ Trial$new(
   name       = "my_trial",
   seed       = 42,           # optional; set for reproducibility
   timer      = my_timer,
-  population = list(pop_a, pop_b)
+  population = list(pop_a, pop_b),
+  conditions = list(cond1, cond2)  # list of Condition objects
 )
 ```
 
@@ -309,8 +329,9 @@ Calling `trial$run()` executes the following loop:
 | `measurement_time` | `enroll_time + readout_time`                                      |
 | `time`             | The current clock time `t`                                        |
 
-4.  Call `timer$check_conditions(snapshot, t)` — evaluate all conditions
-    and collect analysis results.
+4.  Evaluate each `Condition` in `trial$conditions` by calling
+    `cond$check_conditions(snapshot, t)`. Each condition applies its
+    filter, cooldown, and max-trigger guards independently.
 5.  If any condition fired, store the snapshot in
     `locked_data[["time_t"]]` and the analysis outputs in
     `results[["time_t"]]`.
@@ -346,23 +367,28 @@ tm$add_timepoint(time = 15, arm = "A", enroller = 0L, dropper = 0L)
 tm$add_timepoint(time = 15, arm = "B", enroller = 0L, dropper = 0L)
 
 # Trigger: fire at calendar time 15
-trigger_by_calendar(15, tm, analysis = function(df, current_time) {
-  enrolled <- subset(df, !is.na(enroll_time))
-  data.frame(
-    n       = nrow(enrolled),
-    mean_A  = mean(enrolled$data[enrolled$arm == "A"]),
-    mean_B  = mean(enrolled$data[enrolled$arm == "B"])
-  )
-})
+cond_final <- Condition$new(
+  where    = rlang::quos(.data$time %in% 15),
+  analysis = function(df, current_time) {
+    enrolled <- subset(df, !is.na(enroll_time))
+    data.frame(
+      n       = nrow(enrolled),
+      mean_A  = mean(enrolled$data[enrolled$arm == "A"]),
+      mean_B  = mean(enrolled$data[enrolled$arm == "B"])
+    )
+  },
+  name = "final"
+)
 
 trial <- Trial$new(name = "demo", seed = 7, timer = tm,
-                   population = list(pop_a, pop_b))
+                   population = list(pop_a, pop_b),
+                   conditions = list(cond_final))
 trial$run()
 
 # Inspect results
 prettify_results(trial$results)
-#>   time cal_time_15.n cal_time_15.mean_A cal_time_15.mean_B
-#> 1   15            20          0.1039757           1.282517
+#>   time final.n final.mean_A final.mean_B
+#> 1   15      20    0.1039757     1.282517
 ```
 
 ``` r
@@ -389,9 +415,23 @@ wraps the expression in a quoted form so it is only evaluated later,
 inside `check_conditions()`, against the actual snapshot:
 
 ``` r
-# This is a stored expression, not an evaluated boolean:
+# Stored expressions, not immediately evaluated:
 rlang::exprs(sum(!is.na(enroll_time)) >= 20)
 ```
+
+`Condition$new()` uses
+[`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html)
+instead of
+[`rlang::exprs()`](https://rlang.r-lib.org/reference/defusing-advanced.html).
+The difference is that `quos()` also captures the *calling environment*,
+so values from the surrounding scope (e.g., `target_n`) are available
+inside the expression when it is evaluated. Use
+[`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html)
+in `Condition$new(where = ...)` and
+[`rlang::exprs()`](https://rlang.r-lib.org/reference/defusing-advanced.html)
+when supplying triggers to
+[`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md)’s
+`analysis_generators`.
 
 ### The !! (bang-bang) operator
 
@@ -431,29 +471,39 @@ also available.
 
 ### trigger_by_calendar() and trigger_by_fraction()
 
-These two helpers wrap the most common trigger patterns:
+> **Note:** These helper functions are being refactored in an upcoming
+> release to accept a `Trial` object directly. In the meantime, use
+> `Condition$new()` (shown below) to build triggers.
 
-`trigger_by_calendar(cal_time, timer, analysis)` fires at a specific
-calendar time — useful for a pre-planned final analysis or a scheduled
-interim review:
+`Condition$new()` with a calendar-time filter is the recommended
+approach for pre-planned analyses:
 
 ``` r
-trigger_by_calendar(24, timer = tm, analysis = function(df, current_time) {
-  data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
-})
+# Fire at calendar time 24
+cond_final <- Condition$new(
+  where    = rlang::quos(.data$time %in% 24),
+  analysis = function(df, current_time) {
+    data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
+  },
+  name = "final_analysis"
+)
+trial$conditions <- append(trial$conditions, list(cond_final))
 ```
 
-`trigger_by_fraction(fraction, timer, sample_size, analysis)` fires once
-a given fraction of the total target sample has enrolled — natural for
-information-fraction-based interim rules:
+For information-fraction-based interims, filter on enrolled count:
 
 ``` r
-# Interim at 50% enrollment
-trigger_by_fraction(0.5, timer = tm, sample_size = 100,
-                    analysis = function(df, current_time) {
-                      enrolled <- subset(df, !is.na(enroll_time))
-                      data.frame(n = nrow(enrolled), time = current_time)
-                    })
+# Interim at 50% enrollment (target = 100)
+cond_interim <- Condition$new(
+  where    = rlang::quos(sum(!is.na(enroll_time)) >= 50),
+  analysis = function(df, current_time) {
+    enrolled <- subset(df, !is.na(enroll_time))
+    data.frame(n = nrow(enrolled), time = current_time)
+  },
+  name     = "interim_50pct",
+  max_triggers = 1L
+)
+trial$conditions <- append(trial$conditions, list(cond_interim))
 ```
 
 ### Custom conditions
@@ -464,25 +514,28 @@ of events rather than a target enrollment count:
 
 ``` r
 # Fire when 30 events have been observed (event = 1, censored = 0)
-timer$add_condition(
-  sum(event == 1 & !is.na(enroll_time)) >= !!n_events,
+cond_events <- Condition$new(
+  where    = rlang::quos(sum(event == 1 & !is.na(enroll_time)) >= !!n_events),
   analysis = my_tte_analysis,
-  name = "event_driven_interim"
+  name     = "event_driven_interim"
 )
+trial$conditions <- append(trial$conditions, list(cond_events))
 ```
 
-Multiple conditions can be combined with commas (they are ANDed
-together, just as in
-[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)):
+Multiple predicates in `where` are ANDed together, exactly as in
+[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html):
 
 ``` r
-# Fire only for the treatment arm when 15 subjects are enrolled there
-timer$add_condition(
-  arm == "treatment",
-  sum(!is.na(enroll_time[arm == "treatment"])) >= 15,
+# Fire only once the treatment arm has 15 enrolled subjects
+cond_trt <- Condition$new(
+  where    = rlang::quos(
+    arm == "treatment",
+    sum(!is.na(enroll_time[arm == "treatment"])) >= 15
+  ),
   analysis = my_analysis,
-  name = "trt_interim"
+  name     = "trt_interim"
 )
+trial$conditions <- append(trial$conditions, list(cond_trt))
 ```
 
 ### The analysis function signature
@@ -541,13 +594,14 @@ For each of the `n` replicates,
     [`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
     with your `enrollment` and `dropout` functions to generate a fresh,
     stochastic enrollment/dropout schedule.
-2.  Builds a new `Timer`, loads the schedule via
-    [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md),
-    and registers all analysis triggers.
-3.  Calls each population generator function to draw fresh subject-level
+2.  Builds a new `Timer` and loads the schedule via
+    [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md).
+3.  Creates a `Condition` object for each entry in `analysis_generators`
+    and attaches them to the trial’s `conditions` list.
+4.  Calls each population generator function to draw fresh subject-level
     endpoint data.
-4.  Constructs a `Trial$new()` wiring the new `Timer` and `Population`
-    objects together.
+5.  Constructs a `Trial$new()` wiring the `Timer`, `Population` objects,
+    and `Condition` objects together.
 
 Each replicate therefore has independent endpoint data *and* independent
 enrollment timing — both sources of variability that operating
@@ -614,6 +668,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_1
@@ -627,6 +682,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_2
@@ -640,6 +696,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_3
@@ -653,6 +710,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_4
@@ -666,6 +724,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_5
@@ -679,6 +738,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_6
@@ -692,6 +752,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_7
@@ -705,6 +766,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_8
@@ -718,6 +780,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_9
@@ -731,6 +794,7 @@ run_trials(trials)
 #> <Trial>
 #>   Public:
 #>     clone: function (deep = FALSE) 
+#>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
 #>     locked_data: list
 #>     name: concepts_demo_10
