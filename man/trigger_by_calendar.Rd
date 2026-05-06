@@ -4,26 +4,35 @@
 \alias{trigger_by_calendar}
 \title{Trigger Analysis at a Calendar Time}
 \usage{
-trigger_by_calendar(cal_time, timer, analysis = NULL)
+trigger_by_calendar(cal_time, analysis = NULL, name = NULL)
 }
 \arguments{
-\item{cal_time}{\code{numeric} Calendar time(s) to trigger.}
+\item{cal_time}{\code{numeric} Calendar time(s) at which to trigger.}
 
-\item{timer}{\code{\link{Timer}} instance to update.}
+\item{analysis}{\code{function} or \code{NULL} Optional analysis function called as
+\code{analysis(filtered_data, current_time)}. If \code{NULL}, the filtered snapshot
+is returned as-is with a warning.}
 
-\item{analysis}{\code{function} or \code{NULL} Optional function to apply.}
+\item{name}{\code{character} or \code{NULL} Result key. Defaults to
+\code{"cal_time_<cal_time>"}.}
 }
 \value{
-Invisible \code{\link{Timer}}.
+A \code{\link{Condition}} object.
 }
 \description{
-Adds an analysis trigger at a specified calendar time.
+Builds a \code{\link{Condition}} that fires when the trial clock reaches a specified
+calendar time. The returned \code{Condition} should be passed to
+\code{Trial$new(conditions = list(...))}.
 }
 \examples{
-t <- Timer$new("timer")
-trigger_by_calendar(2, t, analysis = function(df, current_time) nrow(df))
+cond <- trigger_by_calendar(
+  cal_time = 12,
+  analysis = function(df, current_time) {
+    data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
+  }
+)
 
 }
 \seealso{
-\link{Timer}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}.
+\link{Condition}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}, \link{Trial}.
 }

@@ -31,3 +31,48 @@ articles:
       - example-8
       - example-multi-run
 
+reference:
+  - title: "Core classes"
+    desc: "R6 classes that form the simulation building blocks"
+    contents:
+      - Condition
+      - Timer
+      - Trial
+      - Population
+
+  - title: "Trial construction helpers"
+    desc: "Functions to build and replicate trials"
+    contents:
+      - replicate_trial
+      - clone_trial
+      - run_trials
+
+  - title: "Timer helpers"
+    desc: "Helpers for building Timer timepoint lists"
+    contents:
+      - add_timepoints
+      - gen_timepoints
+
+  - title: "Condition helpers"
+    desc: "Convenience constructors for Condition objects"
+    contents:
+      - trigger_by_calendar
+      - trigger_by_fraction
+
+  - title: "Population helpers"
+    desc: "Helpers for building Population generators"
+    contents:
+      - gen_population
+      - gen_plan
+
+  - title: "Results helpers"
+    desc: "Functions to collect and display simulation results"
+    contents:
+      - collect_results
+      - prettify_results
+
+  - title: "Utilities"
+    contents:
+      - get_col_names
+      - vector_to_dataframe
+

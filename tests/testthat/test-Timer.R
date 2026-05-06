@@ -6,19 +6,15 @@ testthat::test_that("Timer initialize: creates instance with correct defaults", 
   testthat::expect_equal(t$name, "test_timer")
   testthat::expect_true(is.list(t$timelist))
   testthat::expect_equal(length(t$timelist), 0L)
-  testthat::expect_true(is.list(t$conditions))
-  testthat::expect_equal(length(t$conditions), 0L)
   testthat::expect_r6_class(t, "Timer")
 })
 
-testthat::test_that("Timer initialize: accepts custom timelist and conditions", {
+testthat::test_that("Timer initialize: accepts custom timelist", {
   tp <- list(list(time = 1, arm = "A", dropper = 1L, enroller = 5L))
-  cond <- list(list(where = NULL, analysis = NULL, name = "cond1"))
 
-  t <- Timer$new(name = "t", timelist = tp, conditions = cond)
+  t <- Timer$new(name = "t", timelist = tp)
 
   testthat::expect_equal(length(t$timelist), 1L)
-  testthat::expect_equal(length(t$conditions), 1L)
 })
 
 testthat::test_that("Timer initialize: errors on non-character name", {
@@ -160,154 +156,3 @@ testthat::test_that("get_timepoint: errors when i is missing", {
   testthat::expect_error(t$get_timepoint(arm = "A"), "`i` is required")
 })
 
-# Timer: add_condition
-
-testthat::test_that("add_condition: stores condition with quosures", {
-  t <- Timer$new(name = "t")
-  t$add_condition(status == "active", name = "cond1")
-
-  testthat::expect_equal(length(t$conditions), 1L)
-  testthat::expect_equal(t$conditions[[1]]$name, "cond1")
-  testthat::expect_true(is.list(t$conditions[[1]]$where))
-})
-
-testthat::test_that("add_condition: stores analysis function", {
-  t <- Timer$new(name = "t")
-  fn <- function(dat, current_time) nrow(dat)
-
-  t$add_condition(arm == "A", analysis = fn, name = "with_fn")
-
-  testthat::expect_true(is.function(t$conditions[[1]]$analysis))
-  testthat::expect_null(t$conditions[[1]]$analysis(NULL, 1))
-})
-
-testthat::test_that("add_condition: stores multiple where predicates", {
-  t <- Timer$new(name = "t")
-  t$add_condition(arm == "A", status == "active", name = "multi_pred")
-
-  testthat::expect_equal(length(t$conditions[[1]]$where), 2L)
-})
-
-# Timer: check_conditions
-
-testthat::test_that("check_conditions: applies filter and returns filtered data with warning", {
-  t <- Timer$new(name = "t")
-  t$add_condition(arm == "A", name = "armA_only")
-
-  df <- data.frame(
-    id = 1:6,
-    arm = c("A", "A", "B", "B", "A", "B"),
-    stringsAsFactors = FALSE
-  )
-
-  testthat::expect_warning(
-    res <- t$check_conditions(locked_data = df, current_time = 1),
-    "returning filtered data"
-  )
-  testthat::expect_true(is.data.frame(res$armA_only))
-  testthat::expect_equal(nrow(res$armA_only), 3L)
-  testthat::expect_true(all(res$armA_only$arm == "A"))
-})
-
-testthat::test_that("check_conditions: runs analysis function when provided", {
-  t <- Timer$new(name = "t")
-  my_analysis <- function(dat, current_time) {
-    data.frame(n = nrow(dat), ct = current_time)
-  }
-
-  t$add_condition(
-    status == "active",
-    analysis = my_analysis,
-    name = "active_count"
-  )
-
-  df <- data.frame(
-    id = 1:5,
-    status = c("active", "inactive", "active", "active", "inactive"),
-    stringsAsFactors = FALSE
-  )
-
-  res <- t$check_conditions(locked_data = df, current_time = 3)
-
-  testthat::expect_equal(res$active_count$n, 3L)
-  testthat::expect_equal(res$active_count$ct, 3)
-})
-
-testthat::test_that("check_conditions: skips conditions with empty filtered data", {
-  t <- Timer$new(name = "t")
-  t$add_condition(arm == "Z", name = "empty_cond")
-
-  df <- data.frame(
-    id = 1:3,
-    arm = c("A", "B", "A"),
-    stringsAsFactors = FALSE
-  )
-
-  res <- t$check_conditions(locked_data = df, current_time = 1)
-  testthat::expect_equal(length(res), 0L)
-})
-
-testthat::test_that("check_conditions: uses integer index as key when name is NULL", {
-  t <- Timer$new(name = "t")
-  t$add_condition(id > 0)
-
-  df <- data.frame(id = 1:3, stringsAsFactors = FALSE)
-
-  testthat::expect_warning(
-    res <- t$check_conditions(locked_data = df, current_time = 1),
-    "returning filtered data"
-  )
-
-  testthat::expect_equal(length(res), 1L)
-  testthat::expect_equal(nrow(res[[1]]), 3L)
-})
-
-testthat::test_that("check_conditions: handles multiple conditions", {
-  t <- Timer$new(name = "t")
-
-  analysis_a <- function(dat, ct) data.frame(n_a = nrow(dat))
-  analysis_b <- function(dat, ct) data.frame(n_b = nrow(dat))
-
-  t$add_condition(arm == "A", analysis = analysis_a, name = "cond_a")
-  t$add_condition(arm == "B", analysis = analysis_b, name = "cond_b")
-
-  df <- data.frame(
-    id = 1:4,
-    arm = c("A", "A", "B", "B"),
-    stringsAsFactors = FALSE
-  )
-
-  res <- t$check_conditions(locked_data = df, current_time = 1)
-
-  testthat::expect_equal(res$cond_a$n_a, 2L)
-  testthat::expect_equal(res$cond_b$n_b, 2L)
-})
-
-testthat::test_that("check_conditions: condition with no where returns full data", {
-  t <- Timer$new(name = "t")
-  t$add_condition(analysis = function(dat, ct) nrow(dat), name = "all_data")
-
-  df <- data.frame(id = 1:5, stringsAsFactors = FALSE)
-  res <- t$check_conditions(locked_data = df, current_time = 1)
-
-  testthat::expect_equal(res$all_data, 5L)
-})
-
-testthat::test_that("check_conditions: condition with multiple where predicates filters correctly", {
-  t <- Timer$new(name = "t")
-  t$add_condition(
-    arm == "A", status == "active",
-    analysis = function(dat, ct) nrow(dat),
-    name = "multi_filter"
-  )
-
-  df <- data.frame(
-    id = 1:6,
-    arm = c("A", "A", "B", "A", "B", "A"),
-    status = c("active", "inactive", "active", "active", "active", "active"),
-    stringsAsFactors = FALSE
-  )
-
-  res <- t$check_conditions(locked_data = df, current_time = 1)
-  testthat::expect_equal(res$multi_filter, 3L)
-})

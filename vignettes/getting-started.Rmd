@@ -146,7 +146,7 @@ replicate it:
 
 1. Samples a fresh enrollment/dropout timeline from your functions
 2. Calls each population generator to draw new subject-level data
-3. Registers your analysis triggers on the trial's internal timer
+3. Builds `Condition` objects from your `analysis_generators` and attaches them to each trial
 
 `run_trials()` then executes every replicate's simulation loop in sequence.
 
@@ -222,7 +222,7 @@ The locked data contains the population columns (`id`, `data`, `arm`,
 Now that you have seen the full workflow, here is where to go next:
 
 - **[Core Concepts](concepts.html)** — understand how `Population`, `Timer`,
-  and `Trial` compose, and how to write more advanced trigger expressions
+  `Condition`, and `Trial` compose, and how to write more advanced trigger expressions
 - **[Enrollment & Dropout Modeling](enrollment-dropout.html)** — choose between
   stochastic (`gen_plan`) and piecewise-constant (`gen_timepoints`) schedules
 - **[Example 1](example-1.html)** through **[Example 7](example-7.html)** —

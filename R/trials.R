@@ -22,9 +22,10 @@ clone_trial <- function(trial, n = 1) {
 
   lapply(seq_len(n), function(i) {
     Trial$new(
-      name = paste(trial$name, i, sep="_"),
-      timer = trial$timer$clone(),
-      population = lapply(trial$population, function(x) x$clone())
+      name       = paste(trial$name, i, sep="_"),
+      timer      = trial$timer$clone(),
+      population = lapply(trial$population, function(x) x$clone()),
+      conditions = lapply(trial$conditions, function(x) x$clone())
     )
   })
 }
@@ -96,13 +97,6 @@ replicate_trial <- function(
     t <- Timer$new(name = paste("timer", i, sep="_"))
     plan <- gen_plan(sample_size, arms, allocation, enrollment, dropout)
     add_timepoints(t, plan)
-    lapply(names(analysis_generators), function(name) {
-      t$add_condition(
-        !!!analysis_generators[[name]]$trigger,
-        analysis = analysis_generators[[name]]$analysis,
-        name = name
-      )
-    })
     return(t)
   })
 
@@ -145,9 +139,17 @@ replicate_trial <- function(
   }
 
   trials <- lapply(seq_len(n), function(i) {
+    conditions <- lapply(names(analysis_generators), function(aname) {
+      Condition$new(
+        where    = analysis_generators[[aname]]$trigger,
+        analysis = analysis_generators[[aname]]$analysis,
+        name     = aname
+      )
+    })
     Trial$new(
-      name = paste(trial_name, i, sep="_"),
-      timer = timers[[i]],
+      name       = paste(trial_name, i, sep="_"),
+      timer      = timers[[i]],
+      conditions = conditions,
       population = lapply(names(population_generators), function(name) {
         gen_population(name, population_generators[[name]], n_target[[i]][[name]])
       })

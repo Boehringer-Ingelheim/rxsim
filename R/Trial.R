@@ -1,20 +1,22 @@
 #' Trial: Simulate a multi‑arm clinical trial
 #'
 #' @description
-#' The `Trial` class coordinates one or more `Population` objects and a `Timer`
-#' to simulate a clinical trial.
+#' The `Trial` class coordinates one or more `Population` objects, a `Timer`,
+#' and a list of `Condition` objects to simulate a clinical trial.
 #'
 #' At each unique time defined in the trial's `Timer`, the `Trial`:
 #'
 #' - applies enrollment and dropout updates to each `Population`
 #' - builds a snapshot of all currently enrolled subjects
-#' - evaluates all conditions in the `Timer`
-#' - stores both the snapshot `locked_data` and the analysis outputs `results`
+#' - evaluates each [`Condition`] in `self$conditions` against the snapshot
+#' - stores both the snapshot (`locked_data`) and the analysis outputs (`results`)
 #'
-#' Use `run()` to execute the simulation. Trigger conditions are best added with
-#' helper functions [trigger_by_calendar()] or [trigger_by_fraction()].
+#' Use `run()` to execute the simulation. Trigger conditions are built with
+#' [`Condition`]`$new()` (or helpers [`trigger_by_calendar()`] /
+#' [`trigger_by_fraction()`]) and stored in `trial$conditions`.
 #'
-#' @seealso [Population], [Timer], [prettify_results()], [replicate_trial()], [clone_trial()].
+#' @seealso [Population], [Timer], [Condition], [prettify_results()],
+#'   [replicate_trial()], [clone_trial()].
 #'
 #' @examples
 #' # Create two populations
@@ -28,17 +30,20 @@
 #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 #'
-#' # Add trigger for final analysis at time 2
-#' trigger_by_calendar(2, t, analysis = function(df, current_time) {
-#'   nrow(df)
-#' })
+#' # Build a condition: fire at time 2 and count enrolled rows
+#' cond <- Condition$new(
+#'   where    = rlang::quos(.data$time %in% 2),
+#'   analysis = function(df, current_time) nrow(df),
+#'   name     = "final"
+#' )
 #'
 #' # Create a trial
 #' trial <- Trial$new(
-#'   name = "ExampleTrial",
-#'   seed = 123,
-#'   timer = t,
-#'   population = list(popA, popB)
+#'   name       = "ExampleTrial",
+#'   seed       = 123,
+#'   timer      = t,
+#'   population = list(popA, popB),
+#'   conditions = list(cond)
 #' )
 #'
 #' # Run the simulation
@@ -60,11 +65,14 @@ Trial <- R6::R6Class(
     #' @field seed `numeric` or `NULL` Random seed for reproducibility.
     seed = NULL,
 
-    #' @field timer `Timer` object with timepoints and conditions.
+    #' @field timer `Timer` object with timepoints.
     timer = NULL,
 
     #' @field population `list` of [Population] objects, one per arm.
     population = NULL,
+
+    #' @field conditions `list` of [Condition] objects evaluated at each timepoint.
+    conditions = NULL,
 
     #' @field locked_data `list` Snapshots at each timepoint.
     locked_data = NULL,
@@ -78,11 +86,11 @@ Trial <- R6::R6Class(
     #'
     #' @param name `character` Unique identifier for the trial.
     #' @param seed `numeric` or `NULL` Optional random seed for reproducibility.
-    #' @param timer `Timer` object defining timepoints and conditions.
+    #' @param timer `Timer` object defining timepoints.
     #' @param population `list` of [Population] objects, one per arm.
     #' @param locked_data `list` Generated at each `$run()` call.
     #' @param results `list` Analysis outputs generated at each `$run()` call.
-    #'
+    #' @param conditions `list` of [Condition] objects to evaluate at each timepoint.
     #' @return A new `Trial` instance.
     #'
     #' @examples
@@ -99,6 +107,7 @@ Trial <- R6::R6Class(
       timer = NULL,
       population = list(), # default empty list
       locked_data = list(),
+      conditions =list(),
       results = list()
     ) {
       stopifnot(is.character(name))
@@ -130,6 +139,8 @@ Trial <- R6::R6Class(
       self$population <- population
       self$locked_data <- locked_data
       self$results <- results
+      self$conditions <- conditions
+
 
     },
 
@@ -142,12 +153,12 @@ Trial <- R6::R6Class(
     #' - Apply enrollment and dropout actions to each `Population`
     #' - Build a combined snapshot of all currently enrolled subjects
     #' - Attach a `time` column to the snapshot
-    #' - Evaluate all condition readers via `Timer$check_conditions()`
+    #' - Evaluate each [`Condition`] in `self$conditions` against the snapshot
     #' - Store snapshots and condition outputs under time‑indexed list keys
     #'
     #' @return Updates `locked_data` and `results` fields.
     #'
-    #' @seealso [Timer], [prettify_results()].
+    #' @seealso [Timer], [Condition], [prettify_results()].
     #'
     #' @examples
     #' # Create two populations
@@ -183,11 +194,6 @@ Trial <- R6::R6Class(
         return(invisible(self))
       }
 
-      # if( self$timer$get_n_arms() != length(self$population))
-      # {
-      #   stop("Need timers for the same amount of arms run()")
-      #
-      # }
 
       for (i in sort(unique(plan_df$time))) {
         # Apply enrollment/dropout updates to each population at this timepoint
@@ -232,11 +238,13 @@ Trial <- R6::R6Class(
         combined$time <- rep(i, nrow(combined))
 
         # Check all conditions on the combined snapshot
-        results <- self$timer$check_conditions(
-          locked_data  = combined,
-          current_time = i
-        )
-
+        results <- list()
+        for (conds in self$conditions){
+          results <- c(results, conds$check_conditions(
+            locked_data  = combined,
+            current_time = i
+          ))
+        }
         # Store only if there are results
         if (length(results) > 0) {
           self$locked_data[[paste0("time_", i)]] <- combined

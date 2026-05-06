@@ -204,20 +204,20 @@ prior_list_final <- list(
 
 ## Analyses
 
-We add two trigger conditions:
+We define two `Condition` objects:
 
-1. `time == interim_time`: Bayesian Go/No-Go on d20 vs placebo.
-2. `time == final_time`: Bayesian MCP-Mod over all dose groups.
+1. `cond_interim` — fires when `time == interim_time` (calendar time 4). Runs a
+   Bayesian Go/No-Go analysis on d20 vs placebo. The `<<-` operator in
+   `go_interim <<- as.integer(...)` writes the Go/No-Go decision to the enclosing
+   environment, making it available to downstream logic in the final condition.
+2. `cond_final` — fires when `time == final_time` (calendar time 12). Calls
+   `BayesianMCPMod::assessDesign()` with arm-level sample sizes (`n_patients`), the
+   candidate dose-response models (`mods`), the five-arm prior list (`prior_list`),
+   and arm-level posterior mean estimates (`estimates_sim`); `alpha_crit_val =
+   alpha_final` sets the significance threshold for the Bayesian MCP contrast step.
 
-`trigger_by_calendar(interim_time, tr_timer, ...)` registers the interim
-analysis to fire when calendar time reaches `interim_time = 4`. The `<<-`
-operator in `go_interim <<- as.integer(...)` writes the interim Go/No-Go
-decision to the enclosing environment, making it available to downstream
-analyses or conditional logic in the final step. The final analysis calls
-`BayesianMCPMod::assessDesign()` with arm-level sample sizes (`n_patients`), the
-candidate dose-response models (`mods`), the five-arm prior list (`prior_list`),
-and arm-level posterior mean estimates (`estimates_sim`); `alpha_crit_val =
-alpha_final` sets the significance threshold for the Bayesian MCP contrast step.
+Both conditions are passed to `Trial$new(conditions = ...)` and are evaluated by
+`Trial$run()` at each timepoint.
 
 ```{r analyses}
 # shared state between interim and final trigger
@@ -233,7 +233,9 @@ mods <- DoseFinding::Mods(
 )
 
 # Interim: Bayesian Go/No-Go (d20 vs placebo)
-trigger_by_calendar(interim_time, tr_timer, analysis = function(df, current_time) {
+cond_interim <- Condition$new(
+  where = rlang::quos(.data$time %in% interim_time),
+  analysis = function(df, current_time) {
   dat <- df |>
     dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
 
@@ -262,11 +264,13 @@ trigger_by_calendar(interim_time, tr_timer, analysis = function(df, current_time
     delta_q975 = delta_q[3],
     decision_go = go_interim
   )
-})
+},
+  name = paste0("interim_t", interim_time)
+)
 
 # Final: Bayesian MCP-Mod across all dose groups
-tr_timer$add_condition(
-  time == final_time,
+cond_final <- Condition$new(
+  where = rlang::quos(.data$time %in% final_time),
   analysis = function(df, time) {
     dat <- df |>
       dplyr::filter(!is.na(enroll_time))
@@ -323,7 +327,8 @@ trial <- Trial$new(
   name = "example_8_seamless_ph2a2b",
   seed = 8808,
   timer = tr_timer,
-  population = pops
+  population = pops,
+  conditions = list(cond_interim, cond_final)
 )
 ```
 
