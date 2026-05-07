@@ -1,88 +1,3 @@
-#' Trigger Analysis at a Calendar Time
-#'
-#' Builds a [`Condition`] that fires when the trial clock reaches a specified
-#' calendar time. The returned `Condition` should be passed to
-#' `Trial$new(conditions = list(...))`.
-#'
-#' @param cal_time `numeric` Calendar time(s) at which to trigger.
-#' @param analysis `function` or `NULL` Optional analysis function called as
-#'   `analysis(filtered_data, current_time)`. If `NULL`, the filtered snapshot
-#'   is returned as-is with a warning.
-#' @param name `character` or `NULL` Result key. Defaults to
-#'   `"cal_time_<cal_time>"`.
-#'
-#' @return A [`Condition`] object.
-#'
-#' @seealso [Condition], [trigger_by_fraction()], [Trial].
-#'
-#' @export
-#'
-#' @examples
-#' cond <- trigger_by_calendar(
-#'   cal_time = 12,
-#'   analysis = function(df, current_time) {
-#'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
-#'   }
-#' )
-#'
-#' @importFrom rlang quos
-#' @importFrom dplyr .data
-trigger_by_calendar <- function(cal_time, analysis = NULL, name = NULL) {
-  if (missing(cal_time)) stop("`cal_time` is required.")
-  stopifnot(is.numeric(cal_time))
-  if (is.null(name)) name <- paste0("cal_time_", paste(cal_time, collapse = "_"))
-
-  Condition$new(
-    where    = rlang::quos(.data$time %in% !!cal_time),
-    analysis = analysis,
-    name     = name
-  )
-}
-
-#' Trigger Analysis at a Sample Fraction
-#'
-#' Builds a [`Condition`] that fires when a given fraction of the target sample
-#' has been enrolled. The returned `Condition` should be passed to
-#' `Trial$new(conditions = list(...))`.
-#'
-#' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
-#' @param sample_size `integer` Target sample size.
-#' @param analysis `function` or `NULL` Optional analysis function called as
-#'   `analysis(filtered_data, current_time)`. If `NULL`, the filtered snapshot
-#'   is returned as-is with a warning.
-#' @param name `character` or `NULL` Result key. Defaults to
-#'   `"frac_<fraction>"`.
-#'
-#' @return A [`Condition`] object.
-#'
-#' @seealso [Condition], [trigger_by_calendar()], [Trial].
-#'
-#' @export
-#'
-#' @examples
-#' cond <- trigger_by_fraction(
-#'   fraction    = 0.5,
-#'   sample_size = 100,
-#'   analysis    = function(df, current_time) {
-#'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
-#'   }
-#' )
-#'
-#' @importFrom rlang quos
-#' @importFrom dplyr .data
-trigger_by_fraction <- function(fraction, sample_size, analysis = NULL, name = NULL) {
-  if (missing(fraction) || missing(sample_size)) stop("`fraction` and `sample_size` are required.")
-  stopifnot(is.numeric(sample_size) && length(sample_size) == 1L)
-  stopifnot(fraction > 0 && fraction <= 1)
-  if (is.null(name)) name <- paste0("frac_", fraction)
-  target_n <- fraction * sample_size
-
-  Condition$new(
-    where    = rlang::quos(sum(!is.na(.data$enroll_time)) >= !!target_n),
-    analysis = analysis,
-    name     = name
-  )
-}
 
 #' Add Timepoints to a Timer
 #'
@@ -159,7 +74,7 @@ add_timepoints <- function(timer, df) {
 #' )
 #' an_gens <- list(
 #'   final = list(
-#'     trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= 20L),
+#'     trigger  = count_trigger("enroll_time", ">=", 20L),
 #'     analysis = function(df, timer) {
 #'       data.frame(mean_ctrl = mean(df$data[df$arm == "control"]))
 #'     }

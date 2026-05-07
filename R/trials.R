@@ -71,7 +71,10 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @param allocation `numeric` vector of arm allocation ratios.
 #' @param enrollment `function` that generates inter-enrollment times.
 #' @param dropout `function` that generates inter-dropout times.
-#' @param analysis_generators `list` (named) of analysis trigger specifications.
+#' @param analysis_generators `list` (named) of analysis specifications. Each
+#'   `$trigger` must be an `rxsim_trigger` object created by
+#'   `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or
+#'   `calendar_trigger()`.
 #' @param population_generators `list` (named) of population generator functions.
 #' @param n `integer` Number of trials to create.
 #'
@@ -140,8 +143,15 @@ replicate_trial <- function(
 
   trials <- lapply(seq_len(n), function(i) {
     conditions <- lapply(names(analysis_generators), function(aname) {
-      Condition$new(
-        where    = analysis_generators[[aname]]$trigger,
+      trigger <- analysis_generators[[aname]]$trigger
+      if (!inherits(trigger, "rxsim_trigger")) {
+        stop(
+          "Trigger for '", aname, "' must be an `rxsim_trigger` object. ",
+          "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or `calendar_trigger()`."
+        )
+      }
+      build_trigger(
+        trigger,
         analysis = analysis_generators[[aname]]$analysis,
         name     = aname
       )
