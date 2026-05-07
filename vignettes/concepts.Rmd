@@ -254,8 +254,8 @@ snapshot <- data.frame(
 )
 
 # Fire when at least 4 subjects are enrolled
-cond_interim <- build_trigger(
-  enroll_trigger(1.0, 4),
+cond_interim <- Condition$new(
+  where    = enroll_trigger(1.0, 4),
   analysis = function(df, current_time) {
     data.frame(n_enrolled = sum(!is.na(df$enroll_time)),
                fired_at   = current_time)
@@ -400,9 +400,9 @@ The helpers take plain R values, so there is no need for
 and type mismatches are rejected immediately when the trigger is
 constructed.
 
-Compose helper triggers with `&` (AND) and `|` (OR), then either pass the
-result directly as the `trigger` field in `analysis_generators` or
-convert it to a `Condition` with `build_trigger()`.
+Compose helper triggers with `&` (AND) and `|` (OR), then pass the
+result directly as the `trigger` field in `analysis_generators`, or
+construct a `Condition` with `Condition$new(where = trigger, ...)`.
 
 ### Columns available to trigger helpers
 
@@ -456,10 +456,10 @@ the `Condition`:
 ```{r trig_combine, eval = FALSE}
 trig_both <- enroll_trigger(0.5, 100) & calendar_trigger(24)
 
-cond_both <- build_trigger(
-  trig_both,
+cond_both <- Condition$new(
+  where    = trig_both,
   analysis = my_analysis,
-  name = "interim_after_half_enrollment_at_day_24"
+  name     = "interim_after_half_enrollment_at_day_24"
 )
 trial$conditions <- append(trial$conditions, list(cond_both))
 ```
@@ -487,8 +487,8 @@ composing `rxsim_trigger` objects with `&` instead of supplying multiple
 
 ```{r multi_condition, eval = FALSE}
 # Fire once time 12 is reached and at least 15 subjects are enrolled
-cond_interim <- build_trigger(
-  value_trigger("time", ">=", 12) & count_trigger("enroll_time", ">=", 15),
+cond_interim <- Condition$new(
+  where    = value_trigger("time", ">=", 12) & count_trigger("enroll_time", ">=", 15),
   analysis = my_analysis,
   name     = "interim_after_time12"
 )
@@ -497,14 +497,18 @@ trial$conditions <- append(trial$conditions, list(cond_interim))
 
 ### The analysis function signature
 
-Every analysis function receives two arguments:
+The analysis function always receives the filtered data frame and clock time
+as its first two positional arguments. Scenario-specific values can be
+declared as additional named parameters and injected via `analysis_args`:
 
-- `df`: the **full snapshot** — all arms, all currently enrolled
-  subjects. The condition filter determined *whether* to fire; the
-  analysis function decides *what to compute* from the full data.
+- `df`: the **full snapshot** — all arms, all currently enrolled subjects.
+  The condition filter determined *whether* to fire; the analysis function
+  decides *what to compute* from the full data.
 - `current_time`: the numeric clock time at which the condition fired.
+- `...`: any extra named values supplied through `analysis_args`.
 
 ```{r analysis_fn, eval = FALSE}
+# Basic signature
 my_analysis <- function(df, current_time) {
   enrolled <- subset(df, !is.na(enroll_time))
   data.frame(
@@ -515,6 +519,20 @@ my_analysis <- function(df, current_time) {
                 mean(enrolled$data[enrolled$arm == "control"])
   )
 }
+
+# With extra scenario-specific arguments
+my_analysis_ext <- function(df, current_time, alpha, cov_matrix) {
+  # alpha and cov_matrix are injected from analysis_args at call time
+  enrolled <- subset(df, !is.na(enroll_time))
+  data.frame(fired_at = current_time, n = nrow(enrolled), alpha = alpha)
+}
+
+cond <- Condition$new(
+  where         = enroll_trigger(1.0, 100),
+  analysis      = my_analysis_ext,
+  analysis_args = list(alpha = 0.05, cov_matrix = diag(2)),
+  name          = "final"
+)
 ```
 
 ### Return values

@@ -12,7 +12,7 @@ trigger_by_fraction(fraction, sample_size, analysis = NULL, name = NULL)
 \item{sample_size}{\code{integer} Target sample size.}
 
 \item{analysis}{\code{function} or \code{NULL} Optional analysis function called as
-\code{analysis(filtered_data, current_time)}. If \code{NULL}, the filtered snapshot
+\code{analysis(df, current_time, ...)}. If \code{NULL}, the filtered snapshot
 is returned as-is with a warning.}
 
 \item{name}{\code{character} or \code{NULL} Result key. Defaults to
@@ -37,5 +37,5 @@ cond <- trigger_by_fraction(
 }
 \seealso{
 \link{Condition}, \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}, \link{Trial},
-\code{enroll_trigger()}, \code{\link[=build_trigger]{build_trigger()}}.
+\code{enroll_trigger()}.
 }

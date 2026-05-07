@@ -111,21 +111,34 @@ non-`NA` `enroll_time`. There is no need for `rlang::exprs()` or `!!`
 ("bang-bang") anymore — the helpers take ordinary R values directly, and
 `replicate_trial()` validates that each trigger is an `rxsim_trigger` object.
 
-When the condition is met, rxsim calls the analysis function with two arguments:
+When the condition is met, rxsim calls the analysis function with the filtered
+data frame and current clock time as the first two positional arguments. Any
+extra named values declared in `analysis_args` are appended:
 
-- `df`: a data frame snapshot of all enrolled subjects at the triggering
-  timepoint, with columns from the population data plus `enroll_time`,
-  `drop_time`, and `arm`
-- `time`: the current trial clock time at which the trigger fired
+- `df`: data frame snapshot of all enrolled subjects at the triggering timepoint
+- `current_time`: the numeric trial clock time at which the trigger fired
+- `...`: any additional named values from `analysis_args`
 
 The function should return a data frame (one row per trigger event is the
-conventional pattern).
+conventional pattern). To pass scenario-specific data (e.g. a covariance matrix,
+a decision threshold), declare it as an extra parameter and supply it via
+`analysis_args`:
+
+```r
+analysis_generators <- list(
+  final = list(
+    trigger       = enroll_trigger(1.0, sample_size),
+    analysis      = function(df, current_time, alpha) { ... },
+    analysis_args = list(alpha = 0.05)   # injected at call time
+  )
+)
+```
 
 ```{r triggers}
 analysis_generators <- list(
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, timer) {
+    analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(
         scenario,

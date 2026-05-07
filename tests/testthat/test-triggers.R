@@ -137,11 +137,11 @@ test_that("triggers compose nested: (A & B) | C", {
   expect_equal(t$left$combinator, "&")
 })
 
-# ── build_trigger ─────────────────────────────────────────────────────────────
+# ── Condition$new with rxsim_trigger ─────────────────────────────────────────
 
-test_that("build_trigger: returns Condition from simple value_trigger", {
+test_that("Condition$new: rxsim_trigger value_trigger produces correct quosure", {
   trig <- value_trigger("time", ">=", 52)
-  cond <- build_trigger(trig, analysis = function(df, t) nrow(df), name = "test")
+  cond <- Condition$new(where = trig, analysis = function(df, t) nrow(df), name = "test")
 
   expect_r6_class(cond, "Condition")
   expect_equal(cond$name, "test")
@@ -149,81 +149,71 @@ test_that("build_trigger: returns Condition from simple value_trigger", {
   expect_true(is.function(cond$analysis))
 })
 
-test_that("build_trigger: returns Condition from simple count_trigger", {
+test_that("Condition$new: rxsim_trigger count_trigger produces correct quosure", {
   trig <- count_trigger("enroll_time", ">=", 50)
-  cond <- build_trigger(trig, name = "enrolled_50")
+  cond <- Condition$new(where = trig, name = "enrolled_50")
 
   expect_r6_class(cond, "Condition")
   expect_length(cond$where, 1L)
 })
 
-test_that("build_trigger: AND trigger produces two quosures (dplyr ANDs them)", {
+test_that("Condition$new: AND trigger produces two quosures (dplyr ANDs them)", {
   trig <- enroll_trigger(0.5, 200) & calendar_trigger(52)
-  cond <- build_trigger(trig, name = "and_test")
+  cond <- Condition$new(where = trig, name = "and_test")
 
   expect_r6_class(cond, "Condition")
   expect_length(cond$where, 2L)  # dplyr::filter(..., pred1, pred2) ANDs them
 })
 
-test_that("build_trigger: OR trigger produces one quosure with | expression", {
+test_that("Condition$new: OR trigger produces one quosure with | expression", {
   trig <- enroll_trigger(0.5, 200) | calendar_trigger(26)
-  cond <- build_trigger(trig, name = "or_test")
+  cond <- Condition$new(where = trig, name = "or_test")
 
   expect_r6_class(cond, "Condition")
   expect_length(cond$where, 1L)
-  # Top-level call should be `|`
   expect_equal(rlang::call_name(rlang::get_expr(cond$where[[1L]])), "|")
 })
 
-test_that("build_trigger: passes cooldown and max_triggers to Condition", {
+test_that("Condition$new: cooldown and max_triggers are passed through", {
   trig <- calendar_trigger(52)
-  cond <- build_trigger(trig, cooldown = 5, max_triggers = 3L)
+  cond <- Condition$new(where = trig, cooldown = 5, max_triggers = 3L)
 
   expect_equal(cond$cooldown, 5)
   expect_equal(cond$max_triggers, 3L)
 })
 
-test_that("build_trigger: errors on non-rxsim_trigger input", {
-  expect_error(build_trigger(list(type = "value")), "rxsim_trigger")
-  expect_error(build_trigger(rlang::quos(x >= 1)), "rxsim_trigger")
-  expect_error(build_trigger("enroll_time >= 50"), "rxsim_trigger")
-})
+# ── Condition$new: quosure correctness (evaluated against snapshot) ───────────
 
-# ── build_trigger: quosure correctness (evaluated against snapshot) ───────────
-
-test_that("build_trigger value_trigger quosure evaluates correctly in filter", {
+test_that("Condition$new value_trigger quosure evaluates correctly in filter", {
   trig <- value_trigger("time", ">=", 3)
-  cond <- build_trigger(trig)
+  cond <- Condition$new(where = trig)
   df   <- data.frame(time = 1:5)
 
   result <- dplyr::filter(df, !!!cond$where)
   expect_equal(result$time, 3:5)
 })
 
-test_that("build_trigger count_trigger quosure evaluates correctly in filter", {
+test_that("Condition$new count_trigger quosure evaluates correctly in filter", {
   trig <- count_trigger("enroll_time", ">=", 2)
-  cond <- build_trigger(trig)
+  cond <- Condition$new(where = trig)
   df   <- data.frame(enroll_time = c(NA, 1, 2, 3), x = 1:4)
 
-  # sum(!is.na(enroll_time)) == 3, which is >= 2, so all rows pass
   result <- dplyr::filter(df, !!!cond$where)
   expect_equal(nrow(result), 4L)
 })
 
-test_that("build_trigger AND quosures: both conditions must hold", {
-  # enrolled >= 1 AND time >= 3  → only rows where time >= 3
+test_that("Condition$new AND quosures: both conditions must hold", {
   trig <- count_trigger("enroll_time", ">=", 1) & value_trigger("time", ">=", 3)
-  cond <- build_trigger(trig)
+  cond <- Condition$new(where = trig)
   df   <- data.frame(time = 1:5, enroll_time = c(1, NA, 1, 1, 1))
 
   result <- dplyr::filter(df, !!!cond$where)
-  # aggregate predicate applies to whole df, row predicate filters
   expect_true(all(result$time >= 3))
 })
 
-test_that("build_trigger OR quosure: either condition fires", {
+test_that("Condition$new OR quosure: either condition fires", {
   trig <- value_trigger("time", ">=", 4) | value_trigger("time", "<=", 2)
-  cond <- build_trigger(trig)
+  cond <- Condition$new(where = trig)
   df   <- data.frame(time = 1:5)
 
   result <- dplyr::filter(df, !!!cond$where)
@@ -233,7 +223,7 @@ test_that("build_trigger OR quosure: either condition fires", {
 # ── trigger_by_calendar ───────────────────────────────────────────────────────
 
 test_that("trigger_by_calendar: returns Condition firing at correct time", {
-  cond <- trigger_by_calendar(cal_time = 3)
+  cond <- trigger_by_calendar(cal_time = 3, analysis = function(df, t) nrow(df))
 
   df <- data.frame(time = 1:5, enroll_time = rep(1, 5))
   expect_length(cond$check_conditions(df, 3L), 1L)
@@ -259,7 +249,7 @@ test_that("trigger_by_calendar: analysis function is stored", {
 # ── trigger_by_fraction ───────────────────────────────────────────────────────
 
 test_that("trigger_by_fraction: returns Condition firing at correct enrollment", {
-  cond <- trigger_by_fraction(fraction = 0.5, sample_size = 4)
+  cond <- trigger_by_fraction(fraction = 0.5, sample_size = 4, analysis = function(df, t) nrow(df))
 
   df_below <- data.frame(enroll_time = c(1, NA, NA, NA))   # 1/4 enrolled
   df_above <- data.frame(enroll_time = c(1,  2, NA, NA))   # 2/4 enrolled

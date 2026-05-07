@@ -44,7 +44,7 @@ An \code{rxsim_trigger} object.
 }
 \description{
 Create inert trigger specifications that can be safely
-converted into \code{\link{Condition}} objects with \code{\link[=build_trigger]{build_trigger()}}.
+passed to \code{\link{Condition}} or composed with \code{&} and \code{|}.
 }
 \examples{
 t1 <- value_trigger("time", ">=", 52)
@@ -52,5 +52,5 @@ t2 <- count_trigger("enroll_time", ">=", 100)
 t3 <- enroll_trigger(0.5, 200) & calendar_trigger(52)
 }
 \seealso{
-\code{\link[=build_trigger]{build_trigger()}}, \code{enroll_trigger()}, \code{calendar_trigger()}.
+\link{Condition}, \code{enroll_trigger()}, \code{calendar_trigger()}.
 }

@@ -32,8 +32,9 @@ If any gate fails, \code{check_conditions()} returns an empty list and state
 is not updated.
 
 On a successful trigger, the condition calls
-\code{analysis(filtered_data, current_time)} and stores the result under
-\code{name} (or \code{1L} when no name is set). If no analysis function is
+\code{analysis(df, current_time, ...)} and stores the result under
+\code{name} (or \code{1L} when no name is set). Any values in \code{analysis_args} are
+appended as additional named arguments. If no analysis function is
 provided, the filtered data frame is returned as-is with a warning.
 }
 \section{Fields}{
@@ -43,9 +44,11 @@ provided, the filtered data frame is returned as-is with a warning.
 \code{dplyr::filter()} predicates. Pass \code{NULL} or an empty list to skip
 filtering and pass the full snapshot to the analysis.}
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
-\code{analysis(filtered_data, current_time)} on a successful trigger.
-Should return a \code{data.frame} or named list. If \code{NULL}, the filtered
-data frame is returned with a warning.}
+\code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
+are any values from \code{analysis_args}. Should return a \code{data.frame} or
+named list. If \code{NULL}, the filtered data frame is returned with a warning.}
+\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra arguments
+injected into every call to \code{analysis}.}
 \item{\code{name}}{\code{character} or \code{NULL}. Key used to label the result
 in the returned list. Falls back to \code{1L} when \code{NULL}.}
 \item{\code{cooldown}}{\code{numeric}. Minimum time units that must elapse
@@ -84,8 +87,8 @@ snapshot <- data.frame(
 )
 
 # Analysis function: count active subjects per arm
-count_fn <- function(dat, current_time) {
-  data.frame(n_active = nrow(dat), fired_at = current_time)
+count_fn <- function(df, current_time) {
+  data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
 # Condition fires once when arm A has active subjects (max_triggers = 1)
@@ -112,6 +115,8 @@ length(res2)  # 0
 \item \code{\link{Trial}} for running the simulation and iterating over conditions
 \item \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}} for
 convenient \code{Condition} constructors
+\item \code{\link[=value_trigger]{value_trigger()}}, \code{\link[=count_trigger]{count_trigger()}}, \code{\link[=enroll_trigger]{enroll_trigger()}},
+\code{\link[=calendar_trigger]{calendar_trigger()}} for building safe trigger specifications
 \item \code{\link[dplyr:filter]{dplyr::filter()}} for predicate syntax
 }
 }
@@ -119,10 +124,15 @@ convenient \code{Condition} constructors
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
-predicates. \code{NULL} or empty list passes the full snapshot.}
+predicates, or an \code{rxsim_trigger} (converted automatically). \code{NULL} or
+empty list passes the full snapshot.}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
-\code{analysis(filtered_data, current_time)} on a successful trigger.}
+\code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
+are any values from \code{analysis_args}.}
+
+\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra values injected
+into the analysis function call as additional named arguments.}
 
 \item{\code{name}}{\code{character} or \code{NULL}. Key labelling the result in the output
 list. Falls back to \code{1L} when \code{NULL}.}
@@ -158,6 +168,7 @@ Create a new \code{Condition} instance.
 \if{html}{\out{<div class="r">}}\preformatted{Condition$new(
   where = NULL,
   analysis = NULL,
+  analysis_args = NULL,
   name = NULL,
   cooldown = 0,
   max_triggers = 1L
@@ -167,11 +178,16 @@ Create a new \code{Condition} instance.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{where}}{\code{list} of quosures (from \code{rlang::quos()}) used as filter
-predicates. Pass \code{NULL} or omit to use the full snapshot.}
+\item{\code{where}}{\code{rxsim_trigger} (converted automatically to quosures), a
+\code{list} of quosures from \code{rlang::quos()}, or \code{NULL} to use the full
+snapshot.}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
-\code{analysis(filtered_data, current_time)} on a successful trigger.}
+\code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
+are the values from \code{analysis_args}.}
+
+\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra arguments
+passed to the analysis function after \code{df} and \code{current_time}.}
 
 \item{\code{name}}{\code{character} or \code{NULL}. Result key. Defaults to \code{1L}.}
 

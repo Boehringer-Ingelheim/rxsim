@@ -227,3 +227,95 @@ testthat::test_that("check_conditions: state persists across calls", {
   testthat::expect_equal(length(res4), 0L)
   testthat::expect_equal(cond$trigger_count, 3L)
 })
+
+# --- analysis_args tests ---
+
+testthat::test_that("analysis_args: extra named arg is passed to analysis function", {
+  threshold <- 99  # wrong value — should be overridden by analysis_args
+  cond <- Condition$new(
+    analysis      = function(df, current_time, threshold) current_time > threshold,
+    analysis_args = list(threshold = 5),
+    name          = "threshold_test"
+  )
+  df  <- data.frame(id = 1:3)
+  res <- cond$check_conditions(locked_data = df, current_time = 10)
+  testthat::expect_true(res$threshold_test)
+})
+
+testthat::test_that("analysis_args: multiple extra args are all injected", {
+  cond <- Condition$new(
+    analysis = function(df, current_time, alpha, beta) {
+      list(a = alpha, b = beta, n = nrow(df), t = current_time)
+    },
+    analysis_args = list(alpha = 0.05, beta = 0.8),
+    name          = "multi_args"
+  )
+  df  <- data.frame(id = 1:4)
+  res <- cond$check_conditions(locked_data = df, current_time = 7)$multi_args
+  testthat::expect_equal(res$a, 0.05)
+  testthat::expect_equal(res$b, 0.8)
+  testthat::expect_equal(res$n, 4L)
+  testthat::expect_equal(res$t, 7)
+})
+
+testthat::test_that("analysis_args: NULL analysis_args leaves call unchanged", {
+  cond <- Condition$new(
+    analysis      = function(df, current_time) nrow(df) + current_time,
+    analysis_args = NULL,
+    name          = "no_extra"
+  )
+  df  <- data.frame(id = 1:3)
+  res <- cond$check_conditions(locked_data = df, current_time = 2)
+  testthat::expect_equal(res$no_extra, 5)
+})
+
+testthat::test_that("analysis_args: scenario isolation — two conditions with different args", {
+  make_cond <- function(cov_val) {
+    Condition$new(
+      analysis      = function(df, current_time, cov_matrix) cov_matrix,
+      analysis_args = list(cov_matrix = cov_val),
+      name          = "cov_test"
+    )
+  }
+  cond1 <- make_cond(0.2)
+  cond2 <- make_cond(0.9)
+  df <- data.frame(id = 1:2)
+
+  res1 <- cond1$check_conditions(locked_data = df, current_time = 1)$cov_test
+  res2 <- cond2$check_conditions(locked_data = df, current_time = 1)$cov_test
+  testthat::expect_equal(res1, 0.2)
+  testthat::expect_equal(res2, 0.9)
+})
+
+testthat::test_that("analysis_args: works end-to-end through Condition$new", {
+  trig <- value_trigger("id", ">=", 1)
+  cond <- Condition$new(
+    where         = trig,
+    analysis      = function(df, current_time, scale) nrow(df) * scale,
+    analysis_args = list(scale = 10),
+    name          = "scaled"
+  )
+  df  <- data.frame(id = 1:3)
+  res <- cond$check_conditions(locked_data = df, current_time = 1)
+  testthat::expect_equal(res$scaled, 30)
+})
+
+testthat::test_that("analysis_args: works end-to-end through replicate_trial", {
+  set.seed(1)
+  ag <- list(final = list(
+    trigger       = enroll_trigger(1.0, 6L),
+    analysis      = function(df, current_time, multiplier) nrow(df) * multiplier,
+    analysis_args = list(multiplier = 3L)
+  ))
+  pop_gen <- list(
+    A = function(n) data.frame(id = seq_len(n), value = rnorm(n), readout_time = 0),
+    B = function(n) data.frame(id = seq_len(n), value = rnorm(n), readout_time = 0)
+  )
+  trials <- replicate_trial(
+    "t", 6L, c("A", "B"), c(1, 1),
+    function(n) rexp(n, 1), function(n) rep(Inf, n),
+    ag, pop_gen, 1L
+  )
+  testthat::expect_r6_class(trials[[1L]]$conditions[[1L]], "Condition")
+  testthat::expect_equal(trials[[1L]]$conditions[[1L]]$analysis_args, list(multiplier = 3L))
+})

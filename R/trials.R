@@ -150,10 +150,11 @@ replicate_trial <- function(
           "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or `calendar_trigger()`."
         )
       }
-      build_trigger(
-        trigger,
-        analysis = analysis_generators[[aname]]$analysis,
-        name     = aname
+      Condition$new(
+        where         = trigger,
+        analysis      = analysis_generators[[aname]]$analysis,
+        analysis_args = analysis_generators[[aname]]$analysis_args,
+        name          = aname
       )
     })
     Trial$new(

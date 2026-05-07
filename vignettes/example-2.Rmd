@@ -75,7 +75,7 @@ Final analysis at full enrollment.
 analysis_generators <- list(
   interim = list(
     trigger = enroll_trigger(0.5, sample_size),
-    analysis = function(df, timer){
+    analysis = function(df, current_time){
       df_enrolled <- df |> subset(!is.na(enroll_time))
       tt <- t.test(value ~ arm, data = df_enrolled)
       data.frame(
@@ -91,7 +91,7 @@ analysis_generators <- list(
   
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, timer){
+    analysis = function(df, current_time){
       df_enrolled <- df |> subset(!is.na(enroll_time))
       tt <- t.test(value ~ arm, data = df_enrolled)
       data.frame(

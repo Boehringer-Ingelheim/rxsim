@@ -10,7 +10,7 @@ trigger_by_calendar(cal_time, analysis = NULL, name = NULL)
 \item{cal_time}{\code{numeric} Calendar time(s) at which to trigger.}
 
 \item{analysis}{\code{function} or \code{NULL} Optional analysis function called as
-\code{analysis(filtered_data, current_time)}. If \code{NULL}, the filtered snapshot
+\code{analysis(df, current_time, ...)}. If \code{NULL}, the filtered snapshot
 is returned as-is with a warning.}
 
 \item{name}{\code{character} or \code{NULL} Result key. Defaults to
@@ -34,5 +34,5 @@ cond <- trigger_by_calendar(
 }
 \seealso{
 \link{Condition}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}, \link{Trial},
-\code{calendar_trigger()}, \code{\link[=build_trigger]{build_trigger()}}.
+\code{calendar_trigger()}.
 }
