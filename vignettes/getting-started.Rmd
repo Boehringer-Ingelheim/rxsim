@@ -99,15 +99,17 @@ dropout    <- function(n) rexp(n, rate = 0.05)
 Analysis triggers are the heart of rxsim. Each trigger pairs a **condition**
 (when to fire) with an **analysis function** (what to compute when it fires).
 
-The condition is written as a `dplyr`-style boolean expression inside
-`rlang::exprs()`. It is evaluated against a snapshot of all currently enrolled
-subjects at each timepoint. Here the condition fires once full enrollment is
-reached, i.e., `sample_size` subjects have accumulated a non-`NA` `enroll_time`.
+Triggers are created with helper functions such as `enroll_trigger()`,
+`calendar_trigger()`, `value_trigger()`, and `count_trigger()`. You pass the
+resulting `rxsim_trigger` object directly as the `trigger` field in
+`analysis_generators`, and can combine helpers with `&` and `|` for more
+complex logic.
 
-The `!!` operator (pronounced "bang-bang") **injects the current value** of
-`sample_size` into the expression at definition time, rather than looking it up
-at evaluation time. This is necessary because the expression is stored and
-evaluated later inside the simulation loop.
+Here we use `enroll_trigger(1.0, sample_size)`, which fires once full
+enrollment is reached, i.e. when `sample_size` subjects have accumulated a
+non-`NA` `enroll_time`. There is no need for `rlang::exprs()` or `!!`
+("bang-bang") anymore — the helpers take ordinary R values directly, and
+`replicate_trial()` validates that each trigger is an `rxsim_trigger` object.
 
 When the condition is met, rxsim calls the analysis function with two arguments:
 
@@ -122,9 +124,7 @@ conventional pattern).
 ```{r triggers}
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
+    trigger = enroll_trigger(1.0, sample_size),
     analysis = function(df, timer) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(

@@ -196,9 +196,7 @@ same posterior difference distribution, yielding a 95% credible interval for Δ 
 ```{r trigger}
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
+    trigger = enroll_trigger(1.0, sample_size),
     analysis = function(df, timer) {
       dat <- df |>
         dplyr::filter(!is.na(enroll_time)) |>
