@@ -56,6 +56,7 @@ reference:
   - title: "Condition helpers"
     desc: "Convenience constructors for Condition objects"
     contents:
+      - trigger_primitives
       - trigger_by_calendar
       - trigger_by_fraction
 

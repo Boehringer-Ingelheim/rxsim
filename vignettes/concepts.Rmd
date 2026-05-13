@@ -242,8 +242,7 @@ If all three gates pass, the analysis function is called on the filtered
 data and the result is stored. Trigger state (`trigger_count`,
 `last_trigger_time`) is updated automatically.
 
-Construct a `Condition` with `rlang::quos()` to capture the filter
-predicates:
+Build a `Condition` from a validated trigger helper:
 
 ```{r timer_condition}
 # A toy snapshot data frame
@@ -256,7 +255,7 @@ snapshot <- data.frame(
 
 # Fire when at least 4 subjects are enrolled
 cond_interim <- Condition$new(
-  where    = rlang::quos(sum(!is.na(enroll_time)) >= 4),
+  where    = enroll_trigger(1.0, 4),
   analysis = function(df, current_time) {
     data.frame(n_enrolled = sum(!is.na(df$enroll_time)),
                fired_at   = current_time)
@@ -348,8 +347,8 @@ tm$add_timepoint(time = 15, arm = "A", enroller = 0L, dropper = 0L)
 tm$add_timepoint(time = 15, arm = "B", enroller = 0L, dropper = 0L)
 
 # Trigger: fire at calendar time 15
-cond_final <- Condition$new(
-  where    = rlang::quos(.data$time %in% 15),
+cond_final <- trigger_by_calendar(
+  cal_time = 15,
   analysis = function(df, current_time) {
     enrolled <- subset(df, !is.na(enroll_time))
     data.frame(
@@ -381,53 +380,35 @@ Triggers are the mechanism by which rxsim knows when to analyse the
 data and what to compute. Understanding how they are stored and
 evaluated is key to writing correct and flexible simulation code.
 
-### Why rlang::exprs()?
+### Safe trigger helpers
 
-A trigger condition needs to be a *stored* expression, not an
-immediately evaluated one. When you write
-`sum(!is.na(enroll_time)) >= 20`, R would evaluate it at the point of
-definition — before any data exists. `rlang::exprs()` wraps the
-expression in a quoted form so it is only evaluated later, inside
-`check_conditions()`, against the actual snapshot:
+Triggers for `analysis_generators` are created with validated helper
+constructors rather than quoted expressions. Use `enroll_trigger()` for
+enrollment milestones, `calendar_trigger()` for calendar-time analyses,
+and `value_trigger()` / `count_trigger()` when you want to write a
+predicate against a specific snapshot column.
 
-```{r exprs_demo, eval = FALSE}
-# Stored expressions, not immediately evaluated:
-rlang::exprs(sum(!is.na(enroll_time)) >= 20)
+```{r trigger_helpers, eval = FALSE}
+enroll_trigger(0.5, 100)
+calendar_trigger(c(12, 24))
+value_trigger("time", ">=", 24)
+count_trigger("enroll_time", ">=", 50)
 ```
 
-`Condition$new()` uses `rlang::quos()` instead of `rlang::exprs()`.
-The difference is that `quos()` also captures the *calling environment*,
-so values from the surrounding scope (e.g., `target_n`) are available
-inside the expression when it is evaluated. Use `rlang::quos()` in
-`Condition$new(where = ...)` and `rlang::exprs()` when supplying
-triggers to `replicate_trial()`'s `analysis_generators`.
+The helpers take plain R values, so there is no need for
+`rlang::exprs()` or `!!` anymore. Invalid operators, wrong column names,
+and type mismatches are rejected immediately when the trigger is
+constructed.
 
-### The !! (bang-bang) operator
+Compose helper triggers with `&` (AND) and `|` (OR), then pass the
+result directly as the `trigger` field in `analysis_generators`, or
+construct a `Condition` with `Condition$new(where = trigger, ...)`.
 
-When you want to inject a value from the current R environment into a
-stored expression, use `!!`. Without it, the variable name is treated
-as a column name in the snapshot data frame — almost certainly not what
-you want:
+### Columns available to trigger helpers
 
-```{r bang_bang, eval = FALSE}
-target_n <- 40
-
-# CORRECT: !! injects the value 40 at definition time
-trigger <- rlang::exprs(sum(!is.na(enroll_time)) >= !!target_n)
-
-# WRONG: "target_n" would be looked for as a column name in the snapshot
-trigger_bad <- rlang::exprs(sum(!is.na(enroll_time)) >= target_n)
-```
-
-This distinction matters when you loop over scenarios with different
-sample sizes: each iteration should bake in its own `target_n` value
-via `!!`.
-
-### Columns available in a trigger expression
-
-The trigger expression is evaluated against the snapshot data frame,
-which contains all columns from the `Population`'s `data` plus the four
-columns appended by `Trial`:
+Trigger helpers are evaluated against the snapshot data frame after they
+are converted to a `Condition`. The snapshot contains all columns from
+the `Population`'s `data` plus the four columns appended by `Trial`:
 
 - `enroll_time` — calendar enrollment time (`NA` if not enrolled)
 - `drop_time` — calendar dropout time (`NA` if not dropped)
@@ -440,17 +421,13 @@ also available.
 
 ### trigger_by_calendar() and trigger_by_fraction()
 
-> **Note:** These helper functions are being refactored in an upcoming
-> release to accept a `Trial` object directly. In the meantime, use
-> `Condition$new()` (shown below) to build triggers.
-
-`Condition$new()` with a calendar-time filter is the recommended
-approach for pre-planned analyses:
+For the two most common cases, use the convenience constructors directly
+to create `Condition` objects:
 
 ```{r trig_calendar, eval = FALSE}
 # Fire at calendar time 24
-cond_final <- Condition$new(
-  where    = rlang::quos(.data$time %in% 24),
+cond_final <- trigger_by_calendar(
+  cal_time = 24,
   analysis = function(df, current_time) {
     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
   },
@@ -459,27 +436,40 @@ cond_final <- Condition$new(
 trial$conditions <- append(trial$conditions, list(cond_final))
 ```
 
-For information-fraction-based interims, filter on enrolled count:
-
 ```{r trig_fraction, eval = FALSE}
 # Interim at 50% enrollment (target = 100)
-cond_interim <- Condition$new(
-  where    = rlang::quos(sum(!is.na(enroll_time)) >= 50),
+cond_interim <- trigger_by_fraction(
+  fraction = 0.5,
+  sample_size = 100,
   analysis = function(df, current_time) {
     enrolled <- subset(df, !is.na(enroll_time))
     data.frame(n = nrow(enrolled), time = current_time)
   },
-  name     = "interim_50pct",
-  max_triggers = 1L
+  name = "interim_50pct"
 )
 trial$conditions <- append(trial$conditions, list(cond_interim))
 ```
 
+When you need more than one predicate, compose helpers before building
+the `Condition`:
+
+```{r trig_combine, eval = FALSE}
+trig_both <- enroll_trigger(0.5, 100) & calendar_trigger(24)
+
+cond_both <- Condition$new(
+  where    = trig_both,
+  analysis = my_analysis,
+  name     = "interim_after_half_enrollment_at_day_24"
+)
+trial$conditions <- append(trial$conditions, list(cond_both))
+```
+
 ### Custom conditions
 
-You can condition on any expression involving the snapshot columns. For
-time-to-event endpoints this commonly means waiting for a target number
-of events rather than a target enrollment count:
+For trigger logic that cannot yet be expressed with the safe helpers,
+`Condition$new(where = rlang::quos(...))` remains the advanced escape
+hatch. For time-to-event endpoints this commonly means waiting for a
+target number of events rather than a target enrollment count:
 
 ```{r custom_condition, eval = FALSE}
 # Fire when 30 events have been observed (event = 1, censored = 0)
@@ -491,32 +481,34 @@ cond_events <- Condition$new(
 trial$conditions <- append(trial$conditions, list(cond_events))
 ```
 
-Multiple predicates in `where` are ANDed together, exactly as in
-`dplyr::filter()`:
+When the logic *can* be expressed with helper predicates, prefer
+composing `rxsim_trigger` objects with `&` instead of supplying multiple
+`where` quosures:
 
 ```{r multi_condition, eval = FALSE}
-# Fire only once the treatment arm has 15 enrolled subjects
-cond_trt <- Condition$new(
-  where    = rlang::quos(
-    arm == "treatment",
-    sum(!is.na(enroll_time[arm == "treatment"])) >= 15
-  ),
+# Fire once time 12 is reached and at least 15 subjects are enrolled
+cond_interim <- Condition$new(
+  where    = value_trigger("time", ">=", 12) & count_trigger("enroll_time", ">=", 15),
   analysis = my_analysis,
-  name     = "trt_interim"
+  name     = "interim_after_time12"
 )
-trial$conditions <- append(trial$conditions, list(cond_trt))
+trial$conditions <- append(trial$conditions, list(cond_interim))
 ```
 
 ### The analysis function signature
 
-Every analysis function receives two arguments:
+The analysis function always receives the filtered data frame and clock time
+as its first two positional arguments. Scenario-specific values can be
+declared as additional named parameters and injected via `analysis_args`:
 
-- `df`: the **full snapshot** — all arms, all currently enrolled
-  subjects. The condition filter determined *whether* to fire; the
-  analysis function decides *what to compute* from the full data.
+- `df`: the **full snapshot** — all arms, all currently enrolled subjects.
+  The condition filter determined *whether* to fire; the analysis function
+  decides *what to compute* from the full data.
 - `current_time`: the numeric clock time at which the condition fired.
+- `...`: any extra named values supplied through `analysis_args`.
 
 ```{r analysis_fn, eval = FALSE}
+# Basic signature
 my_analysis <- function(df, current_time) {
   enrolled <- subset(df, !is.na(enroll_time))
   data.frame(
@@ -527,6 +519,20 @@ my_analysis <- function(df, current_time) {
                 mean(enrolled$data[enrolled$arm == "control"])
   )
 }
+
+# With extra scenario-specific arguments
+my_analysis_ext <- function(df, current_time, alpha, cov_matrix) {
+  # alpha and cov_matrix are injected from analysis_args at call time
+  enrolled <- subset(df, !is.na(enroll_time))
+  data.frame(fired_at = current_time, n = nrow(enrolled), alpha = alpha)
+}
+
+cond <- Condition$new(
+  where         = enroll_trigger(1.0, 100),
+  analysis      = my_analysis_ext,
+  analysis_args = list(alpha = 0.05, cov_matrix = diag(2)),
+  name          = "final"
+)
 ```
 
 ### Return values
@@ -593,9 +599,7 @@ dropout    <- function(n) rexp(n, rate = 0.02)
 # Step 4 — analysis trigger: fire when full enrollment is reached
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
+    trigger = enroll_trigger(1.0, sample_size),
     analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(

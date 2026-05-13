@@ -45,8 +45,8 @@ pop_gens <- list(
 )
 an_gens <- list(
   final = list(
-    trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= 20L),
-    analysis = function(df, timer) {
+    trigger  = count_trigger("enroll_time", ">=", 20L),
+    analysis = function(df, current_time) {
       data.frame(mean_ctrl = mean(df$data[df$arm == "control"]))
     }
   )

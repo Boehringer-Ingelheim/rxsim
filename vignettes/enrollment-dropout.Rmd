@@ -375,7 +375,7 @@ population_generators <- list(
 
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(sum(!is.na(enroll_time)) >= 12L),
+    trigger = enroll_trigger(1.0, 12L),
     analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(
@@ -440,8 +440,8 @@ add_timepoints(tmr3, fixed_plan)
 
 # Condition: fire at the final calendar time
 final_t <- tmr3$get_end_timepoint()
-cond_final <- Condition$new(
-  where    = rlang::quos(.data$time %in% !!final_t),
+cond_final <- trigger_by_calendar(
+  cal_time = final_t,
   analysis = function(df, current_time) {
     enrolled <- subset(df, !is.na(enroll_time))
     data.frame(n_enrolled = nrow(enrolled), time = current_time)

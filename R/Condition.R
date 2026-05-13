@@ -1,3 +1,25 @@
+.trigger_to_quosures <- function(trigger) {
+  if (!is.null(trigger$type)) {
+    expr <- if (identical(trigger$type, "value")) {
+      call(trigger$op, call("[[", quote(.data), trigger$col), trigger$rhs)
+    } else {
+      call(trigger$op,
+           call("sum", call("!", call("is.na", call("[[", quote(.data), trigger$col)))),
+           trigger$rhs)
+    }
+    return(list(rlang::new_quosure(expr, env = rlang::current_env())))
+  }
+
+  if (identical(trigger$combinator, "&")) {
+    return(unlist(lapply(trigger$predicates, .trigger_to_quosures), recursive = FALSE))
+  }
+
+  left_quos  <- .trigger_to_quosures(trigger$left)
+  right_quos <- .trigger_to_quosures(trigger$right)
+  expr <- call("|", rlang::get_expr(left_quos[[1L]]), rlang::get_expr(right_quos[[1L]]))
+  list(rlang::new_quosure(expr, env = rlang::current_env()))
+}
+
 #' Condition: Stateful trigger and analysis unit
 #'
 #' @description
@@ -29,8 +51,9 @@
 #' is not updated.
 #'
 #' On a successful trigger, the condition calls
-#' `analysis(filtered_data, current_time)` and stores the result under
-#' `name` (or `1L` when no name is set). If no analysis function is
+#' `analysis(df, current_time, ...)` and stores the result under
+#' `name` (or `1L` when no name is set). Any values in `analysis_args` are
+#' appended as additional named arguments. If no analysis function is
 #' provided, the filtered data frame is returned as-is with a warning.
 #'
 #' @section Fields:
@@ -39,9 +62,11 @@
 #'     `dplyr::filter()` predicates. Pass `NULL` or an empty list to skip
 #'     filtering and pass the full snapshot to the analysis.}
 #'   \item{\code{analysis}}{`function` or `NULL`. Called as
-#'     `analysis(filtered_data, current_time)` on a successful trigger.
-#'     Should return a `data.frame` or named list. If `NULL`, the filtered
-#'     data frame is returned with a warning.}
+#'     `analysis(df, current_time, ...)` on a successful trigger, where `...`
+#'     are any values from `analysis_args`. Should return a `data.frame` or
+#'     named list. If `NULL`, the filtered data frame is returned with a warning.}
+#'   \item{\code{analysis_args}}{`list` or `NULL`. Named list of extra arguments
+#'     injected into every call to `analysis`.}
 #'   \item{\code{name}}{`character` or `NULL`. Key used to label the result
 #'     in the returned list. Falls back to `1L` when `NULL`.}
 #'   \item{\code{cooldown}}{`numeric`. Minimum time units that must elapse
@@ -74,6 +99,8 @@
 #'   \item [`Trial`] for running the simulation and iterating over conditions
 #'   \item [`trigger_by_calendar()`] and [`trigger_by_fraction()`] for
 #'     convenient `Condition` constructors
+#'   \item [value_trigger()], [count_trigger()], [enroll_trigger()],
+#'     [calendar_trigger()] for building safe trigger specifications
 #'   \item [`dplyr::filter()`] for predicate syntax
 #' }
 #'
@@ -86,8 +113,8 @@
 #' )
 #'
 #' # Analysis function: count active subjects per arm
-#' count_fn <- function(dat, current_time) {
-#'   data.frame(n_active = nrow(dat), fired_at = current_time)
+#' count_fn <- function(df, current_time) {
+#'   data.frame(n_active = nrow(df), fired_at = current_time)
 #' }
 #'
 #' # Condition fires once when arm A has active subjects (max_triggers = 1)
@@ -115,12 +142,18 @@ Condition <- R6::R6Class(
   public = list(
     # --- fields ---
     #' @field where `list` of quosures (`rlang::quos()`) used as `dplyr::filter()`
-    #'   predicates. `NULL` or empty list passes the full snapshot.
+    #'   predicates, or an `rxsim_trigger` (converted automatically). `NULL` or
+    #'   empty list passes the full snapshot.
     where = NULL,
 
     #' @field analysis `function` or `NULL`. Called as
-    #'   `analysis(filtered_data, current_time)` on a successful trigger.
+    #'   `analysis(df, current_time, ...)` on a successful trigger, where `...`
+    #'   are any values from `analysis_args`.
     analysis = NULL,
+
+    #' @field analysis_args `list` or `NULL`. Named list of extra values injected
+    #'   into the analysis function call as additional named arguments.
+    analysis_args = NULL,
 
     #' @field name `character` or `NULL`. Key labelling the result in the output
     #'   list. Falls back to `1L` when `NULL`.
@@ -146,10 +179,14 @@ Condition <- R6::R6Class(
     #' @description
     #' Create a new `Condition` instance.
     #'
-    #' @param where `list` of quosures (from `rlang::quos()`) used as filter
-    #'   predicates. Pass `NULL` or omit to use the full snapshot.
+    #' @param where `rxsim_trigger` (converted automatically to quosures), a
+    #'   `list` of quosures from `rlang::quos()`, or `NULL` to use the full
+    #'   snapshot.
     #' @param analysis `function` or `NULL`. Called as
-    #'   `analysis(filtered_data, current_time)` on a successful trigger.
+    #'   `analysis(df, current_time, ...)` on a successful trigger, where `...`
+    #'   are the values from `analysis_args`.
+    #' @param analysis_args `list` or `NULL`. Named list of extra arguments
+    #'   passed to the analysis function after `df` and `current_time`.
     #' @param name `character` or `NULL`. Result key. Defaults to `1L`.
     #' @param cooldown `numeric`. Minimum time between triggers. Default `0`.
     #' @param max_triggers `integer`. Maximum trigger count. Default `1L`.
@@ -157,15 +194,18 @@ Condition <- R6::R6Class(
     #'
     #' @return A new `Condition` instance.
     initialize = function(
-      where        = NULL,
-      analysis     = NULL,
-      name         = NULL,
-      cooldown     = 0,
-      max_triggers = 1L
+      where         = NULL,
+      analysis      = NULL,
+      analysis_args = NULL,
+      name          = NULL,
+      cooldown      = 0,
+      max_triggers  = 1L
     ) {
-      self$where    <- where
-      self$analysis <- analysis
-      self$name     <- name
+      if (inherits(where, "rxsim_trigger")) where <- .trigger_to_quosures(where)
+      self$where         <- where
+      self$analysis      <- analysis
+      self$analysis_args <- analysis_args
+      self$name          <- name
 
       cooldown <- as.numeric(cooldown)
       if (length(cooldown) != 1L || cooldown < 0 || is.na(cooldown)) {
@@ -230,7 +270,7 @@ Condition <- R6::R6Class(
       }
 
       if (is.function(self$analysis)) {
-        results[[key]] <- self$analysis(df_i, current_time)
+        results[[key]] <- do.call(self$analysis, c(list(df_i, current_time), self$analysis_args))
       } else {
         results[[key]] <- df_i
         warning(
