@@ -201,10 +201,8 @@ We run two independent two-sample t-tests (one per endpoint).
 ``` r
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer) {
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       df_e <- df |> subset(!is.na(enroll_time))
 
       p1 <- t.test(y1 ~ arm, data = df_e)$p.value

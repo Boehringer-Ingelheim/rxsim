@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -375,8 +375,7 @@ condition does not fire yet.</li>
 filtered data and the result is stored. Trigger state
 (<code>trigger_count</code>, <code>last_trigger_time</code>) is updated
 automatically.</p>
-<p>Construct a <code>Condition</code> with <code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::quos()</a></code> to
-capture the filter predicates:</p>
+<p>Build a <code>Condition</code> from a validated trigger helper:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># A toy snapshot data frame</span></span>
 <span><span class="va">snapshot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -388,7 +387,7 @@ capture the filter predicates:</p>
 <span></span>
 <span><span class="co"># Fire when at least 4 subjects are enrolled</span></span>
 <span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">4</span><span class="op">)</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n_enrolled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>               fired_at   <span class="op">=</span> <span class="va">current_time</span><span class="op">)</span></span>
@@ -512,8 +511,8 @@ returned.</p>
 <span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">15</span>, arm <span class="op">=</span> <span class="st">"B"</span>, enroller <span class="op">=</span> <span class="fl">0L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Trigger: fire at calendar time 15</span></span>
-<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">time</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">15</span><span class="op">)</span>,</span>
+<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_calendar.html">trigger_by_calendar</a></span><span class="op">(</span></span>
+<span>  cal_time <span class="op">=</span> <span class="fl">15</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
@@ -548,53 +547,36 @@ returned.</p>
 data and what to compute. Understanding how they are stored and
 evaluated is key to writing correct and flexible simulation code.</p>
 <div class="section level3">
-<h3 id="why-rlangexprs">Why rlang::exprs()?<a class="anchor" aria-label="anchor" href="#why-rlangexprs"></a>
+<h3 id="safe-trigger-helpers">Safe trigger helpers<a class="anchor" aria-label="anchor" href="#safe-trigger-helpers"></a>
 </h3>
-<p>A trigger condition needs to be a <em>stored</em> expression, not an
-immediately evaluated one. When you write
-<code>sum(!is.na(enroll_time)) &gt;= 20</code>, R would evaluate it at
-the point of definition — before any data exists.
-<code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code> wraps the expression in a quoted form so it
-is only evaluated later, inside <code>check_conditions()</code>, against
-the actual snapshot:</p>
+<p>Triggers for <code>analysis_generators</code> are created with
+validated helper constructors rather than quoted expressions. Use
+<code><a href="../reference/trigger_primitives.html">enroll_trigger()</a></code> for enrollment milestones,
+<code><a href="../reference/trigger_primitives.html">calendar_trigger()</a></code> for calendar-time analyses, and
+<code><a href="../reference/trigger_primitives.html">value_trigger()</a></code> / <code><a href="../reference/trigger_primitives.html">count_trigger()</a></code> when you
+want to write a predicate against a specific snapshot column.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Stored expressions, not immediately evaluated:</span></span>
-<span><span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">exprs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">20</span><span class="op">)</span></span></code></pre></div>
-<p><code>Condition$new()</code> uses <code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::quos()</a></code> instead
-of <code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code>. The difference is that
-<code>quos()</code> also captures the <em>calling environment</em>, so
-values from the surrounding scope (e.g., <code>target_n</code>) are
-available inside the expression when it is evaluated. Use
-<code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::quos()</a></code> in <code>Condition$new(where = ...)</code>
-and <code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code> when supplying triggers to
-<code><a href="../reference/replicate_trial.html">replicate_trial()</a></code>’s <code>analysis_generators</code>.</p>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">100</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">12</span>, <span class="fl">24</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/trigger_primitives.html">value_trigger</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"&gt;="</span>, <span class="fl">24</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/trigger_primitives.html">count_trigger</a></span><span class="op">(</span><span class="st">"enroll_time"</span>, <span class="st">"&gt;="</span>, <span class="fl">50</span><span class="op">)</span></span></code></pre></div>
+<p>The helpers take plain R values, so there is no need for
+<code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code> or <code>!!</code> anymore. Invalid
+operators, wrong column names, and type mismatches are rejected
+immediately when the trigger is constructed.</p>
+<p>Compose helper triggers with <code>&amp;</code> (AND) and
+<code>|</code> (OR), then pass the result directly as the
+<code>trigger</code> field in <code>analysis_generators</code>, or
+construct a <code>Condition</code> with
+<code>Condition$new(where = trigger, ...)</code>.</p>
 </div>
 <div class="section level3">
-<h3 id="the-bang-bang-operator">The !! (bang-bang) operator<a class="anchor" aria-label="anchor" href="#the-bang-bang-operator"></a>
+<h3 id="columns-available-to-trigger-helpers">Columns available to trigger helpers<a class="anchor" aria-label="anchor" href="#columns-available-to-trigger-helpers"></a>
 </h3>
-<p>When you want to inject a value from the current R environment into a
-stored expression, use <code>!!</code>. Without it, the variable name is
-treated as a column name in the snapshot data frame — almost certainly
-not what you want:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">target_n</span> <span class="op">&lt;-</span> <span class="fl">40</span></span>
-<span></span>
-<span><span class="co"># CORRECT: !! injects the value 40 at definition time</span></span>
-<span><span class="va">trigger</span> <span class="op">&lt;-</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">exprs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">!</span><span class="op">!</span><span class="va">target_n</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># WRONG: "target_n" would be looked for as a column name in the snapshot</span></span>
-<span><span class="va">trigger_bad</span> <span class="op">&lt;-</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">exprs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="va">target_n</span><span class="op">)</span></span></code></pre></div>
-<p>This distinction matters when you loop over scenarios with different
-sample sizes: each iteration should bake in its own
-<code>target_n</code> value via <code>!!</code>.</p>
-</div>
-<div class="section level3">
-<h3 id="columns-available-in-a-trigger-expression">Columns available in a trigger expression<a class="anchor" aria-label="anchor" href="#columns-available-in-a-trigger-expression"></a>
-</h3>
-<p>The trigger expression is evaluated against the snapshot data frame,
-which contains all columns from the <code>Population</code>’s
-<code>data</code> plus the four columns appended by
-<code>Trial</code>:</p>
+<p>Trigger helpers are evaluated against the snapshot data frame after
+they are converted to a <code>Condition</code>. The snapshot contains
+all columns from the <code>Population</code>’s <code>data</code> plus
+the four columns appended by <code>Trial</code>:</p>
 <ul>
 <li>
 <code>enroll_time</code> — calendar enrollment time (<code>NA</code>
@@ -617,45 +599,50 @@ not dropped)</li>
 <div class="section level3">
 <h3 id="trigger_by_calendar-and-trigger_by_fraction">trigger_by_calendar() and trigger_by_fraction()<a class="anchor" aria-label="anchor" href="#trigger_by_calendar-and-trigger_by_fraction"></a>
 </h3>
-<blockquote>
-<p><strong>Note:</strong> These helper functions are being refactored in
-an upcoming release to accept a <code>Trial</code> object directly. In
-the meantime, use <code>Condition$new()</code> (shown below) to build
-triggers.</p>
-</blockquote>
-<p><code>Condition$new()</code> with a calendar-time filter is the
-recommended approach for pre-planned analyses:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<p>For the two most common cases, use the convenience constructors
+directly to create <code>Condition</code> objects:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fire at calendar time 24</span></span>
-<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">time</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">24</span><span class="op">)</span>,</span>
+<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_calendar.html">trigger_by_calendar</a></span><span class="op">(</span></span>
+<span>  cal_time <span class="op">=</span> <span class="fl">24</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n_enrolled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">}</span>,</span>
 <span>  name <span class="op">=</span> <span class="st">"final_analysis"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_final</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>For information-fraction-based interims, filter on enrolled
-count:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Interim at 50% enrollment (target = 100)</span></span>
-<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">50</span><span class="op">)</span>,</span>
+<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_fraction.html">trigger_by_fraction</a></span><span class="op">(</span></span>
+<span>  fraction <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  sample_size <span class="op">=</span> <span class="fl">100</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>    <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>, time <span class="op">=</span> <span class="va">current_time</span><span class="op">)</span></span>
 <span>  <span class="op">}</span>,</span>
-<span>  name     <span class="op">=</span> <span class="st">"interim_50pct"</span>,</span>
-<span>  max_triggers <span class="op">=</span> <span class="fl">1L</span></span>
+<span>  name <span class="op">=</span> <span class="st">"interim_50pct"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_interim</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>When you need more than one predicate, compose helpers before
+building the <code>Condition</code>:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">trig_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">100</span><span class="op">)</span> <span class="op">&amp;</span> <span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">cond_both</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where    <span class="op">=</span> <span class="va">trig_both</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="va">my_analysis</span>,</span>
+<span>  name     <span class="op">=</span> <span class="st">"interim_after_half_enrollment_at_day_24"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_both</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="custom-conditions">Custom conditions<a class="anchor" aria-label="anchor" href="#custom-conditions"></a>
 </h3>
-<p>You can condition on any expression involving the snapshot columns.
-For time-to-event endpoints this commonly means waiting for a target
-number of events rather than a target enrollment count:</p>
+<p>For trigger logic that cannot yet be expressed with the safe helpers,
+<code>Condition$new(where = rlang::quos(...))</code> remains the
+advanced escape hatch. For time-to-event endpoints this commonly means
+waiting for a target number of events rather than a target enrollment
+count:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Fire when 30 events have been observed (event = 1, censored = 0)</span></span>
 <span><span class="va">cond_events</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
@@ -664,24 +651,26 @@ number of events rather than a target enrollment count:</p>
 <span>  name     <span class="op">=</span> <span class="st">"event_driven_interim"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_events</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>Multiple predicates in <code>where</code> are ANDed together, exactly
-as in <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">dplyr::filter()</a></code>:</p>
+<p>When the logic <em>can</em> be expressed with helper predicates,
+prefer composing <code>rxsim_trigger</code> objects with
+<code>&amp;</code> instead of supplying multiple <code>where</code>
+quosures:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fire only once the treatment arm has 15 enrolled subjects</span></span>
-<span><span class="va">cond_trt</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span></span>
-<span>    <span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">[</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="fl">15</span></span>
-<span>  <span class="op">)</span>,</span>
+<code class="sourceCode R"><span><span class="co"># Fire once time 12 is reached and at least 15 subjects are enrolled</span></span>
+<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">value_trigger</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"&gt;="</span>, <span class="fl">12</span><span class="op">)</span> <span class="op">&amp;</span> <span class="fu"><a href="../reference/trigger_primitives.html">count_trigger</a></span><span class="op">(</span><span class="st">"enroll_time"</span>, <span class="st">"&gt;="</span>, <span class="fl">15</span><span class="op">)</span>,</span>
 <span>  analysis <span class="op">=</span> <span class="va">my_analysis</span>,</span>
-<span>  name     <span class="op">=</span> <span class="st">"trt_interim"</span></span>
+<span>  name     <span class="op">=</span> <span class="st">"interim_after_time12"</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_trt</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_interim</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="the-analysis-function-signature">The analysis function signature<a class="anchor" aria-label="anchor" href="#the-analysis-function-signature"></a>
 </h3>
-<p>Every analysis function receives two arguments:</p>
+<p>The analysis function always receives the filtered data frame and
+clock time as its first two positional arguments. Scenario-specific
+values can be declared as additional named parameters and injected via
+<code>analysis_args</code>:</p>
 <ul>
 <li>
 <code>df</code>: the <strong>full snapshot</strong> — all arms, all
@@ -691,9 +680,13 @@ compute</em> from the full data.</li>
 <li>
 <code>current_time</code>: the numeric clock time at which the
 condition fired.</li>
+<li>
+<code>...</code>: any extra named values supplied through
+<code>analysis_args</code>.</li>
 </ul>
 <div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">my_analysis</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
+<code class="sourceCode R"><span><span class="co"># Basic signature</span></span>
+<span><span class="va">my_analysis</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    fired_at  <span class="op">=</span> <span class="va">current_time</span>,</span>
@@ -702,7 +695,21 @@ condition fired.</li>
 <span>    mean_diff <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">]</span><span class="op">)</span> <span class="op">-</span></span>
 <span>                <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">]</span><span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="op">}</span></span></code></pre></div>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="co"># With extra scenario-specific arguments</span></span>
+<span><span class="va">my_analysis_ext</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span>, <span class="va">alpha</span>, <span class="va">cov_matrix</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="co"># alpha and cov_matrix are injected from analysis_args at call time</span></span>
+<span>  <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>fired_at <span class="op">=</span> <span class="va">current_time</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>, alpha <span class="op">=</span> <span class="va">alpha</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span></span>
+<span><span class="va">cond</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where         <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">100</span><span class="op">)</span>,</span>
+<span>  analysis      <span class="op">=</span> <span class="va">my_analysis_ext</span>,</span>
+<span>  analysis_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.05</span>, cov_matrix <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  name          <span class="op">=</span> <span class="st">"final"</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="return-values">Return values<a class="anchor" aria-label="anchor" href="#return-values"></a>
@@ -784,9 +791,7 @@ operating characteristic simulations are designed to characterise.</p>
 <span><span class="co"># Step 4 — analysis trigger: fire when full enrollment is reached</span></span>
 <span><span class="va">analysis_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    trigger <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">exprs</a></span><span class="op">(</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">!</span><span class="op">!</span><span class="va">sample_size</span></span>
-<span>    <span class="op">)</span>,</span>
+<span>    trigger <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="va">sample_size</span><span class="op">)</span>,</span>
 <span>    analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
 <span>      <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>

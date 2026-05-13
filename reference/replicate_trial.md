@@ -49,7 +49,13 @@ replicate_trial(
 
 - analysis_generators:
 
-  `list` (named) of analysis trigger specifications.
+  `list` (named) of analysis specifications. Each `$trigger` must be an
+  `rxsim_trigger` object created by
+  [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  or
+  [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md).
 
 - population_generators:
 

@@ -267,6 +267,13 @@ Helpers for building Timer timepoint lists
 
 Convenience constructors for Condition objects
 
+- [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`` `&`( ``*`<rxsim_trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`` `|`( ``*`<rxsim_trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  : Build Safe Trial Triggers
 - [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
   : Trigger Analysis at a Calendar Time
 - [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)

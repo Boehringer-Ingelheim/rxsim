@@ -93,36 +93,56 @@ Analysis triggers are the heart of rxsim. Each trigger pairs a
 **condition** (when to fire) with an **analysis function** (what to
 compute when it fires).
 
-The condition is written as a `dplyr`-style boolean expression inside
-[`rlang::exprs()`](https://rlang.r-lib.org/reference/defusing-advanced.html).
-It is evaluated against a snapshot of all currently enrolled subjects at
-each timepoint. Here the condition fires once full enrollment is
-reached, i.e., `sample_size` subjects have accumulated a non-`NA`
-`enroll_time`.
+Triggers are created with helper functions such as
+[`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+[`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+[`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+and
+[`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md).
+You pass the resulting `rxsim_trigger` object directly as the `trigger`
+field in `analysis_generators`, and can combine helpers with `&` and `|`
+for more complex logic.
 
-The `!!` operator (pronounced “bang-bang”) **injects the current value**
-of `sample_size` into the expression at definition time, rather than
-looking it up at evaluation time. This is necessary because the
-expression is stored and evaluated later inside the simulation loop.
+Here we use `enroll_trigger(1.0, sample_size)`, which fires once full
+enrollment is reached, i.e. when `sample_size` subjects have accumulated
+a non-`NA` `enroll_time`. There is no need for
+[`rlang::exprs()`](https://rlang.r-lib.org/reference/defusing-advanced.html)
+or `!!` (“bang-bang”) anymore — the helpers take ordinary R values
+directly, and
+[`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md)
+validates that each trigger is an `rxsim_trigger` object.
 
-When the condition is met, rxsim calls the analysis function with two
-arguments:
+When the condition is met, rxsim calls the analysis function with the
+filtered data frame and current clock time as the first two positional
+arguments. Any extra named values declared in `analysis_args` are
+appended:
 
-- `df`: a data frame snapshot of all enrolled subjects at the triggering
-  timepoint, with columns from the population data plus `enroll_time`,
-  `drop_time`, and `arm`
-- `time`: the current trial clock time at which the trigger fired
+- `df`: data frame snapshot of all enrolled subjects at the triggering
+  timepoint
+- `current_time`: the numeric trial clock time at which the trigger
+  fired
+- `...`: any additional named values from `analysis_args`
 
 The function should return a data frame (one row per trigger event is
-the conventional pattern).
+the conventional pattern). To pass scenario-specific data (e.g. a
+covariance matrix, a decision threshold), declare it as an extra
+parameter and supply it via `analysis_args`:
 
 ``` r
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer) {
+    trigger       = enroll_trigger(1.0, sample_size),
+    analysis      = function(df, current_time, alpha) { ... },
+    analysis_args = list(alpha = 0.05)   # injected at call time
+  )
+)
+```
+
+``` r
+analysis_generators <- list(
+  final = list(
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(
         scenario,

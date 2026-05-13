@@ -173,10 +173,8 @@ test** plus **Cox PH** for the TTE endpoint.
 ``` r
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer) {
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       df_e <- df[!is.na(df$enroll_time), , drop = FALSE]
       if (nrow(df_e) == 0) {
         return(data.frame(scenario, note = "no enrolled subjects", stringsAsFactors = FALSE))

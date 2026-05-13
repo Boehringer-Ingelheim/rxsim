@@ -72,10 +72,8 @@ We want to do a t-test when `sample_size` subjects have been enrolled.
 ``` r
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer){
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time){
       df_enrolled <- df |> subset(!is.na(enroll_time))
       tt <- t.test(value ~ arm, data = df_enrolled)
       data.frame(

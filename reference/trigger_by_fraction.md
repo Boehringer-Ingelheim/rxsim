@@ -25,8 +25,8 @@ trigger_by_fraction(fraction, sample_size, analysis = NULL, name = NULL)
 - analysis:
 
   `function` or `NULL` Optional analysis function called as
-  `analysis(filtered_data, current_time)`. If `NULL`, the filtered
-  snapshot is returned as-is with a warning.
+  `analysis(df, current_time, ...)`. If `NULL`, the filtered snapshot is
+  returned as-is with a warning.
 
 - name:
 
@@ -42,7 +42,8 @@ object.
 
 [Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md),
 [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md),
-[Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md).
+[Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md),
+[`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md).
 
 ## Examples
 

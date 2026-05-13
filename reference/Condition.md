@@ -35,9 +35,10 @@ If any gate fails, `check_conditions()` returns an empty list and state
 is not updated.
 
 On a successful trigger, the condition calls
-`analysis(filtered_data, current_time)` and stores the result under
-`name` (or `1L` when no name is set). If no analysis function is
-provided, the filtered data frame is returned as-is with a warning.
+`analysis(df, current_time, ...)` and stores the result under `name` (or
+`1L` when no name is set). Any values in `analysis_args` are appended as
+additional named arguments. If no analysis function is provided, the
+filtered data frame is returned as-is with a warning.
 
 ## Fields
 
@@ -52,10 +53,15 @@ provided, the filtered data frame is returned as-is with a warning.
 
 - `analysis`:
 
-  `function` or `NULL`. Called as
-  `analysis(filtered_data, current_time)` on a successful trigger.
+  `function` or `NULL`. Called as `analysis(df, current_time, ...)` on a
+  successful trigger, where `...` are any values from `analysis_args`.
   Should return a `data.frame` or named list. If `NULL`, the filtered
   data frame is returned with a warning.
+
+- `analysis_args`:
+
+  `list` or `NULL`. Named list of extra arguments injected into every
+  call to `analysis`.
 
 - `name`:
 
@@ -110,6 +116,12 @@ provided, the filtered data frame is returned as-is with a warning.
   [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
   for convenient `Condition` constructors
 
+- [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  for building safe trigger specifications
+
 - [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
   for predicate syntax
 
@@ -121,12 +133,18 @@ provided, the filtered data frame is returned as-is with a warning.
   ([`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html))
   used as
   [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-  predicates. `NULL` or empty list passes the full snapshot.
+  predicates, or an `rxsim_trigger` (converted automatically). `NULL` or
+  empty list passes the full snapshot.
 
 - `analysis`:
 
-  `function` or `NULL`. Called as
-  `analysis(filtered_data, current_time)` on a successful trigger.
+  `function` or `NULL`. Called as `analysis(df, current_time, ...)` on a
+  successful trigger, where `...` are any values from `analysis_args`.
+
+- `analysis_args`:
+
+  `list` or `NULL`. Named list of extra values injected into the
+  analysis function call as additional named arguments.
 
 - `name`:
 
@@ -173,6 +191,7 @@ Create a new `Condition` instance.
     Condition$new(
       where = NULL,
       analysis = NULL,
+      analysis_args = NULL,
       name = NULL,
       cooldown = 0,
       max_triggers = 1L
@@ -182,15 +201,20 @@ Create a new `Condition` instance.
 
 - `where`:
 
-  `list` of quosures (from
-  [`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html))
-  used as filter predicates. Pass `NULL` or omit to use the full
-  snapshot.
+  `rxsim_trigger` (converted automatically to quosures), a `list` of
+  quosures from
+  [`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html),
+  or `NULL` to use the full snapshot.
 
 - `analysis`:
 
-  `function` or `NULL`. Called as
-  `analysis(filtered_data, current_time)` on a successful trigger.
+  `function` or `NULL`. Called as `analysis(df, current_time, ...)` on a
+  successful trigger, where `...` are the values from `analysis_args`.
+
+- `analysis_args`:
+
+  `list` or `NULL`. Named list of extra arguments passed to the analysis
+  function after `df` and `current_time`.
 
 - `name`:
 
@@ -265,8 +289,8 @@ snapshot <- data.frame(
 )
 
 # Analysis function: count active subjects per arm
-count_fn <- function(dat, current_time) {
-  data.frame(n_active = nrow(dat), fired_at = current_time)
+count_fn <- function(df, current_time) {
+  data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
 # Condition fires once when arm A has active subjects (max_triggers = 1)

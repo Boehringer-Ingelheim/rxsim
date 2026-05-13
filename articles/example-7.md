@@ -205,10 +205,8 @@ yielding a 95% credible interval for Δ = μ_T − μ_P.
 ``` r
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer) {
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       dat <- df |>
         dplyr::filter(!is.na(enroll_time)) |>
         dplyr::mutate(arm = factor(arm, levels = c("placebo", "treatment")))
