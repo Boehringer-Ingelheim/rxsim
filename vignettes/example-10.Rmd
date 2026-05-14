@@ -1,0 +1,162 @@
+---
+title: "Example 10: Two arm | Fixed design | TTE"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 10: Two arm | Fixed design | TTE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup}
+library(rxsim)
+library(survival)
+```
+
+This example simulates a Phase II/III parallel-group trial evaluating a new treatment against placebo on a time-to-event primary endpoint (e.g., a response indicator or event occurrence). With 100 subjects randomised 1:1, observed event times are constructed with dropout and administrative censoring, and treatment effects are assessed at full enrollment using a log‑rank test and a Cox proportional hazards regression model. Across simulation replicates, we track the one‑sided log‑rank p‑value and Cox model–based estimates, including the treatment hazard ratio, its confidence interval, and associated p‑value. This is the simplest complete rxsim workflow and a good starting point before moving to more complex designs. See [Getting Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html) for an overview of the package.
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 100
+medians <- c(soc = 14, trt = 18.8) # median survival times in treatment and standard of care group 
+arms <- c("pbo", "trt")
+allocation <- c(1,1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  medians = list(medians)
+)
+```
+
+`allocation = c(1, 1)` specifies balanced randomisation, equal expected numbers per arm. `tidyr::expand_grid()` to build the `scenario` data.frame embeds the design parameters directly into each analysis result row, making results self-documenting and easy to compare across parameter sweeps.
+
+## Populations
+Define population generators.
+
+```{r population}
+population_generators <- list(
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rexp(n, log(2) / medians['soc']), # hazard rate for soc based on median survival time
+    readout_time = 1
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rexp(n, log(2) / medians['trt']), # hazard rate for trt based on median survival time
+    readout_time = 1
+  )
+)
+```
+
+Each generator is a function of `n` returning a `data.frame` with one row per subject. `readout_time = 1` means the endpoint is observed 1 time unit after enrollment.  The `value` column represents the time‑to‑event, generated from an exponential distribution with an arm‑specific hazard rate. The placebo arm uses a shorter median survival time, while the treatment arm has a longer median survival time, corresponding to a reduction in the hazard of the event under treatment.
+
+## Triggers & Analysis
+We want to perform a Cox PH model and logrank test.
+
+```{r trigger}
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer) {
+      df_enrolled <- df[!is.na(df$enroll_time), , drop = FALSE]
+      if (nrow(df_enrolled) == 0) {
+        return(data.frame(scenario, note = "no enrolled subjects", stringsAsFactors = FALSE))
+      }
+      
+      # Build observed TTE with censoring
+      censor_drop  <- ifelse(is.na(df_enrolled$drop_time), Inf, pmax(0, df_enrolled$drop_time - df_enrolled$enroll_time))
+      censor_admin <- pmax(0, max(df_enrolled$enroll_time) + 100 - df_enrolled$enroll_time)
+
+      t_obs    <- pmin(df_enrolled$value, censor_drop, censor_admin)
+      status   <- as.integer(df_enrolled$value <= pmin(censor_drop, censor_admin))
+      
+      
+      # Defaults if we can't run time-to-event inference
+      surv_p <- NA_real_
+      hr     <- NA_real_
+      hr_p   <- NA_real_
+      hr_lo  <- NA_real_
+      hr_hi  <- NA_real_
+
+      
+      # Building survival
+      S <- Surv(time = t_obs, event = status)
+        
+      ## Log-Rank Test
+      surv_p <- tryCatch({
+          sd <- survdiff(S ~ arm, data = df_enrolled)
+          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
+        }, error = function(e) NA_real_)
+      
+      ## HR from PH Cox model
+        cox <- tryCatch(coxph(S ~ arm, data = df_enrolled), error = function(e) NULL)
+        if (!is.null(cox)) {
+          s <- summary(cox)
+          hr_p <- unname(pnorm(s$coef[1, 'z'], lower.tail = TRUE))
+          hr    <- unname(s$coef[1, "exp(coef)"])
+          hr_lo <- unname(s$conf.int[1, "lower .95"])
+          hr_hi <- unname(s$conf.int[1, "upper .95"])
+        }
+  
+      data.frame(
+        scenario,
+        n_total    = nrow(df_enrolled),
+        n_pbo      = sum(df_enrolled$arm == "pbo"),
+        n_trt      = sum(df_enrolled$arm == "trt"),
+        logrank_p  = surv_p,
+        hr_cox     = hr,
+        hr_cox_p   = hr_p,
+        hr_ci_lo   = hr_lo,
+        hr_ci_hi   = hr_hi,
+        stringsAsFactors = FALSE
+      )
+    }
+  )
+)
+```
+
+The trigger fires when the cumulative count of enrolled subjects `(sum(!is.na(enroll_time)))` reaches `sample_size`. Inside the analysis function, `subset(!is.na(enroll_time))` drops subjects who have been allocated but not yet enrolled. `rxsim` pre-generates the full allocation list so filtering is essential. Observed time‑to‑event outcomes are then constructed by combining the true event time with dropout‑induced and administrative censoring. At full enrollment, survival outcomes are analyzed using a log‑rank test to compare the treatment arms, and a Cox proportional hazards regression model is then fit to the time to event endpoint, comparing the placebo and treatment arms via the estimated treatment hazard ratio, its confidence interval, and a one‑sided p‑value.
+
+## Trial
+Make multiple trial replicates.
+
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
+```
+
+## Simulate
+To simulate all replicates:
+
+```{r sim}
+run_trials(trials)
+```
+
+Bind one row per replicate into one data frame.
+```{r results}
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
+```
+
+`collect_results()` returns a data.frame with `replicate`, `timepoint`, and `analysis` columns prepended to your analysis columns. The `p_value` column varies across replicates because each replicate draws fresh random data.

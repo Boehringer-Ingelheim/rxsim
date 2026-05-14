@@ -1,0 +1,127 @@
+---
+title: "Example 9: Two arm | Fixed design | Binary"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 9: Two arm | Fixed design | Binary}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup}
+library(rxsim)
+```
+
+This example simulates a Phase II/III parallel-group trial evaluating a new treatment against placebo on a binary primary endpoint (e.g., a response indicator or event occurrence). With 100 subjects randomised 1:1, we fit a logistic regression model at full enrollment and track the one-sided p-value and treatment odds ratio across simulation replicates. This is the simplest complete rxsim workflow and a good starting point before moving to more complex designs. See [Getting Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html) for an overview of the package.
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 100
+arms <- c("pbo", "trt")
+p_pbo <- 0.1
+p_trt <- 0.18
+allocation <- c(1,1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  p_pbo = p_pbo,
+  p_trt = p_trt
+)
+```
+
+`allocation = c(1, 1)` specifies balanced randomisation, equal expected numbers per arm. `tidyr::expand_grid()` to build the `scenario` data.frame embeds the design parameters directly into each analysis result row, making results self-documenting and easy to compare across parameter sweeps.
+
+## Populations
+Define population generators.
+
+```{r population}
+population_generators <- list(
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = p_pbo),
+    readout_time = 1
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rbinom(n, size = 1, prob = p_trt),
+    readout_time = 1
+  )
+)
+```
+
+Each generator is a function of `n` returning a `data.frame` with one row per subject. `readout_time = 1` means the endpoint is observed 1 time unit after enrollment. The endpoint is binary, with a event probability of `p_pbo = 0.10` in the placebo arm and `p_trt = 0.18` in the treatment arm, corresponding to an absolute risk difference of 0.08 in favor of treatment.
+
+## Triggers & Analysis
+We want to do a logistic regression analysis when `sample_size` subjects have been enrolled.
+
+```{r trigger}
+analysis_generators <- list(
+  final = list(
+    trigger = rlang::exprs(
+      sum(!is.na(enroll_time)) >= !!sample_size
+    ),
+    analysis = function(df, timer){
+      df_enrolled <- df |> subset(!is.na(enroll_time))
+      
+      logreg <- glm(value ~ arm, data = df_enrolled, family = "binomial") #logistic regression
+      odds_ratio <- exp(coef(logreg)["armtrt"])
+      logreg_p <- summary(logreg)$coefficients["armtrt", "Pr(>|z|)"]/2
+      logreg_p <- ifelse(odds_ratio > 1, logreg_p, 0.999) # one-sided p-value
+  
+      data.frame(
+        scenario,
+        n_total = nrow(df_enrolled),
+        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
+        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
+        odds_ratio = unname(odds_ratio),
+        p_value = unname(logreg_p),
+        stringsAsFactors = FALSE
+      )
+    }
+  )
+)
+```
+
+The trigger fires when the cumulative count of enrolled subjects `(sum(!is.na(enroll_time)))` reaches `sample_size`. Inside the analysis function, `subset(!is.na(enroll_time))` drops subjects who have been allocated but not yet enrolled. `rxsim` pre-generates the full allocation list so filtering is essential. A logistic regression model is then fit to the binary endpoint, comparing the placebo and treatment arms via the estimated treatment odds ratio and a one‑sided p‑value.
+
+## Trial
+Make multiple trial replicates.
+
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
+```
+
+## Simulate
+To simulate all replicates:
+
+```{r sim}
+run_trials(trials)
+```
+
+Bind one row per replicate into one data frame.
+```{r results}
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
+```
+
+`collect_results()` returns a data.frame with `replicate`, `timepoint`, and `analysis` columns prepended to your analysis columns. The `p_value` column varies across replicates because each replicate draws fresh random data.

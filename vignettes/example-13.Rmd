@@ -1,0 +1,146 @@
+---
+title: "Example 13: Two arm | Fixed design | Continuous | PoS"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example 13: Two arm | Fixed design | Continuous | PoS}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rxsim)
+```
+
+This example simulates a Phase II/III parallel-group trial evaluating a new treatment against placebo on a continuous primary endpoint (e.g., a response indicator or event occurrence). With 1000 subjects randomised 1:1, we run a two-sample t-test at full enrollment. Trial success is defined as achieving statistical significance at a one‑sided α = 0.025 and an observed treatment–placebo mean difference of at least 1. Probability of Success (PoS) is estimated as the proportion of simulated trials meeting both criteria. This is the simplest complete rxsim workflow and a good starting point before moving to more complex designs. See [Getting Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html) for an overview of the package.
+
+## Scenario
+Capture scenario parameters. We will assume piece-wise linear enrollment.
+
+```{r scenario}
+sample_size <- 1000
+arms <- c("pbo", "trt")
+delta       <- 1.25
+allocation <- c(1,1)
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn <- function(n) rexp(n, rate = 0.01)
+
+scenario <- tidyr::expand_grid(
+  sample_size = sample_size,
+  allocation = list(allocation),
+  delta = delta
+)
+```
+
+`allocation = c(1, 1)` specifies balanced randomisation, equal expected numbers per arm. `tidyr::expand_grid()` to build the `scenario` data.frame embeds the design parameters directly into each analysis result row, making results self-documenting and easy to compare across parameter sweeps.
+
+## Populations
+Define population generators.
+
+```{r population}
+population_generators <-list(
+  pbo = function(n) data.frame(
+    id = 1:n,
+    value = rnorm(n, mean = mu_pbo, sd = abs(rnorm(1, mean = mu_pbo, sd = 1))),
+    readout_time = 1
+  ),
+  trt = function(n) data.frame(
+    id = 1:n,
+    value = rnorm(n, mean = mu_trt, sd = abs(rnorm(1, mean = mu_trt, sd = 1))),
+    readout_time = 1
+  )
+)
+```
+
+Each generator is a function of `n` returning a `data.frame` with one row per subject. `readout_time = 1` means the endpoint is observed 1 time unit after enrollment. The placebo arm has a mean of 0 and the treatment arm a mean of `delta`, a small-to-moderate standardised effect.
+
+## Triggers & Analysis
+We want to do a t-test analysis when `sample_size` subjects have been enrolled.
+
+```{r trigger}
+analysis_generators <- list(
+    final = list(
+      trigger = rlang::exprs(
+        sum(!is.na(enroll_time)) >= !!sample_size
+      ),
+      analysis = function(df, timer){
+
+        scenario <- data.frame(
+          sample_size = sample_size,
+          allocation  = list(allocation),
+          delta       = delta
+        )
+
+        df_enrolled <- df |> subset(!is.na(enroll_time))
+        tt <- t.test(value ~ arm, data = df_enrolled)
+
+        mean_pbo <- mean(df_enrolled$value[df_enrolled$arm == "pbo"])
+        mean_trt <- mean(df_enrolled$value[df_enrolled$arm == "trt"])
+        diff     <- mean_trt - mean_pbo
+        p_value  <- unname(tt$p.value)
+
+
+        success <- (p_value < 0.025) & (diff >= 1)
+
+        data.frame(
+          scenario,
+          n_total  = nrow(df_enrolled),
+          mean_pbo = mean_pbo,
+          mean_trt = mean_trt,
+          diff     = diff,
+          p_value  = p_value,
+          success  = success,
+          stringsAsFactors = FALSE
+        )
+
+      }
+    )
+  )
+```
+
+The trigger fires when the cumulative count of enrolled subjects `(sum(!is.na(enroll_time)))` reaches `sample_size`. Inside the analysis function, `subset(!is.na(enroll_time))` drops subjects who have been allocated but not yet enrolled. `rxsim` pre-generates the full allocation list so filtering is essential. The two-sample t-test then compares endpoint values between the two enrolled arms. Success is then measured as a boolean value of whether the two conditions have been met.
+
+## Trial
+Make multiple trial replicates.
+
+```{r trial}
+trials <- replicate_trial(
+  trial_name = "test_trial",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment_fn,
+  dropout = dropout_fn,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = 3
+)
+```
+
+## Simulate
+To simulate all replicates:
+
+```{r sim}
+run_trials(trials)
+```
+
+Bind one row per replicate into one data frame.
+```{r results}
+replicate_results <- do.call(rbind, lapply(seq_along(trials), function(i) {
+  data.frame(
+    replicate = i,
+    trials[[i]]$results[[1]]$final,
+    stringsAsFactors = FALSE
+  )
+}))
+
+replicate_results
+```
+
+`collect_results()` returns a data.frame with `replicate`, `timepoint`, and `analysis` columns prepended to your analysis columns. The `p_value` column varies across replicates because each replicate draws fresh random data.
