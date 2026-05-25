@@ -108,6 +108,16 @@ Trial <- R6::R6Class(
       if (!is.null(timer) && !inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
       stopifnot(is.list(population))
 
+      if (length(population) > 1) {
+        readouts <- sapply(population, function(p) p$n_readouts)
+        if (length(unique(readouts)) > 1) {
+          stop(sprintf(
+            "All populations must have the same n_readouts. Found: %s",
+            paste(sprintf("%s=%d", sapply(population, function(p) p$name), readouts), collapse = ", ")
+          ))
+        }
+      }
+
       if (is.null(timer) || length(timer$timelist) == 0) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
@@ -217,18 +227,10 @@ Trial <- R6::R6Class(
           )
         })
 
-        combined <- do.call(rbind, locked_snapshot_list) 
-        offset <- 0L
-        global_ids <- integer(0)
-        for (idx in seq_along(self$population)) {
-          snap <- locked_snapshot_list[[idx]]
-          if (is.null(snap) || nrow(snap) == 0L) next
-          nr <- self$population[[idx]]$n_readouts
-          n_subj <- as.integer(nrow(snap) / nr)
-          global_ids <- c(global_ids, rep(offset + seq_len(n_subj), each = nr))
-          offset <- offset + n_subj
-        }
-        combined$subject_id <- global_ids        
+        combined <- do.call(rbind, locked_snapshot_list)
+        nr     <- self$population[[1]]$n_readouts
+        n_subj <- as.integer(nrow(combined) / nr)
+        combined$subject_id <- rep(seq_len(n_subj), each = nr)
 
         if (is.null(combined) || nrow(combined) == 0L) {
           next
