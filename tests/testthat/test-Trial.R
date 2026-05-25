@@ -36,7 +36,7 @@ test_that("Trial run: subject_id globally unique across arms with same n_readout
   testthat::expect_equal(nrow(snap), 12L)
 
   # 6 globally unique subject IDs
-  testthat::expect_equal(sort(unique(snap$subject_id)), 1:6)
+  testthat::expect_equal(snap$subject_id, rep(1:6, each = 2))
 
   # Each subject ID appears exactly 2 times (each, not cycled with times)
   testthat::expect_true(all(table(snap$subject_id) == 2L))
