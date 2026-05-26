@@ -23,7 +23,7 @@ library(rxsim)
 Enrollment pace determines when each subject enters the trial and therefore
 when the trial clock can reach the timepoints that trigger analyses. In most
 real programs, the rate at which sites activate and patients are screened is
-uncertain — enrollment is itself a random process. When that randomness is
+uncertain - enrollment is itself a random process. When that randomness is
 ignored (for example, by assuming all subjects enroll on a fixed schedule),
 the simulated distribution of study duration is artificially narrow, and
 operating characteristics such as power or expected decision error rates can
@@ -36,13 +36,13 @@ simulation is designed to evaluate.
 rxsim offers two complementary strategies, each suited to a different
 modeling philosophy:
 
-- **`gen_plan()`** — stochastic. You supply a random function for
+- **`gen_plan()`** - stochastic. You supply a random function for
   inter-enrollment times. Every call draws a new realization, so each
   replicate gets its own unique enrollment timeline. Use this when
   trial-duration variability is substantively important and you want
   operating characteristics to reflect it.
 
-- **`gen_timepoints()`** — piecewise-constant. You specify how many subjects
+- **`gen_timepoints()`** - piecewise-constant. You specify how many subjects
   enroll per unit time in each time period. The schedule is fixed and
   deterministic. Every replicate uses exactly the same enrollment pattern.
   Use this when you have a well-characterized enrollment plan and want to
@@ -60,7 +60,7 @@ times between successive subject arrivals. You provide a function that, given
 `n`, returns a vector of `n` independent inter-arrival durations. rxsim then
 takes the cumulative sum of those durations to produce the calendar time at
 which each subject enrolls. This is the standard structure of a Poisson
-process — a simple and widely used model for patient arrival — although any
+process - a simple and widely used model for patient arrival - although any
 non-negative distribution can be substituted.
 
 For example, `function(n) rexp(n, rate = 1)` draws waiting times from an
@@ -91,7 +91,7 @@ plan_a
 
 ### Output columns
 
-Each row in the returned data frame represents a single event — either an
+Each row in the returned data frame represents a single event - either an
 enrollment or a dropout:
 
 | Column | Meaning |
@@ -109,7 +109,7 @@ are continuous-valued and always positive.
 
 Because the inter-arrival times are drawn freshly each time, repeating the
 call yields a different timeline. This is the core mechanism by which
-`replicate_trial()` produces independent replicates — it calls `gen_plan()`
+`replicate_trial()` produces independent replicates - it calls `gen_plan()`
 once per replicate.
 
 ```{r gen_plan_twice}
@@ -165,7 +165,7 @@ elements:
 rxsim interprets these as a step function. In the period from time 0 up to
 `end_time[1]`, `rate[1]` subjects are enrolled per unit time; from
 `end_time[1]` to `end_time[2]` the rate switches to `rate[2]`; and so on.
-The schedule is deterministic — every call with the same inputs returns the
+The schedule is deterministic - every call with the same inputs returns the
 same data frame. This makes it straightforward to verify the exact enrollment
 profile being fed into the simulation.
 
@@ -215,7 +215,7 @@ be greater than 1. All times are positive integers.
 ### Every call returns the same schedule
 
 Calling `gen_timepoints()` twice with the same arguments produces identical
-output — confirming the deterministic nature of this approach.
+output - confirming the deterministic nature of this approach.
 
 ```{r gen_timepoints_deterministic}
 tp2 <- gen_timepoints(
@@ -285,8 +285,8 @@ The key trade-offs:
 
 For large-scale simulations where study duration is the main uncertainty,
 `gen_plan()` is the natural choice. When you need a reproducible baseline
-enrollment profile — for example, to match a pre-specified operational plan
-or to run sensitivity analyses against a fixed schedule — `gen_timepoints()`
+enrollment profile - for example, to match a pre-specified operational plan
+or to run sensitivity analyses against a fixed schedule - `gen_timepoints()`
 is preferable.
 
 ## Dropout modeling
@@ -328,7 +328,7 @@ separately and then combined into a single schedule.
 
 ## Allocation ratios
 
-The `allocation` argument is a numeric vector of relative weights — one entry
+The `allocation` argument is a numeric vector of relative weights - one entry
 per arm. rxsim converts these to proportions internally:
 
 ```{r allocation_example}
@@ -349,7 +349,7 @@ For three arms with `allocation = c(2, 1, 1)`, this yields proportions 0.50,
 0.25, 0.25, giving a 2:1:1 split. The target per-arm sample sizes are
 computed as `round(ratio * sample_size)`, and any rounding discrepancy is
 corrected automatically by adding or removing subjects from arms sampled
-proportionally to their weights — so the total always equals `sample_size`
+proportionally to their weights - so the total always equals `sample_size`
 exactly.
 
 The same `allocation` argument works identically for `gen_timepoints()`.
@@ -361,7 +361,7 @@ When you call `replicate_trial()` with functions for `enrollment` and
 an independent `Timer` for each trial. You do not need to call `gen_plan()`
 directly in this workflow.
 
-```{r replicate_trial_example}
+```{r replicate_trial_example, results=FALSE}
 set.seed(42)
 
 population_generators <- list(
@@ -478,15 +478,15 @@ prettify_results(trial_fixed$results)
 ```
 
 Because every replicate cloned from `trial_fixed` uses the same `fixed_plan`,
-enrollment timing is constant — only subject-level endpoint variability
+enrollment timing is constant - only subject-level endpoint variability
 contributes to simulation noise.
 
 ## Next steps
 
-- **[Getting Started](getting-started.html)** — end-to-end walkthrough of a
+- **[Getting Started](getting-started.html)** - end-to-end walkthrough of a
   complete simulation using stochastic enrollment via `replicate_trial()`.
-- **[Core Concepts](concepts.html)** — detailed explanations of `Timer`,
+- **[Core Concepts](concepts.html)** - detailed explanations of `Timer`,
   `Population`, `Condition`, `Trial`, and how they interact during a simulation run.
-- **[Example 3](example-3.html)** — a worked example using `gen_timepoints()`
+- **[Example 3](example-3.html)** - a worked example using `gen_timepoints()`
   with two correlated continuous endpoints and a piecewise-linear enrollment
   ramp.

@@ -28,11 +28,6 @@ knitr::knit_engines$set(mermaid = function(options) {
 library(rxsim)
 ```
 
-```{=html}
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad: true, theme: "default" });</script>
-```
-
 ## Overview
 
 rxsim organises a clinical trial simulation around four collaborating
@@ -40,7 +35,7 @@ objects. A `Population` owns the subject-level data and tracks each
 subject's enrollment and dropout times. A `Timer` drives the trial clock:
 it stores discrete timepoints per arm and defines when the simulation
 clock advances. A `Condition` pairs a filter expression with an optional
-analysis function and manages its own trigger state — it fires when the
+analysis function and manages its own trigger state - it fires when the
 snapshot data meets a criterion. A `Trial` orchestrates the simulation
 by iterating over timepoints, updating populations, snapshotting the
 enrolled cohort, and collecting results.
@@ -82,584 +77,57 @@ is useful when you want to:
 - use `Trial$new()` directly for a one-off single-run simulation
   (as in [Example 8](example-8.html))
 
-The rest of this vignette unpacks each building block in turn.
+The sections below give a short summary of each building block. For the
+full reference, see the dedicated vignettes linked in the table.
 
-## Population
+## Building blocks at a glance
 
-A `Population` object represents a single arm's worth of subjects. It
-stores the endpoint data alongside two tracking vectors (`enrolled`,
-`dropped`) that record the calendar time each subject was enrolled or
-dropped — or `NA` if neither event has occurred yet.
+| Class | Role | Deep dive |
+|-------|------|-----------|
+| `Population` | Holds subject-level endpoint data and enrollment/dropout state for one arm | [Population](class-population.html) |
+| `Timer` | Stores the trial clock: when subjects enroll or drop in each arm | [Timer](class-timer.html) |
+| `Condition` | Pairs a trigger expression with an analysis function; manages trigger state | [Condition](class-condition.html) |
+| `Trial` | Orchestrates the simulation loop; stores snapshots and results | [Trial](class-trial.html) |
 
-### Data structure
+## How the pieces fit together
 
-The `data` field must be a data frame with at least four columns:
-
-| Column | Type | Meaning |
-|--------|------|---------|
-| `id` | integer | Unique subject identifier within the arm |
-| `arm` | character | Arm label (auto-filled from `name` if absent) |
-| `readout_time` | numeric | Lag from enrollment to endpoint observation |
-| *(endpoint)* | numeric | At least one endpoint column (e.g., `data`, `y`, `tte`) |
-
-The `readout_time` column is not a calendar time — it is the lag
-between a subject's enrollment date and the date their endpoint is
-observed. Use `0` for immediately available data (e.g., a baseline
-measure) and a positive value for delayed readouts (e.g.,
-`readout_time = 12` means the endpoint is read 12 weeks after
-enrollment).
-
-### vector_to_dataframe()
-
-For the common case of a single continuous endpoint,
-`vector_to_dataframe()` wraps a numeric vector into the required format
-with columns `id`, `data`, and `readout_time = 0`:
-
-```{r vector_to_df}
-ep <- rnorm(6, mean = 1, sd = 0.5)
-df <- vector_to_dataframe(ep)
-df
-```
-
-You can also build the data frame yourself — useful when you have
-covariates, time-varying endpoints, or different readout lags per
-subject.
-
-### Repeated measurements and n_readouts
-
-When a subject contributes multiple measurements (a longitudinal or
-pharmacokinetic design), each measurement appears as its own row with a
-distinct `readout_time`. `Population` detects this automatically and
-stores the number of rows per subject in `n_readouts`:
-
-```{r n_readouts}
-# Two timepoints per subject: baseline (0) and week 12 (12)
-long_df <- data.frame(
-  id           = rep(1:4, each = 2),
-  readout_time = rep(c(0, 12), times = 4),
-  response     = rnorm(8)
-)
-
-pop_long <- Population$new(name = "treatment", data = long_df)
-pop_long$n          # 4 unique subjects
-pop_long$n_readouts # 2 rows per subject
-```
-
-### Enrollment and dropout vectors
-
-`enrolled` and `dropped` are numeric vectors of length `n`, initialised
-to `NA` for every subject. `NA` means "not yet acted on": the subject
-exists in the pool but has not been enrolled or dropped. The `Trial`
-assigns calendar times to these vectors as the simulation clock
-advances.
-
-`set_enrolled(n, time)` marks `n` randomly chosen currently unenrolled
-subjects as enrolled at `time`. `set_dropped(n, time)` similarly marks
-`n` randomly chosen enrolled-and-not-yet-dropped subjects as dropped at
-`time`.
-
-```{r enrolled_dropped}
-set.seed(1)
-pop <- Population$new(name = "control", data = vector_to_dataframe(rnorm(8)))
-pop$enrolled  # all NA to start
-
-pop$set_enrolled(5, time = 2)
-pop$enrolled  # 5 subjects enrolled at t=2, 3 still NA
-
-pop$set_dropped(2, time = 7)
-pop$dropped   # 2 of the enrolled subjects dropped at t=7
-```
-
-The `Trial`'s `run()` method calls these setters automatically based on
-the `Timer`'s schedule — you rarely need to call them directly.
-
-## Timer
-
-A `Timer` drives the trial clock. It holds a `timelist` that specifies
-how many subjects to enroll or drop in each arm at each time unit. At
-each unique time in the `timelist`, `Trial$run()` processes enrollment
-and dropout events, then evaluates analysis triggers.
-
-Analysis triggers are now managed by the separate [`Condition`] class
-(see [Conditions](#conditions) below). `Condition` objects live in
-`trial$conditions`, not inside `Timer`.
-
-### Timepoints
-
-Each entry in the `timelist` has four fields:
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `time` | numeric | Calendar time of the event |
-| `arm` | character | Which arm the event applies to |
-| `enroller` | integer | Number of subjects to enroll at this time |
-| `dropper` | integer | Number of subjects to drop at this time |
-
-Timepoints are per-arm because the two arms in a trial may enroll
-subjects on different schedules, and enrollment events in one arm do not
-affect the other.
-
-```{r timer_basic}
-t <- Timer$new(name = "my_timer")
-
-t$add_timepoint(time = 1,  arm = "control",   enroller = 5L, dropper = 0L)
-t$add_timepoint(time = 1,  arm = "treatment", enroller = 5L, dropper = 0L)
-t$add_timepoint(time = 2,  arm = "control",   enroller = 3L, dropper = 1L)
-t$add_timepoint(time = 2,  arm = "treatment", enroller = 4L, dropper = 0L)
-t$add_timepoint(time = 10, arm = "control",   enroller = 0L, dropper = 0L)
-t$add_timepoint(time = 10, arm = "treatment", enroller = 0L, dropper = 0L)
-
-t$get_unique_times()   # c(1, 2, 10)
-t$get_end_timepoint()  # 10
-t$get_n_arms()         # 2
-```
-
-Rather than adding timepoints one by one, `add_timepoints()` accepts a
-data frame with the four columns above — exactly what `gen_plan()` and
-`gen_timepoints()` return. See
-[Enrollment & Dropout Modeling](enrollment-dropout.html) for details.
-
-### Conditions {#conditions}
-
-A `Condition` pairs a filter expression with an optional analysis
-function and manages its own trigger state. It is a separate R6 object
-that lives in `trial$conditions`.
-
-When `Trial$run()` reaches each timepoint, it iterates over every
-`Condition` in `trial$conditions` and calls
-`cond$check_conditions(snapshot, current_time)`. Each condition applies
-a three-gate check:
-
-1. **Filter gate** — `dplyr::filter()` is applied to the snapshot using
-   the condition's `where` quosures. If the result is empty (no rows
-   match), the condition does not fire.
-2. **Max-triggers gate** — if `trigger_count >= max_triggers`, the
-   condition does not fire again.
-3. **Cooldown gate** — if `current_time - last_trigger_time < cooldown`,
-   the condition does not fire yet.
-
-If all three gates pass, the analysis function is called on the filtered
-data and the result is stored. Trigger state (`trigger_count`,
-`last_trigger_time`) is updated automatically.
-
-Build a `Condition` from a validated trigger helper:
-
-```{r timer_condition}
-# A toy snapshot data frame
-snapshot <- data.frame(
-  id          = 1:8,
-  arm         = rep(c("control", "treatment"), 4),
-  enroll_time = c(1, 1, 2, 2, NA, NA, NA, NA),
-  data        = rnorm(8)
-)
-
-# Fire when at least 4 subjects are enrolled
-cond_interim <- Condition$new(
-  where    = enroll_trigger(1.0, 4),
-  analysis = function(df, current_time) {
-    data.frame(n_enrolled = sum(!is.na(df$enroll_time)),
-               fired_at   = current_time)
-  },
-  name = "interim"
-)
-
-res <- cond_interim$check_conditions(locked_data = snapshot, current_time = 5)
-res[["interim"]]
-```
-
-If no analysis function is provided, `check_conditions()` returns the
-filtered subset as-is with a warning — convenient for inspection or
-debugging.
-
-## Trial
-
-A `Trial` wires one or more `Population`s and a `Timer` together and
-runs the simulation.
-
-### Constructor
+A typical two-arm simulation follows this pattern:
 
 ```r
-Trial$new(
-  name       = "my_trial",
-  seed       = 42,           # optional; set for reproducibility
-  timer      = my_timer,
-  population = list(pop_a, pop_b),
-  conditions = list(cond1, cond2)  # list of Condition objects
-)
-```
+# 1. Populations: one per arm
+pop_pbo <- Population$new("pbo", pbo_data)
+pop_trt <- Population$new("trt", trt_data)
 
-The `population` argument is a list of `Population` objects, one per
-arm. The arm labels in each `Population`'s `name` field must match the
-`arm` identifiers in the `Timer`'s timelist.
+# 2. Timer: register enrollment/dropout events
+tmr <- Timer$new("my_timer")
+add_timepoints(tmr, gen_plan(n, arms, alloc, enroll_fn, dropout_fn))
 
-### What run() does
-
-Calling `trial$run()` executes the following loop:
-
-1. Iterate over each unique time `t` in the `Timer`'s timelist, in
-   ascending order.
-2. For each arm, apply `set_enrolled()` and `set_dropped()` according
-   to that arm's timepoint entry.
-3. Build a combined snapshot by row-binding all arms' enrolled subjects.
-   Four columns are appended by `Trial`:
-
-| Column | Meaning |
-|--------|---------|
-| `enroll_time` | Calendar time the subject was enrolled (`NA` if not yet enrolled) |
-| `drop_time` | Calendar time the subject dropped out (`NA` if still active) |
-| `measurement_time` | `enroll_time + readout_time` |
-| `time` | The current clock time `t` |
-
-4. Evaluate each `Condition` in `trial$conditions` by calling
-   `cond$check_conditions(snapshot, t)`. Each condition applies its
-   filter, cooldown, and max-trigger guards independently.
-5. If any condition fired, store the snapshot in `locked_data[["time_t"]]`
-   and the analysis outputs in `results[["time_t"]]`.
-
-### locked_data and results
-
-`locked_data` is a named list of snapshots, one per unique timepoint at
-which at least one analysis fired. Each snapshot is the full
-subject-level data frame at that moment — useful for auditing which
-subjects were enrolled, computing post-hoc statistics, or debugging an
-analysis function.
-
-`results` has the same time-indexed structure, but each element is
-itself a named list — one entry per condition that fired at that
-timepoint. The value is whatever your analysis function returned.
-
-### A minimal end-to-end example
-
-```{r trial_example}
-set.seed(7)
-
-# Two small populations
-pop_a <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-pop_b <- Population$new("B", data = vector_to_dataframe(rnorm(10, mean = 0.5)))
-
-# Timer: enroll in two waves, final readout at time 15
-tm <- Timer$new("tm")
-tm$add_timepoint(time = 1,  arm = "A", enroller = 5L, dropper = 0L)
-tm$add_timepoint(time = 1,  arm = "B", enroller = 5L, dropper = 0L)
-tm$add_timepoint(time = 3,  arm = "A", enroller = 5L, dropper = 0L)
-tm$add_timepoint(time = 3,  arm = "B", enroller = 5L, dropper = 0L)
-tm$add_timepoint(time = 15, arm = "A", enroller = 0L, dropper = 0L)
-tm$add_timepoint(time = 15, arm = "B", enroller = 0L, dropper = 0L)
-
-# Trigger: fire at calendar time 15
-cond_final <- trigger_by_calendar(
-  cal_time = 15,
-  analysis = function(df, current_time) {
-    enrolled <- subset(df, !is.na(enroll_time))
-    data.frame(
-      n       = nrow(enrolled),
-      mean_A  = mean(enrolled$data[enrolled$arm == "A"]),
-      mean_B  = mean(enrolled$data[enrolled$arm == "B"])
-    )
-  },
-  name = "final"
-)
-
-trial <- Trial$new(name = "demo", seed = 7, timer = tm,
-                   population = list(pop_a, pop_b),
-                   conditions = list(cond_final))
-trial$run()
-
-# Inspect results
-prettify_results(trial$results)
-```
-
-```{r locked_data}
-# How many subjects were enrolled at each timepoint?
-sapply(trial$locked_data, function(snap) sum(!is.na(snap$enroll_time)))
-```
-
-## Analysis triggers in depth
-
-Triggers are the mechanism by which rxsim knows when to analyse the
-data and what to compute. Understanding how they are stored and
-evaluated is key to writing correct and flexible simulation code.
-
-### Safe trigger helpers
-
-Triggers for `analysis_generators` are created with validated helper
-constructors rather than quoted expressions. Use `enroll_trigger()` for
-enrollment milestones, `calendar_trigger()` for calendar-time analyses,
-and `value_trigger()` / `count_trigger()` when you want to write a
-predicate against a specific snapshot column.
-
-```{r trigger_helpers, eval = FALSE}
-enroll_trigger(0.5, 100)
-calendar_trigger(c(12, 24))
-value_trigger("time", ">=", 24)
-count_trigger("enroll_time", ">=", 50)
-```
-
-The helpers take plain R values, so there is no need for
-`rlang::exprs()` or `!!` anymore. Invalid operators, wrong column names,
-and type mismatches are rejected immediately when the trigger is
-constructed.
-
-Compose helper triggers with `&` (AND) and `|` (OR), then pass the
-result directly as the `trigger` field in `analysis_generators`, or
-construct a `Condition` with `Condition$new(where = trigger, ...)`.
-
-### Columns available to trigger helpers
-
-Trigger helpers are evaluated against the snapshot data frame after they
-are converted to a `Condition`. The snapshot contains all columns from
-the `Population`'s `data` plus the four columns appended by `Trial`:
-
-- `enroll_time` — calendar enrollment time (`NA` if not enrolled)
-- `drop_time` — calendar dropout time (`NA` if not dropped)
-- `measurement_time` — `enroll_time + readout_time`
-- `time` — current clock time
-- `arm` — arm label
-
-Any user-defined endpoint column (e.g., `data`, `response`, `tte`) is
-also available.
-
-### trigger_by_calendar() and trigger_by_fraction()
-
-For the two most common cases, use the convenience constructors directly
-to create `Condition` objects:
-
-```{r trig_calendar, eval = FALSE}
-# Fire at calendar time 24
-cond_final <- trigger_by_calendar(
-  cal_time = 24,
-  analysis = function(df, current_time) {
-    data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
-  },
-  name = "final_analysis"
-)
-trial$conditions <- append(trial$conditions, list(cond_final))
-```
-
-```{r trig_fraction, eval = FALSE}
-# Interim at 50% enrollment (target = 100)
-cond_interim <- trigger_by_fraction(
-  fraction = 0.5,
-  sample_size = 100,
-  analysis = function(df, current_time) {
-    enrolled <- subset(df, !is.na(enroll_time))
-    data.frame(n = nrow(enrolled), time = current_time)
-  },
-  name = "interim_50pct"
-)
-trial$conditions <- append(trial$conditions, list(cond_interim))
-```
-
-When you need more than one predicate, compose helpers before building
-the `Condition`:
-
-```{r trig_combine, eval = FALSE}
-trig_both <- enroll_trigger(0.5, 100) & calendar_trigger(24)
-
-cond_both <- Condition$new(
-  where    = trig_both,
-  analysis = my_analysis,
-  name     = "interim_after_half_enrollment_at_day_24"
-)
-trial$conditions <- append(trial$conditions, list(cond_both))
-```
-
-### Custom conditions
-
-For trigger logic that cannot yet be expressed with the safe helpers,
-`Condition$new(where = rlang::quos(...))` remains the advanced escape
-hatch. For time-to-event endpoints this commonly means waiting for a
-target number of events rather than a target enrollment count:
-
-```{r custom_condition, eval = FALSE}
-# Fire when 30 events have been observed (event = 1, censored = 0)
-cond_events <- Condition$new(
-  where    = rlang::quos(sum(event == 1 & !is.na(enroll_time)) >= !!n_events),
-  analysis = my_tte_analysis,
-  name     = "event_driven_interim"
-)
-trial$conditions <- append(trial$conditions, list(cond_events))
-```
-
-When the logic *can* be expressed with helper predicates, prefer
-composing `rxsim_trigger` objects with `&` instead of supplying multiple
-`where` quosures:
-
-```{r multi_condition, eval = FALSE}
-# Fire once time 12 is reached and at least 15 subjects are enrolled
-cond_interim <- Condition$new(
-  where    = value_trigger("time", ">=", 12) & count_trigger("enroll_time", ">=", 15),
-  analysis = my_analysis,
-  name     = "interim_after_time12"
-)
-trial$conditions <- append(trial$conditions, list(cond_interim))
-```
-
-### The analysis function signature
-
-The analysis function always receives the filtered data frame and clock time
-as its first two positional arguments. Scenario-specific values can be
-declared as additional named parameters and injected via `analysis_args`:
-
-- `df`: the **full snapshot** — all arms, all currently enrolled subjects.
-  The condition filter determined *whether* to fire; the analysis function
-  decides *what to compute* from the full data.
-- `current_time`: the numeric clock time at which the condition fired.
-- `...`: any extra named values supplied through `analysis_args`.
-
-```{r analysis_fn, eval = FALSE}
-# Basic signature
-my_analysis <- function(df, current_time) {
-  enrolled <- subset(df, !is.na(enroll_time))
-  data.frame(
-    fired_at  = current_time,
-    n_ctrl    = sum(enrolled$arm == "control"),
-    n_trt     = sum(enrolled$arm == "treatment"),
-    mean_diff = mean(enrolled$data[enrolled$arm == "treatment"]) -
-                mean(enrolled$data[enrolled$arm == "control"])
-  )
-}
-
-# With extra scenario-specific arguments
-my_analysis_ext <- function(df, current_time, alpha, cov_matrix) {
-  # alpha and cov_matrix are injected from analysis_args at call time
-  enrolled <- subset(df, !is.na(enroll_time))
-  data.frame(fired_at = current_time, n = nrow(enrolled), alpha = alpha)
-}
-
+# 3. Condition: fire at full enrollment, run a t-test
 cond <- Condition$new(
-  where         = enroll_trigger(1.0, 100),
-  analysis      = my_analysis_ext,
-  analysis_args = list(alpha = 0.05, cov_matrix = diag(2)),
-  name          = "final"
+  where    = enroll_trigger(1.0, n),
+  analysis = function(df, t) { ... },
+  name     = "final"
 )
+
+# 4. Trial: assemble and run
+trial <- Trial$new("trial", timer=tmr,
+                   population=list(pop_pbo, pop_trt),
+                   conditions=list(cond))
+trial$run()
 ```
 
-### Return values
-
-The analysis function's return value is stored verbatim in `results`.
-`collect_results()` handles three cases:
-
-- **`data.frame`** (recommended) — the standard pattern; one row per
-  trigger event is the convention.
-- **named `list`** — coerced to a single-row data frame.
-- **`NULL`** — silently skipped by `collect_results()`.
-
-Returning `NULL` is useful for side-effects-only analyses (e.g.,
-writing a log entry) or for marking that a trigger condition was not
-yet satisfied.
-
-## Putting it together: replicate_trial() and run_trials()
-
-Building a single `Trial` by hand is useful for exploration, but the
-purpose of rxsim is operating-characteristic simulation across many
-replicates. `replicate_trial()` + `run_trials()` handle this ergonomically.
-
-### How replicate_trial() works
-
-For each of the `n` replicates, `replicate_trial()`:
-
-1. Calls `gen_plan()` with your `enrollment` and `dropout` functions to
-   generate a fresh, stochastic enrollment/dropout schedule.
-2. Builds a new `Timer` and loads the schedule via `add_timepoints()`.
-3. Creates a `Condition` object for each entry in `analysis_generators`
-   and attaches them to the trial's `conditions` list.
-4. Calls each population generator function to draw fresh subject-level
-   endpoint data.
-5. Constructs a `Trial$new()` wiring the `Timer`, `Population` objects,
-   and `Condition` objects together.
-
-Each replicate therefore has independent endpoint data *and* independent
-enrollment timing — both sources of variability that operating
-characteristic simulations are designed to characterise.
-
-### A complete six-step example
-
-```{r full_example}
-set.seed(42)
-
-# Step 1 — design parameters
-sample_size <- 30
-arms        <- c("control", "treatment")
-allocation  <- c(1, 1)
-true_delta  <- 0.5
-
-scenario <- data.frame(sample_size = sample_size, true_delta = true_delta)
-
-# Step 2 — population generators (called fresh per replicate)
-population_generators <- list(
-  control   = function(n) vector_to_dataframe(rnorm(n)),
-  treatment = function(n) vector_to_dataframe(rnorm(n, mean = true_delta))
-)
-
-# Step 3 — enrollment and dropout (inter-arrival functions)
-enrollment <- function(n) rexp(n, rate = 2)
-dropout    <- function(n) rexp(n, rate = 0.02)
-
-# Step 4 — analysis trigger: fire when full enrollment is reached
-analysis_generators <- list(
-  final = list(
-    trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, current_time) {
-      enrolled <- subset(df, !is.na(enroll_time))
-      data.frame(
-        scenario,
-        fired_at  = current_time,
-        n_ctrl    = sum(enrolled$arm == "control"),
-        n_trt     = sum(enrolled$arm == "treatment"),
-        mean_ctrl = mean(enrolled$data[enrolled$arm == "control"]),
-        mean_trt  = mean(enrolled$data[enrolled$arm == "treatment"])
-      )
-    }
-  )
-)
-
-# Step 5 — create and run replicates
-trials <- replicate_trial(
-  trial_name            = "concepts_demo",
-  sample_size           = sample_size,
-  arms                  = arms,
-  allocation            = allocation,
-  enrollment            = enrollment,
-  dropout               = dropout,
-  analysis_generators   = analysis_generators,
-  population_generators = population_generators,
-  n                     = 10
-)
-
-run_trials(trials)
-
-# Step 6 — collect and inspect
-results <- collect_results(trials)
-results
-```
-
-### collect_results() and the analysis= filter
-
-When a trial has multiple named analyses (e.g., an interim and a
-final), `collect_results()` returns rows for all of them. Use the
-`analysis` argument to restrict to a specific name:
-
-```{r collect_filter, eval = FALSE}
-# Only the final analysis rows
-collect_results(trials, analysis = "final")
-```
-
-Each row in the output corresponds to one replicate firing one named
-analysis. The `replicate`, `timepoint`, and `analysis` columns identify
-the provenance of every result row, making it straightforward to
-compare interim and final results within the same replicate or
-aggregate across replicates.
+For a step-by-step walkthrough see [Getting Started](getting-started.html).
+For the generator shortcut (`replicate_trial`) see
+[Two API Styles](api-styles.html).
 
 ## Next steps
 
-- [Getting Started](getting-started.html) — end-to-end walkthrough of
-  the six-step pattern shown above, with commentary on each design
-  choice.
-- [Enrollment & Dropout Modeling](enrollment-dropout.html) — choose
-  between stochastic (`gen_plan`) and piecewise-constant
-  (`gen_timepoints`) schedules.
-- [Example 1](example-1.html) through [Example 8](example-8.html) —
-  progressively complex designs: correlated endpoints, time-to-event,
-  multi-arm dose-finding, subgroup analyses, and Bayesian Go/No-Go
-  rules.
+- [Getting Started](getting-started.html) - complete end-to-end walkthrough
+- [Population](class-population.html) - subject data format and enrollment
+  tracking
+- [Timer](class-timer.html) - building the trial clock
+- [Condition](class-condition.html) - triggers and analysis functions
+- [Trial](class-trial.html) - the simulation loop, results structure, and
+  replication
+- [Two API Styles](api-styles.html) - direct vs. generator API
+

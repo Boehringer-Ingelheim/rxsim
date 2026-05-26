@@ -1,0 +1,504 @@
+---
+title: "Condition: Triggers and Analyses"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Condition: Triggers and Analyses}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rxsim)
+```
+
+This vignette is a deep-dive reference for the `Condition` R6 class and the
+trigger API. Every example builds a small snapshot data frame by hand so you can
+inspect `check_conditions()` directly before wiring conditions into a full
+`Trial`.
+
+```{r snapshots}
+make_snapshot <- function(current_time, enroll_time,
+                          drop_time = rep(NA_real_, 6)) {
+  data.frame(
+    id = 1:6,
+    arm = c(
+      "control", "control", "control",
+      "treatment", "treatment", "treatment"
+    ),
+    response = c(7.2, 6.8, 8.1, 9.4, 10.1, 9.7),
+    biomarker = c(0.30, 0.50, 0.40, 0.80, 0.90, 0.70),
+    enroll_time = enroll_time,
+    drop_time = drop_time,
+    time = current_time,
+    stringsAsFactors = FALSE
+  )
+}
+
+snapshot_half <- make_snapshot(
+  current_time = 8,
+  enroll_time = c(1, 2, 4, NA, NA, NA)
+)
+
+snapshot_week12 <- make_snapshot(
+  current_time = 12,
+  enroll_time = c(1, 2, 4, 6, 8, 10)
+)
+
+snapshot_week16 <- make_snapshot(
+  current_time = 16,
+  enroll_time = c(1, 2, 4, 6, 8, 10),
+  drop_time = c(NA, NA, 15, NA, NA, 14)
+)
+
+count_rows <- function(df, current_time) {
+  data.frame(
+    n = nrow(df),
+    fired_at = current_time
+  )
+}
+```
+
+## What is a Condition?
+
+A `Condition` is three things packaged into one stateful R6 object:
+
+1. a **filter** built from trigger primitives
+2. an optional **analysis** function
+3. internal **state** that remembers whether it has already fired
+
+`check_conditions(locked_data, current_time)` applies three gates in order:
+
+1. the filtered snapshot must be non-empty
+2. the cooldown must have elapsed
+3. `trigger_count` must still be below `max_triggers`
+
+If all three gates pass, the condition runs its analysis and returns a named
+list. The name is taken from `name`; if `name` is `NULL`, the key falls back to
+`1L`.
+
+```{r what-is-a-condition}
+arm_summary <- Condition$new(
+  where = value_trigger("arm", "==", "treatment"),
+  analysis = function(df, current_time) {
+    data.frame(
+      arm = unique(df$arm),
+      n = nrow(df),
+      mean_response = mean(df$response),
+      fired_at = current_time
+    )
+  },
+  name = "treatment_summary",
+  cooldown = 0,
+  max_triggers = 2L
+)
+
+arm_summary$check_conditions(snapshot_week12, current_time = 12)
+```
+
+## The locked_data snapshot
+
+The snapshot passed to `check_conditions()` is the same data frame your analysis
+function receives as `df`. It contains the subject-level columns from
+`Population$data`, plus trial bookkeeping columns added by rxsim.
+
+| Column group | Meaning |
+|--------------|---------|
+| Endpoint columns | Any subject-level columns already in `Population$data`, such as `id`, `response`, `biomarker`, covariates, or readout variables |
+| `arm` | Arm label for each row |
+| `enroll_time` | Calendar time of enrollment; `NA` means not yet enrolled |
+| `drop_time` | Calendar time of dropout; `NA` means not dropped |
+| `time` | Current calendar time of the snapshot |
+
+In the manual examples below, rows stay in the snapshot and use `NA` in
+`enroll_time` until a subject enrolls. Dropped subjects can remain visible, with
+`drop_time` marking when they left.
+
+```{r locked-data-snapshot}
+snapshot_week16
+```
+
+In practice, think of `locked_data` as the current frozen trial view. Your
+trigger reads columns from that snapshot, and your analysis works on the subset
+that survived the trigger filter.
+
+## Trigger primitives
+
+rxsim provides four trigger constructors:
+
+- `value_trigger(col, op, rhs)`
+- `count_trigger(col, op, rhs)`
+- `enroll_trigger(fraction, sample_size)`
+- `calendar_trigger(cal_time)`
+
+Valid operators are `>=`, `<=`, `>`, `<`, `==`, `!=`, and `%in%`.
+
+### `value_trigger()`
+
+`value_trigger()` compares a column value to a right-hand side. This is the most
+natural choice for row-wise filters such as arm, subgroup, or calendar time.
+
+```{r value-trigger}
+value_cond <- Condition$new(
+  where = value_trigger("arm", "==", "treatment"),
+  analysis = count_rows,
+  name = "treatment_rows"
+)
+
+value_cond$check_conditions(snapshot_week12, current_time = 12)
+```
+
+### `count_trigger()`
+
+`count_trigger()` compares the count of non-`NA` values in a column. This is a
+cohort-level gate: when it passes, the whole snapshot is eligible unless you
+combine it with another row-wise trigger.
+
+```{r count-trigger}
+count_cond <- Condition$new(
+  where = count_trigger("enroll_time", ">=", 4),
+  analysis = function(df, current_time) {
+    data.frame(
+      enrolled = sum(!is.na(df$enroll_time)),
+      n_rows_passed = nrow(df),
+      fired_at = current_time
+    )
+  },
+  name = "four_enrolled"
+)
+
+count_cond$check_conditions(snapshot_half, current_time = 8)
+count_cond$check_conditions(snapshot_week12, current_time = 12)
+```
+
+### `enroll_trigger()`
+
+`enroll_trigger()` is a shortcut for the common question "has a fraction of the
+planned sample size enrolled yet?"
+
+```{r enroll-trigger}
+enroll_cond <- Condition$new(
+  where = enroll_trigger(fraction = 0.5, sample_size = 6),
+  analysis = function(df, current_time) {
+    data.frame(
+      enrolled = sum(!is.na(df$enroll_time)),
+      fired_at = current_time
+    )
+  },
+  name = "half_enrolled"
+)
+
+enroll_cond$check_conditions(snapshot_half, current_time = 8)
+```
+
+### `calendar_trigger()`
+
+`calendar_trigger()` is a shortcut for fixed calendar looks.
+
+```{r calendar-trigger}
+calendar_cond <- Condition$new(
+  where = calendar_trigger(12),
+  analysis = count_rows,
+  name = "week12_lock"
+)
+
+calendar_cond$check_conditions(snapshot_half, current_time = 8)
+calendar_cond$check_conditions(snapshot_week12, current_time = 12)
+```
+
+## Combining triggers
+
+Triggers compose with `&` and `|`.
+
+- `trigger1 & trigger2`: both conditions must hold
+- `trigger1 | trigger2`: either condition may hold
+
+A common pattern is to combine a cohort threshold with a calendar rule.
+
+```{r combining-and}
+combo_and <- Condition$new(
+  where = enroll_trigger(0.5, 6) & value_trigger("time", ">=", 12),
+  analysis = function(df, current_time) {
+    data.frame(
+      enrolled = sum(!is.na(df$enroll_time)),
+      fired_at = current_time
+    )
+  },
+  name = "half_and_past_week12"
+)
+
+combo_and$check_conditions(snapshot_half, current_time = 8)
+combo_and$check_conditions(snapshot_week12, current_time = 12)
+```
+
+`|` is useful for scheduled looks that can happen at more than one time.
+
+```{r combining-or}
+combo_or <- Condition$new(
+  where = calendar_trigger(8) | calendar_trigger(12),
+  analysis = count_rows,
+  name = "scheduled_look",
+  max_triggers = Inf
+)
+
+combo_or$check_conditions(snapshot_half, current_time = 8)
+combo_or$check_conditions(snapshot_week12, current_time = 12)
+```
+
+## The analysis function
+
+A condition analysis is called as `function(df, current_time, ...)`.
+
+- `df` is already pre-filtered by the trigger
+- `current_time` is the calendar time that fired the condition
+- `...` is where values from `analysis_args` are injected
+
+You can return any R object, but a one-row `data.frame` is the easiest shape to
+bind across many trials and timepoints.
+
+```{r analysis-function}
+mean_cond <- Condition$new(
+  where = value_trigger("arm", "==", "treatment"),
+  analysis = function(df, current_time) {
+    data.frame(
+      analysis = "treatment_mean",
+      n = nrow(df),
+      mean_response = mean(df$response),
+      current_time = current_time
+    )
+  },
+  name = "treatment_mean"
+)
+
+mean_cond$check_conditions(snapshot_week12, current_time = 12)
+```
+
+You do not need to subset again for the same condition inside the analysis.
+That work has already been done for you. If you need scenario-specific constants
+or thresholds, pass them with `analysis_args`; see
+[Using analysis_args](#using-analysis_args).
+
+## Trigger state
+
+Each `Condition` tracks its own state:
+
+- `max_triggers`: hard cap on the number of fires
+- `cooldown`: minimum time between successful fires
+- `trigger_count`: number of successful fires so far
+- `last_trigger_time`: time of the most recent fire
+
+The helper below runs the same condition across a series of timepoints and shows
+how the state changes.
+
+```{r trigger-state-helper}
+run_times <- function(cond, times) {
+  out <- lapply(times, function(tt) {
+    snap <- snapshot_week12
+    snap$time <- tt
+    fired <- cond$check_conditions(snap, current_time = tt)
+
+    data.frame(
+      time = tt,
+      fired = length(fired) > 0,
+      trigger_count = cond$trigger_count,
+      last_trigger_time = cond$last_trigger_time
+    )
+  })
+
+  do.call(rbind, out)
+}
+```
+
+### `max_triggers = 1`: a final analysis
+
+```{r trigger-state-once}
+final_once <- Condition$new(
+  where = value_trigger("time", ">=", 12),
+  analysis = count_rows,
+  name = "final_once",
+  max_triggers = 1L
+)
+
+run_times(final_once, c(12, 16, 20))
+```
+
+### `max_triggers = Inf`: repeated logging
+
+```{r trigger-state-inf}
+logger <- Condition$new(
+  where = value_trigger("time", ">=", 12),
+  analysis = count_rows,
+  name = "logger",
+  cooldown = 2,
+  max_triggers = Inf
+)
+
+run_times(logger, c(12, 13, 14, 16))
+```
+
+### `max_triggers = 2`: interim plus final
+
+```{r trigger-state-two}
+two_looks <- Condition$new(
+  where = value_trigger("time", ">=", 12),
+  analysis = count_rows,
+  name = "two_looks",
+  cooldown = 4,
+  max_triggers = 2L
+)
+
+run_times(two_looks, c(12, 14, 16, 20))
+```
+
+Use `max_triggers = 1L` for a single final look, `Inf` for diagnostics or
+logging at every eligible timepoint, and a small integer such as `2L` for an
+interim-plus-final design.
+
+## Convenience constructors
+
+Use `trigger_by_calendar()` and `trigger_by_fraction()` when you want a single
+common trigger without writing `Condition$new()` by hand.
+
+`trigger_by_calendar()` is ideal for fixed looks.
+
+```{r trigger-by-calendar}
+by_calendar <- trigger_by_calendar(
+  cal_time = 12,
+  analysis = function(df, current_time) {
+    data.frame(
+      n = nrow(df),
+      fired_at = current_time
+    )
+  },
+  name = "week12"
+)
+
+by_calendar$check_conditions(snapshot_week12, current_time = 12)
+```
+
+`trigger_by_fraction()` is ideal for enrollment milestones.
+
+```{r trigger-by-fraction}
+by_fraction <- trigger_by_fraction(
+  fraction = 0.5,
+  sample_size = 6,
+  analysis = function(df, current_time) {
+    data.frame(
+      enrolled = sum(!is.na(df$enroll_time)),
+      fired_at = current_time
+    )
+  },
+  name = "half"
+)
+
+by_fraction$check_conditions(snapshot_half, current_time = 8)
+```
+
+Reach for `Condition$new()` when you need custom `cooldown`, custom
+`max_triggers`, `analysis_args`, or combined trigger logic.
+
+## Attaching to a Trial
+
+A `Trial` evaluates every condition in `conditions = list(...)` at every
+scheduled timepoint. Multiple conditions can fire at different timepoints, and
+each condition contributes one named result entry.
+
+```{r attaching-to-trial}
+set.seed(123)
+
+pop_control <- Population$new(
+  name = "control",
+  data = vector_to_dataframe(c(0.1, 0.2, -0.1, 0.3))
+)
+
+pop_treatment <- Population$new(
+  name = "treatment",
+  data = vector_to_dataframe(c(0.5, 0.6, 0.7, 0.8))
+)
+
+tm <- Timer$new("mini_timer")
+tm$add_timepoint(time = 1, arm = "control", enroller = 2L, dropper = 0L)
+tm$add_timepoint(time = 1, arm = "treatment", enroller = 2L, dropper = 0L)
+tm$add_timepoint(time = 2, arm = "control", enroller = 2L, dropper = 0L)
+tm$add_timepoint(time = 2, arm = "treatment", enroller = 2L, dropper = 0L)
+
+cond_first <- trigger_by_calendar(
+  cal_time = 1,
+  analysis = function(df, current_time) {
+    data.frame(time = current_time, n = nrow(df))
+  },
+  name = "first_lock"
+)
+
+cond_final <- trigger_by_calendar(
+  cal_time = 2,
+  analysis = function(df, current_time) {
+    data.frame(time = current_time, mean_data = mean(df$data))
+  },
+  name = "final_mean"
+)
+
+trial <- Trial$new(
+  name = "condition_demo",
+  seed = 123,
+  timer = tm,
+  population = list(pop_control, pop_treatment),
+  conditions = list(cond_first, cond_final)
+)
+
+trial$run()
+
+names(trial$results)
+lapply(trial$results, names)
+```
+
+The result keys come from each condition's `name`. That makes it easy to tell a
+week-12 interim from a final analysis in `trial$results` or
+`collect_results()`.
+
+## Using analysis_args
+
+`analysis_args` is the clean way to inject scenario metadata or design
+parameters into an analysis without depending on global variables.
+
+```{r using-analysis-args}
+scenario <- list(
+  scenario_id = "base_case",
+  target_n = 6L
+)
+
+scenario_cond <- Condition$new(
+  where = calendar_trigger(12),
+  analysis = function(df, current_time, scenario) {
+    data.frame(
+      scenario_id = scenario$scenario_id,
+      target_n = scenario$target_n,
+      observed_n = sum(!is.na(df$enroll_time)),
+      mean_response = mean(df$response, na.rm = TRUE),
+      fired_at = current_time
+    )
+  },
+  analysis_args = list(scenario = scenario),
+  name = "scenario_summary"
+)
+
+scenario_cond$check_conditions(snapshot_week12, current_time = 12)
+```
+
+This pattern scales well when you build conditions programmatically. The
+analysis stays explicit about its inputs, and the condition carries the extra
+arguments it needs.
+
+## Next steps
+
+To place `Condition` in the wider rxsim workflow, continue with:
+
+- `class-trial`
+- `api-styles`
+- `interims`

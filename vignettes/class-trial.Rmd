@@ -1,0 +1,515 @@
+---
+title: "Trial: Orchestrating the Simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Trial: Orchestrating the Simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+library(rxsim)
+```
+
+This vignette is a deep-dive reference for the `Trial` R6 class. `Trial`
+is the orchestrator in rxsim: it coordinates `Population` objects, a
+`Timer`, and one or more `Condition` objects to produce a complete simulation
+run. One call to `trial$run()` is one simulated replicate.
+
+## What is a Trial?
+
+A `Trial` is the object that moves the simulation clock forward and freezes
+state at each look. It owns five pieces of state that matter most during a
+run:
+
+- `timer`: the enrollment and dropout schedule
+- `population`: the arm-level subject pools
+- `conditions`: the trigger and analysis rules
+- `locked_data`: the frozen subject-level snapshots
+- `results`: the analysis outputs derived from those snapshots
+
+The direct API builds these objects explicitly with `Trial$new()`. The
+generator API wraps the same idea with helpers such as `replicate_trial()`.
+Understanding `Trial` makes both styles easier to reason about.
+
+## Building a Trial directly
+
+We will build one end-to-end example and reuse it throughout the vignette.
+The design is intentionally simple:
+
+- two arms: `control` and `treatment`
+- a subject pool of 40 candidates per arm
+- a planned enrollment of 12 subjects per arm over four calendar looks
+- one condition named `summary` that fires at times 3 and 8
+
+Because the pool is larger than the planned enrollment, each run randomly
+selects which subjects are enrolled. That makes `Trial` useful even in the
+direct API: the same template can be cloned and rerun many times.
+
+### Step 1: create the arm populations
+
+```{r direct-populations}
+set.seed(2025)
+
+effect <- 0.6
+pool_size <- 40L
+planned_n <- 24L
+
+control_pop <- Population$new(
+  name = "control",
+  data = data.frame(
+    id = seq_len(pool_size),
+    readout_time = 0,
+    response = rnorm(pool_size, mean = 0, sd = 1)
+  )
+)
+
+treatment_pop <- Population$new(
+  name = "treatment",
+  data = data.frame(
+    id = seq_len(pool_size),
+    readout_time = 0,
+    response = rnorm(pool_size, mean = effect, sd = 1)
+  )
+)
+```
+
+### Step 2: create the timer
+
+```{r direct-timer}
+trial_timer <- Timer$new(name = "class_trial_timer")
+
+schedule <- data.frame(
+  time = c(1, 1, 3, 3, 6, 6, 8, 8),
+  arm = c(
+    "control", "treatment",
+    "control", "treatment",
+    "control", "treatment",
+    "control", "treatment"
+  ),
+  enroller = c(4L, 4L, 3L, 3L, 3L, 3L, 2L, 2L),
+  dropper = c(0L, 0L, 1L, 0L, 1L, 1L, 0L, 1L)
+)
+
+add_timepoints(trial_timer, schedule)
+schedule
+```
+
+### Step 3: create the condition
+
+The analysis receives the locked snapshot for the current look. Here we keep
+only subjects whose measurement is available by `current_time` and who have
+not dropped before that look.
+
+```{r direct-condition}
+summary_condition <- Condition$new(
+  where = calendar_trigger(c(3, 8)),
+  analysis = function(df, current_time) {
+    observed <- subset(
+      df,
+      measurement_time <= current_time &
+        (is.na(drop_time) | drop_time > current_time)
+    )
+
+    tt <- t.test(response ~ arm, data = observed)
+
+    data.frame(
+      look = current_time,
+      n_control = sum(observed$arm == "control"),
+      n_treatment = sum(observed$arm == "treatment"),
+      effect = mean(observed$response[observed$arm == "treatment"]) -
+        mean(observed$response[observed$arm == "control"]),
+      p_value = unname(tt$p.value)
+    )
+  },
+  name = "summary",
+  max_triggers = Inf
+)
+```
+
+### Step 4: create and run the trial
+
+```{r direct-trial}
+trial <- Trial$new(
+  name = "class_trial",
+  seed = 2025,
+  timer = trial_timer,
+  population = list(control_pop, treatment_pop),
+  conditions = list(summary_condition)
+)
+
+trial$run()
+```
+
+### Step 5: inspect the outputs
+
+```{r direct-inspect}
+names(trial$locked_data)
+names(trial$results)
+prettify_results(trial$results)
+```
+
+The `summary` analysis fired at calendar times 3 and 8, so both
+`trial$locked_data` and `trial$results` contain `time_3` and `time_8` keys in
+this example.
+
+To reuse the same design later, wrap the construction in a helper.
+
+```{r trial-template-helper}
+make_trial_template <- function(effect = 0.6, seed = 2025) {
+  if (!is.null(seed)) {
+    set.seed(seed)
+  }
+
+  control_pop <- Population$new(
+    name = "control",
+    data = data.frame(
+      id = seq_len(pool_size),
+      readout_time = 0,
+      response = rnorm(pool_size, mean = 0, sd = 1)
+    )
+  )
+
+  treatment_pop <- Population$new(
+    name = "treatment",
+    data = data.frame(
+      id = seq_len(pool_size),
+      readout_time = 0,
+      response = rnorm(pool_size, mean = effect, sd = 1)
+    )
+  )
+
+  trial_timer <- Timer$new(name = "class_trial_timer")
+  add_timepoints(trial_timer, schedule)
+
+  summary_condition <- Condition$new(
+    where = calendar_trigger(c(3, 8)),
+    analysis = function(df, current_time) {
+      observed <- subset(
+        df,
+        measurement_time <= current_time &
+          (is.na(drop_time) | drop_time > current_time)
+      )
+
+      tt <- t.test(response ~ arm, data = observed)
+
+      data.frame(
+        look = current_time,
+        n_control = sum(observed$arm == "control"),
+        n_treatment = sum(observed$arm == "treatment"),
+        effect = mean(observed$response[observed$arm == "treatment"]) -
+          mean(observed$response[observed$arm == "control"]),
+        p_value = unname(tt$p.value)
+      )
+    },
+    name = "summary",
+    max_triggers = Inf
+  )
+
+  Trial$new(
+    name = "class_trial_template",
+    seed = seed,
+    timer = trial_timer,
+    population = list(control_pop, treatment_pop),
+    conditions = list(summary_condition)
+  )
+}
+```
+
+## The `run()` loop explained
+
+`Trial$run()` is a look-by-look loop over the unique times stored in the
+`Timer`. For each timepoint `t`, think in four steps.
+
+1. **Update each arm**: for every population, `Trial` reads the timer counts
+   for that arm at time `t` and calls `set_enrolled()` and `set_dropped()`.
+2. **Build a snapshot**: it combines the arm-level data, adds
+   `enroll_time`, `drop_time`, `measurement_time`, and `time`, then binds the
+   arms into one data frame.
+3. **Lock the snapshot**: the combined data frame is stored under a time key
+   such as `"time_3"`.
+4. **Evaluate conditions**: each `Condition` receives the snapshot and the
+   current time. Any non-empty analysis output is merged into `results`.
+
+You can see the timepoints from the timer directly.
+
+```{r run-loop-times}
+trial$timer$get_unique_times()
+```
+
+And you can inspect one locked snapshot to see the extra bookkeeping columns.
+
+```{r run-loop-snapshot}
+head(
+  trial$locked_data$time_3[
+    , c(
+      "id",
+      "arm",
+      "response",
+      "enroll_time",
+      "drop_time",
+      "measurement_time",
+      "time"
+    )
+  ]
+)
+```
+
+That snapshot is exactly what the `summary` condition receives at time 3.
+The corresponding derived analysis lives under the matching key in
+`trial$results`.
+
+```{r run-loop-result}
+trial$results$time_3$summary
+```
+
+## `locked_data` vs `results`
+
+`locked_data` and `results` answer different questions.
+
+- Use `locked_data` when you need the full subject-level state at a look.
+  This is the debugging and audit layer.
+- Use `results` when you need the derived quantities from a condition, such
+  as a p-value, a posterior probability, or a decision flag.
+
+In this example the keys line up because the only stored analyses happen at
+calendar times 3 and 8.
+
+```{r locked-vs-results}
+lapply(trial$locked_data, nrow)
+collect_results(trial)
+```
+
+A good rule of thumb is: reach for `locked_data` when you want to understand
+who was in the cohort, and reach for `results` when you want to summarize what
+the analysis concluded.
+
+## Seeds and reproducibility
+
+`Trial$new(seed = ...)` sets the random seed during trial construction. In the
+direct API, that seed governs both the random subject pool we generate and the
+random enrollment and dropout choices made during `run()`.
+
+Two trials created from the same template code with the same seed produce the
+same result. Changing the seed changes the realized subject pool and the order
+in which subjects are enrolled or dropped.
+
+```{r reproducibility}
+trial_a <- make_trial_template(effect = 0.6, seed = 2025)
+trial_b <- make_trial_template(effect = 0.6, seed = 2025)
+trial_c <- make_trial_template(effect = 0.6, seed = 2026)
+
+trial_a$run()
+trial_b$run()
+trial_c$run()
+
+identical(collect_results(trial_a), collect_results(trial_b))
+identical(collect_results(trial_a), collect_results(trial_c))
+```
+
+For replication workflows, the important detail is not just the seed. It is
+also the object graph. `clone_trial()` deep-copies the `Timer`,
+`Population`, and `Condition` objects, so running one clone does not mutate the
+state of another clone.
+
+## Cloning for replication
+
+`clone_trial(trial, n)` is the direct API replication tool. It starts from one
+trial template and returns `n` independent copies.
+
+A quick check makes the deep-copy behavior visible.
+
+```{r clone-independence}
+clone_pair <- clone_trial(make_trial_template(effect = 0.6, seed = 2025), n = 2)
+
+clone_pair[[1]]$population[[1]]$set_enrolled(1, time = 0)
+
+c(
+  clone_1 = sum(!is.na(clone_pair[[1]]$population[[1]]$enrolled)),
+  clone_2 = sum(!is.na(clone_pair[[2]]$population[[1]]$enrolled))
+)
+```
+
+Now run a real batch of replicates.
+
+```{r clone-run-50, results = FALSE}
+set.seed(6001)
+
+clones_50 <- clone_trial(make_trial_template(effect = 0.6, seed = 2025), n = 50)
+run_trials(clones_50)
+```
+
+```{r clone-results-50}
+clone_results_50 <- subset(collect_results(clones_50), timepoint == 8)
+head(clone_results_50)
+```
+
+A larger batch gives an empirical power estimate for this fixed design.
+
+```{r clone-run-200, results = FALSE}
+set.seed(6002)
+
+clones_200 <- clone_trial(
+  make_trial_template(effect = 0.6, seed = 2025),
+  n = 200
+)
+run_trials(clones_200)
+```
+
+```{r clone-power-200}
+clone_results_200 <- subset(collect_results(clones_200), timepoint == 8)
+power_200 <- mean(clone_results_200$p_value < 0.05)
+power_200
+```
+
+This is the core operating-characteristic workflow with the direct API:
+
+1. build one template trial
+2. clone it many times
+3. run the clones
+4. flatten the results with `collect_results()`
+5. summarize the statistic of interest
+
+## `prettify_results()` and `collect_results()`
+
+These two helpers are complementary.
+
+- `prettify_results(trial$results)` is for a single trial when you want a
+  compact, print-friendly summary
+- `collect_results(trials)` is for one or many trials when you want a tidy
+  data frame with `replicate`, `timepoint`, and `analysis` columns
+
+```{r pretty-vs-collect}
+prettify_results(trial$results)
+collect_results(trial)
+```
+
+For replicate work, `collect_results()` is usually the last step before you
+compute power, type I error, expected duration, or any other operating
+characteristic.
+
+## The generator API shortcut
+
+The generator API packages the same ideas into a higher-level entry point.
+Instead of building `Population`, `Timer`, and `Condition` objects yourself,
+you provide generator functions and let `replicate_trial()` assemble the
+trials for you.
+
+```{r generator-api, results = FALSE}
+generator_trials <- replicate_trial(
+  trial_name = "class_trial_shortcut",
+  sample_size = planned_n,
+  arms = c("control", "treatment"),
+  allocation = c(1, 1),
+  enrollment = function(n) rexp(n, rate = 0.7),
+  dropout = function(n) rexp(n, rate = 0.15),
+  analysis_generators = list(
+    summary = list(
+      trigger = enroll_trigger(1.0, planned_n),
+      analysis = function(df, current_time) {
+        observed <- subset(
+          df,
+          measurement_time <= current_time &
+            (is.na(drop_time) | drop_time > current_time)
+        )
+
+        tt <- t.test(response ~ arm, data = observed)
+
+        data.frame(
+          look = current_time,
+          n_control = sum(observed$arm == "control"),
+          n_treatment = sum(observed$arm == "treatment"),
+          effect = mean(observed$response[observed$arm == "treatment"]) -
+            mean(observed$response[observed$arm == "control"]),
+          p_value = unname(tt$p.value)
+        )
+      }
+    )
+  ),
+  population_generators = list(
+    control = function(n) {
+      data.frame(
+        id = seq_len(n),
+        readout_time = 0,
+        response = rnorm(n, mean = 0, sd = 1)
+      )
+    },
+    treatment = function(n) {
+      data.frame(
+        id = seq_len(n),
+        readout_time = 0,
+        response = rnorm(n, mean = 0.6, sd = 1)
+      )
+    }
+  ),
+  n = 3
+)
+
+run_trials(generator_trials)
+```
+
+```{r generator-results}
+collect_results(generator_trials)
+```
+
+Use `Trial$new()` when you want full control over the object graph. Use
+`replicate_trial()` when you want the same trial concept with less setup. The
+[Two API Styles](api-styles.html) vignette compares the two approaches side by
+side.
+
+## Power curve with 300 clones
+
+To end, we can sweep the treatment effect and estimate power for each value
+with 300 clones of the same direct-API template.
+
+```{r power-curve-compute, cache = TRUE, results = FALSE}
+estimate_power <- function(effect, n = 300) {
+  set.seed(8000 + round(effect * 100))
+
+  reps <- clone_trial(make_trial_template(effect = effect, seed = 2025), n = n)
+  run_trials(reps)
+
+  res <- subset(collect_results(reps), timepoint == 8)
+  mean(res$p_value < 0.05)
+}
+
+effect_grid <- c(0.0, 0.4, 0.8, 1.2)
+
+power_curve <- data.frame(
+  effect = effect_grid,
+  power = vapply(effect_grid, estimate_power, numeric(1), n = 300)
+)
+```
+
+```{r power-curve-table}
+power_curve
+```
+
+```{r power-curve-plot}
+plot(
+  power_curve$effect,
+  power_curve$power,
+  type = "b",
+  pch = 19,
+  ylim = c(0, 1),
+  xlab = "True treatment effect",
+  ylab = "Pr(p_value < 0.05)",
+  main = "Power curve from 300 direct-API clones"
+)
+abline(h = 0.8, lty = 2, col = "grey50")
+abline(h = 0.05, lty = 3, col = "grey50")
+```
+
+## Next steps
+
+From here, the most useful follow-on references are:
+
+- [Two API Styles](api-styles.html): direct API versus generator API
+- [Interims](interims.html): designing multi-look analyses
+- [Examples](example-1.html): complete trial designs built on the same core
+  `Trial` workflow

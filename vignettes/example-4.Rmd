@@ -34,6 +34,9 @@ component) and a log-rank test plus Cox proportional hazards model (for TTE) at
 a single final analysis. See [Example 3](example-3.html) for the analogous
 two-correlated-continuous setup.
 
+**Unique focus:** mixed endpoint types (continuous + TTE), bivariate latent
+frailty model, censoring construction, Cox PH model.
+
 ## Scenario
 
 We consider a **two-arm fixed design** with a **continuous endpoint (Y)** and a
@@ -50,7 +53,7 @@ arms       <- c("pbo", "trt")
 allocation <- c(1, 1)
 
 enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 
 # Correlation between continuous endpoint driver (Z1) and frailty for TTE (Z2)
 rho <- 0.50
@@ -79,7 +82,7 @@ scenario <- tidyr::expand_grid(
 )
 ```
 
-`HR_trt = 0.70` encodes a 30% hazard reduction in the treatment arm — a
+`HR_trt = 0.70` encodes a 30% hazard reduction in the treatment arm - a
 clinically meaningful effect in many oncology settings. `lambda0 = 0.08` is the
 baseline event rate per time unit; combined with n=1200, this ensures a
 substantial number of TTE events even with only 3 replicates. `sigma_frailty =
@@ -88,35 +91,14 @@ introduce more between-subject heterogeneity in TTE, making the frailty the
 shared biological driver linking the continuous and TTE endpoints through the
 bivariate latent (Z1, Z2) with `rho = 0.50`.
 
-## Time points
-
-Generate the discrete timepoints and add them to a `Timer`.
-
-```{r timepoints}
-plan <- gen_plan(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment_fn,
-  dropout     = dropout_fn
-)
-```
-
-`gen_plan()` is called with `enrollment_fn` as a stochastic function, so each
-invocation by `replicate_trial()` generates a fresh per-replicate enrollment
-schedule. This differs from the piecewise-constant list approach in [Example
-3](example-3.html): here there is no deterministic timer pre-built — enrollment
-timing varies across replicates, which is the more realistic simulation regime
-for large trials.
-
-## Arms (Populations)
+## Populations
 
 Per arm we simulate subject-level latent bivariate normals `(Z1, Z2)` with
-correlation `rho`. - The **continuous** endpoint is `Y = mu_arm + sd_y * Z1`. -
-The **TTE** endpoint uses a proportional-hazards exponential model with
+correlation `rho`. The **continuous** endpoint is `Y = mu_arm + sd_y * Z1`. The
+**TTE** endpoint uses a proportional-hazards exponential model with
 subject-specific frailty: `hazard_i = lambda_arm * exp(eta_i)`, where `eta_i =
-sigma_frailty * Z2` and `lambda_trt = lambda0 * HR_trt`. Event time `T_i ~
-Exponential(rate = hazard_i)`.
+sigma_frailty * Z2` and `lambda_trt = lambda0 * HR_trt`. Event time
+`T_i ~ Exponential(rate = hazard_i)`.
 
 ```{r population}
 # Create generator function for arm-specific data
@@ -235,27 +217,21 @@ log-rank p-value and `coxph()` for the Cox HR and 95% CI. `tryCatch` guards
 against edge cases (e.g., one arm with no events) so the simulation continues
 rather than stopping on an error.
 
-## Trial
-
-Create and run multiple trial replicates.
-
-```{r trial}
-trials <- replicate_trial(
-  trial_name = "two_endpoints_continuous_tte_fixed",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
-```{r sim}
+```{r trial, results=FALSE}
+set.seed(4)
+trials <- replicate_trial(
+  trial_name            = "two_endpoints_continuous_tte_fixed",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 3
+)
 run_trials(trials)
 ```
 
@@ -269,7 +245,7 @@ replicate_results
 ```
 
 `collect_results()` prepends `replicate`, `timepoint`, and `analysis` columns to
-the result data. The `events` column shows how many TTE events were observed —
+the result data. The `events` column shows how many TTE events were observed -
 with n=1200 and `lambda0 = 0.08`, this should be large. `logrank_p` tests the
 null of equal survival curves; `hr_cox` is the estimated hazard ratio from the
 Cox model (values < 1 favour treatment), and `hr_ci_lo`/`hr_ci_hi` are its 95%
@@ -277,3 +253,10 @@ CI bounds. Because the continuous endpoint Y and TTE share the same latent
 drivers, replicates with a small `p_ttest_y` tend to also have a small
 `logrank_p`, though the correspondence is imperfect due to the different
 statistical tests and the censoring mechanism.
+
+## Next steps
+
+- [Example 3](example-3.html) - two correlated continuous endpoints
+- [Endpoint Types](endpoints.html) - detailed guide to TTE endpoint
+  modeling and censoring
+- [Interim Analyses](interims.html) - adding interim looks to this design

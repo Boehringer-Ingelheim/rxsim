@@ -27,9 +27,12 @@ set.seed(6606)
 
 Subgroup analyses are a standard exploratory component of clinical trial
 reporting. This example simulates a trial where the treatment effect differs
-between two patient subgroups — a form of treatment effect heterogeneity. We
+between two patient subgroups - a form of treatment effect heterogeneity. We
 evaluate the overall treatment effect, subgroup-specific effects, and formally
 test whether the arm-by-subgroup interaction is statistically significant.
+
+**Unique focus:** treatment effect heterogeneity across subgroups, overall
+vs subgroup-specific power, interaction test for heterogeneity.
 
 ## Scenario
 
@@ -43,7 +46,7 @@ At final analysis, we report:
   arm-by-subgroup interaction test.
 
 Treatment effect heterogeneity arises when patients with different baseline
-characteristics — such as disease subtype or biomarker status — respond
+characteristics - such as disease subtype or biomarker status - respond
 differently to treatment. Here, `delta_A = 0.40` and `delta_B = 0.15` encode
 a larger benefit in subgroup A; treatment is effective in both subgroups, but
 considerably more so in A. `subgroup_prob = c(0.6, 0.4)` means that on
@@ -67,16 +70,6 @@ delta_A      <- 0.40  # true treatment effect in subgroup A
 delta_B      <- 0.15  # true treatment effect in subgroup B
 sigma        <- 1.0
 
-# Enrollment/dropout profile
-enrollment <- list(
-  end_time = c(4, 8),
-  rate     = c(8, 7)
-)
-dropout <- list(
-  end_time = c(4, 8),
-  rate     = c(0, 0)
-)
-
 scenario <- tidyr::expand_grid(
   sample_size  = sample_size,
   allocation   = list(allocation),
@@ -85,29 +78,9 @@ scenario <- tidyr::expand_grid(
   p_subgroup_A = subgroup_prob[1],
   p_subgroup_B = subgroup_prob[2]
 )
-```
 
-## Time points
-
-`gen_timepoints()` uses a two-interval piecewise-constant schedule (rates 8 and
-7 per time unit) to reach the target sample size of 120. Both dropout rates are
-zero, so all enrolled subjects complete the trial and contribute to the final
-analysis.
-
-```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
-)
-
-tr_timer <- Timer$new(name = "timer_example_6")
-add_timepoints(tr_timer, timepoints)
-
-final_time <- tr_timer$get_end_timepoint()
-final_time
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
 ## Populations
@@ -118,7 +91,7 @@ dataset.
 In each generator, subgroup membership is randomly drawn for each subject with
 probabilities `c(0.6, 0.4)`, and the arm-specific mean is selected conditional
 on that assignment. Because subgroup is sampled independently in each replicate,
-realized subgroup counts — and hence per-subgroup sample sizes — vary across
+realized subgroup counts - and hence per-subgroup sample sizes - vary across
 replicates, reflecting a realistic pre-stratified (but not block-randomised)
 design.
 
@@ -148,24 +121,13 @@ population_generators <- list(
 )
 ```
 
-## Trial Parameters
-
-`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
-distributions for individual subjects. These are passed to `replicate_trial()`,
-which uses them when building each replicate's enrollment schedule.
-
-```{r trial_params}
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
-
 ## Final analysis trigger
 
 `lm(y ~ arm)` estimates the overall treatment effect across all subjects.
 Per-subgroup effects are obtained by fitting `lm(y ~ arm)` separately within
 each subgroup subset. The interaction model `lm(y ~ arm * subgroup)` includes an
 `arm:subgroupB` coefficient that tests directly whether the treatment effect in
-subgroup B differs from that in the reference subgroup A — a statistically
+subgroup B differs from that in the reference subgroup A - a statistically
 significant result indicates genuine treatment effect heterogeneity.
 
 ```{r analysis}
@@ -227,25 +189,21 @@ analysis_generators <- list(
 )
 ```
 
-## Trial
-
-```{r trial}
-trials <- replicate_trial(
-  trial_name = "example_6_two_arm_fixed_subgroup",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
-```{r simulate}
+```{r trial, results=FALSE}
+set.seed(6)
+trials <- replicate_trial(
+  trial_name            = "example_6_two_arm_fixed_subgroup",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 5
+)
 run_trials(trials)
 ```
 
@@ -257,15 +215,104 @@ analysis fired), and `analysis` (the analysis name) to each row.
 `overall_estimate` and `overall_p_value` summarise the pooled treatment effect;
 the per-subgroup columns reveal within-group signals. Note that with
 approximately 24 patients per arm in subgroup B (40% of 60 treated),
-subgroup-level power is limited and p-values will be highly variable — this is
+subgroup-level power is limited and p-values will be highly variable - this is
 intentional, since exploratory subgroup analyses are hypothesis-generating and
 should not support confirmatory conclusions. A small `interaction_p_value`
 suggests genuine treatment effect heterogeneity, but interpretation should be
-made cautiously given the sample sizes. See [Getting
-Started](getting-started.html) for simulation setup and [Core
-Concepts](concepts.html) for background.
+made cautiously given the sample sizes.
 
 ```{r results}
 replicate_results <- collect_results(trials)
 replicate_results
 ```
+
+## Power curve
+
+How does overall and subgroup-specific power vary with the subgroup A effect
+size (`delta_A`), while holding `delta_B = 0.15` fixed?
+
+```{r power_subgroup, cache=TRUE}
+set.seed(66)
+n_reps_pw  <- 200
+deltaA_vals <- c(0.15, 0.25, 0.35, 0.45, 0.55)
+
+pw_df6 <- do.call(rbind, lapply(deltaA_vals, function(dA) {
+  pop_pw <- list(
+    placebo = function(n) {
+      sg <- sample(c("A", "B"), n, TRUE, subgroup_prob)
+      data.frame(
+        id = 1:n, subgroup = sg,
+        y  = rnorm(n, 0, sigma), readout_time = 1
+      )
+    },
+    treatment = local({
+      da <- dA
+      function(n) {
+        sg <- sample(c("A", "B"), n, TRUE, subgroup_prob)
+        mu <- ifelse(sg == "A", da, delta_B)
+        data.frame(
+          id = 1:n, subgroup = sg,
+          y  = rnorm(n, mu, sigma), readout_time = 1
+        )
+      }
+    })
+  )
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      dat <- dplyr::filter(df, !is.na(enroll_time)) |>
+        dplyr::mutate(
+          arm      = factor(arm, levels = c("placebo", "treatment")),
+          subgroup = factor(subgroup, levels = c("A", "B"))
+        )
+      ov_p <- summary(lm(y ~ arm, data = dat))$coef["armtreatment", "Pr(>|t|)"]
+      sg_A <- dplyr::filter(dat, subgroup == "A")
+      sg_B <- dplyr::filter(dat, subgroup == "B")
+      pA <- tryCatch(
+        summary(lm(y ~ arm, data = sg_A))$coef["armtreatment", "Pr(>|t|)"],
+        error = function(e) NA_real_
+      )
+      pB <- tryCatch(
+        summary(lm(y ~ arm, data = sg_B))$coef["armtreatment", "Pr(>|t|)"],
+        error = function(e) NA_real_
+      )
+      data.frame(overall_p = ov_p, p_A = pA, p_B = pB)
+    }
+  ))
+  tr <- replicate_trial(
+    "pw6", sample_size, arms, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  res <- collect_results(tr)
+  data.frame(
+    delta_A        = dA,
+    power_overall  = mean(res$overall_p < 0.05, na.rm = TRUE),
+    power_sgA      = mean(res$p_A       < 0.05, na.rm = TRUE),
+    power_sgB      = mean(res$p_B       < 0.05, na.rm = TRUE)
+  )
+}))
+```
+
+```{r plot_power6}
+matplot(
+  pw_df6$delta_A,
+  pw_df6[, c("power_overall", "power_sgA", "power_sgB")],
+  type = "b", pch = 19, lty = 1,
+  col  = c("black", "steelblue", "tomato"),
+  xlab = "True delta_A (subgroup A effect size)",
+  ylab = "Empirical power (alpha = 0.05)",
+  main = "Overall and subgroup power (delta_B = 0.15 fixed)",
+  ylim = c(0, 1)
+)
+legend("topleft",
+       legend = c("Overall", "Subgroup A", "Subgroup B"),
+       col = c("black", "steelblue", "tomato"), lty = 1, pch = 19)
+abline(h = 0.80, lty = 2, col = "grey50")
+```
+
+## Next steps
+
+- [Example 7](example-7.html) - Bayesian Go/No-Go decision rule with
+  historical borrowing
+- [Endpoint Types](endpoints.html) - modeling binary and TTE endpoints

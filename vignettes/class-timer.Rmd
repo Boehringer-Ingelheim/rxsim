@@ -1,0 +1,330 @@
+---
+title: "Timer: Managing the Trial Clock"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Timer: Managing the Trial Clock}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rxsim)
+
+timer_as_df <- function(timer) {
+  out <- do.call(rbind, lapply(timer$timelist, as.data.frame))
+  rownames(out) <- NULL
+  out[order(out$time, out$arm), ]
+}
+```
+
+## What is a Timer?
+
+A `Timer` is the trial clock. It stores a list of timepoint records, where each
+record says when something happens in one arm and how many subjects are
+affected. Each record has four fields: `time`, `arm`, `enroller`, and
+`dropper`.
+
+`Trial$run()` does not step through subjects one by one. Instead, it collects
+all distinct event times from the timer, sorts them, and updates the trial at
+those times. That makes `Timer` the object that defines the calendar of the
+simulation.
+
+```{r timer_mental_model}
+trial_clock <- Timer$new(name = "trial_clock")
+trial_clock$add_timepoint(time = 1, arm = "pbo", dropper = 0L, enroller = 3L)
+trial_clock$add_timepoint(time = 1, arm = "trt", dropper = 0L, enroller = 3L)
+trial_clock$add_timepoint(time = 4, arm = "pbo", dropper = 1L, enroller = 0L)
+
+trial_clock$timelist
+sort(unique(vapply(trial_clock$timelist, function(x) x$time, numeric(1))))
+```
+
+## Building a Timer manually
+
+Manual construction is useful when you want complete control over the event
+schedule. You create a `Timer`, add one event at a time with
+`add_timepoint()`, and then inspect it with the query methods.
+
+The example below creates a two-arm timer with three timepoints per arm.
+
+```{r manual_timer_build}
+manual_timer <- Timer$new(name = "manual_timer")
+
+manual_timer$add_timepoint(time = 1, arm = "pbo", dropper = 0L, enroller = 3L)
+manual_timer$add_timepoint(time = 2, arm = "pbo", dropper = 1L, enroller = 2L)
+manual_timer$add_timepoint(time = 4, arm = "pbo", dropper = 1L, enroller = 0L)
+
+manual_timer$add_timepoint(time = 1, arm = "trt", dropper = 0L, enroller = 2L)
+manual_timer$add_timepoint(time = 3, arm = "trt", dropper = 0L, enroller = 3L)
+manual_timer$add_timepoint(time = 4, arm = "trt", dropper = 1L, enroller = 0L)
+
+timer_as_df(manual_timer)
+```
+
+Once the timer exists, the accessors give quick structural summaries.
+
+```{r manual_timer_queries}
+manual_timer$get_end_timepoint()
+manual_timer$get_n_arms()
+sort(manual_timer$get_unique_times())
+manual_timer$get_timepoint("trt", 3)
+```
+
+## Stochastic enrollment: `gen_plan()`
+
+`gen_plan()` creates a random event schedule. The `enrollment` and `dropout`
+arguments are functions that return inter-arrival times. For enrollment,
+`function(n) rexp(n, rate = 1)` means: draw `n` waiting times from an
+exponential distribution, then take cumulative sums to obtain calendar times.
+
+This is the natural choice when enrollment timing is itself uncertain. Each
+call draws a fresh schedule, which is why `replicate_trial()` can give each
+replicate a different trial clock.
+
+In the current `rxsim` implementation, `gen_plan()` returns a unified event
+schedule with columns `time`, `arm`, `enroller`, and `dropper`. Rows where
+`enroller == 1L` are enrollment events; rows where `dropper == 1L` are dropout
+events.
+
+```{r gen_plan_example}
+set.seed(2024)
+
+plan_stoch <- gen_plan(
+  sample_size = 8,
+  arms = c("pbo", "trt"),
+  allocation = c(1, 1),
+  enrollment = function(n) rexp(n, rate = 1),
+  dropout = function(n) rexp(n, rate = 0.15)
+)
+
+head(plan_stoch, 8)
+```
+
+Passing the result to `add_timepoints()` turns the data frame into a `Timer`.
+
+```{r gen_plan_to_timer}
+stochastic_timer <- Timer$new(name = "stochastic_timer")
+add_timepoints(stochastic_timer, plan_stoch)
+
+head(stochastic_timer$get_unique_times())
+stochastic_timer$get_end_timepoint()
+```
+
+A second call produces a different schedule because the inter-arrival times are
+redrawn.
+
+```{r gen_plan_repeat}
+set.seed(2025)
+
+plan_stoch_a <- gen_plan(
+  sample_size = 8,
+  arms = c("pbo", "trt"),
+  allocation = c(1, 1),
+  enrollment = function(n) rexp(n, rate = 1),
+  dropout = function(n) rexp(n, rate = 0.15)
+)
+
+plan_stoch_b <- gen_plan(
+  sample_size = 8,
+  arms = c("pbo", "trt"),
+  allocation = c(1, 1),
+  enrollment = function(n) rexp(n, rate = 1),
+  dropout = function(n) rexp(n, rate = 0.15)
+)
+
+identical(plan_stoch_a, plan_stoch_b)
+```
+
+## Deterministic enrollment: `gen_timepoints()`
+
+`gen_timepoints()` creates a fixed schedule from piecewise-constant rates. The
+`enrollment` and `dropout` arguments are lists with `end_time` and `rate`
+elements. Conceptually, each rate applies until the next end time is reached.
+
+Because the inputs are deterministic, repeated calls with the same values give
+exactly the same timer. This is useful when you want a reproducible operating
+plan and do not want timing variability to differ across replicates.
+
+```{r gen_timepoints_example}
+enrollment_schedule <- list(
+  end_time = c(2, 4, 6),
+  rate = c(2, 2, 2)
+)
+
+dropout_schedule <- list(
+  end_time = c(2, 4, 6),
+  rate = c(0, 2, 2)
+)
+
+plan_det <- gen_timepoints(
+  sample_size = 12,
+  arms = c("pbo", "trt"),
+  allocation = c(1, 1),
+  enrollment = enrollment_schedule,
+  dropout = dropout_schedule
+)
+
+plan_det
+```
+
+The resulting schedule can be added directly to a timer.
+
+```{r gen_timepoints_to_timer}
+deterministic_timer <- Timer$new(name = "deterministic_timer")
+add_timepoints(deterministic_timer, plan_det)
+
+deterministic_timer$get_unique_times()
+deterministic_timer$get_end_timepoint()
+```
+
+Calling `gen_timepoints()` again with the same inputs returns the same result.
+
+```{r gen_timepoints_repeat}
+plan_det_2 <- gen_timepoints(
+  sample_size = 12,
+  arms = c("pbo", "trt"),
+  allocation = c(1, 1),
+  enrollment = enrollment_schedule,
+  dropout = dropout_schedule
+)
+
+identical(plan_det, plan_det_2)
+```
+
+## Comparison table
+
+The two generators populate the same `Timer` interface, but they encode very
+different assumptions.
+
+| Feature | `gen_plan()` | `gen_timepoints()` |
+|:--|:--|:--|
+| Time scale | Usually continuous | Usually integer |
+| Variability | Random each call | Deterministic |
+| Event rows | One event per row | Counts can exceed 1 |
+| Best use | Replicate-specific timing uncertainty | Fixed operational plan |
+| Typical role | Study duration varies across runs | Study duration held fixed |
+
+## Allocation ratios
+
+The `allocation` vector gives relative weights across arms. rxsim converts the
+weights to proportions, computes per-arm targets with `round()`, and then adds
+or removes any leftover subjects so that the final total still equals
+`sample_size`.
+
+A three-arm example makes the rounding step easy to see. With allocation
+`c(2, 1, 1)` and `sample_size = 11`, simple rounding gives `c(6, 3, 3)`, which
+sums to 12 rather than 11. rxsim corrects that discrepancy when it generates
+the schedule.
+
+```{r allocation_example}
+set.seed(88)
+
+round(c(2, 1, 1) / sum(c(2, 1, 1)) * 11)
+
+allocation_plan <- gen_plan(
+  sample_size = 11,
+  arms = c("pbo", "dose1", "dose2"),
+  allocation = c(2, 1, 1),
+  enrollment = function(n) rexp(n, rate = 1),
+  dropout = function(n) rexp(n, rate = 0.15)
+)
+
+table(allocation_plan$arm[allocation_plan$enroller == 1L])
+```
+
+The exact arm that gains or loses a subject can depend on the random draw used
+for the correction step. Setting a seed makes the example reproducible.
+
+## Querying a Timer
+
+The same query methods work whether the timer was built manually or generated by
+one of the helper functions.
+
+```{r timer_queries}
+list(
+  manual_end = manual_timer$get_end_timepoint(),
+  manual_arms = manual_timer$get_n_arms(),
+  manual_unique_times = sort(manual_timer$get_unique_times()),
+  stochastic_end = stochastic_timer$get_end_timepoint(),
+  deterministic_lookup = deterministic_timer$get_timepoint("trt", 4)
+)
+```
+
+Use these helpers when you need to validate a design before running a trial or
+when you want to inspect the generated calendar after `gen_plan()` or
+`gen_timepoints()`.
+
+## Role in Trial
+
+`Timer` matters because `Trial$run()` uses it as the execution calendar. At
+each unique trial time, populations are updated for enrollment and dropout,
+then the current snapshot is passed to the analysis conditions.
+
+The example below uses the manual timer from above and asks for a simple summary
+at every unique time. The condition is allowed to fire repeatedly by setting
+`max_triggers = Inf`.
+
+```{r timer_in_trial}
+pop_pbo <- Population$new(
+  name = "pbo",
+  data = data.frame(
+    id = seq_len(5),
+    arm = "pbo",
+    readout_time = 0,
+    response = rnorm(5)
+  )
+)
+
+pop_trt <- Population$new(
+  name = "trt",
+  data = data.frame(
+    id = seq_len(5),
+    arm = "trt",
+    readout_time = 0,
+    response = rnorm(5, mean = 0.5)
+  )
+)
+
+clock_condition <- Condition$new(
+  where = calendar_trigger(sort(manual_timer$get_unique_times())),
+  analysis = function(df, current_time) {
+    data.frame(
+      time = current_time,
+      n_enrolled = sum(!is.na(df$enroll_time)),
+      n_dropped = sum(!is.na(df$drop_time))
+    )
+  },
+  name = "clock",
+  max_triggers = Inf
+)
+
+trial <- Trial$new(
+  name = "timer_demo",
+  seed = 123,
+  timer = manual_timer,
+  population = list(pop_pbo, pop_trt),
+  conditions = list(clock_condition)
+)
+
+trial$run()
+
+names(trial$locked_data)
+do.call(rbind, lapply(trial$results, function(x) x$clock))
+```
+
+This is the key relationship to remember: `Timer` defines when the trial moves;
+`Population` defines who is available to move; `Condition` defines what gets
+checked when the clock advances.
+
+## Next steps
+
+- [Population deep dive](class-population.html)
+- [Condition deep dive](class-condition.html)
+- [Enrollment and dropout modeling](enrollment-dropout.html)

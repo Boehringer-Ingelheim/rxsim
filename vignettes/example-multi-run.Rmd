@@ -1,8 +1,8 @@
 ---
-title: "Example Multi Run: Two arm | Interim | Continuous | t-test"
+title: "Example Multi-Run: Scenario grid sweep with tidyr::expand_grid"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Example Multi Run: Two arm | Interim | Continuous | t-test}
+  %\VignetteIndexEntry{Example Multi-Run: Scenario grid sweep with tidyr::expand_grid}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -11,87 +11,163 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  cache = TRUE
+  cache   = TRUE
 )
 ```
 
 ```{r setup}
 library(rxsim)
+library(tidyr)
+library(ggplot2)
 ```
 
-## Scenario
-Capture scenario parameters. We will assume piece-wise linear enrollment.
+A single rxsim call produces one set of replicates under fixed parameters.
+To explore how power or bias changes across a *grid* of scenarios - for
+example, varying sample size and effect size simultaneously - you nest
+`replicate_trial()` inside a `lapply()` over the scenario rows, then bind
+the results. `tidyr::expand_grid()` creates the full factorial combination,
+and the `scenario` data frame passed inside each analysis function tags every
+result row with the parameters that generated it.
+
+**Unique focus:** parameter sweeps via `tidyr::expand_grid`, running multiple
+independent scenario configurations, binding and plotting results across the
+grid.
+
+## Scenario grid
+
+We sweep over two sample sizes (60 and 100) and three true effect sizes
+(0.0, 0.3, 0.5), giving 6 scenario combinations, each run for 200 replicates.
 
 ```{r scenario}
 set.seed(123)
-sample_size <- 6
-arms        <- c("pbo", "trt")
-allocation  <- c(1, 1)
-delta       <- 2    # true treatment - placebo mean difference
-enrollment  <- function(n) rexp(n, rate = 1)
-dropout     <- function(n) rexp(n, rate = 0.01)
-scenario <- tidyr::expand_grid(
-  sample_size = sample_size,
-  allocation  = list(allocation),
-  delta       = delta
+arms       <- c("pbo", "trt")
+allocation <- c(1, 1)
+
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
+
+scenario_grid <- tidyr::expand_grid(
+  sample_size = c(60, 100),
+  delta       = c(0.0, 0.3, 0.5)
 )
+
+scenario_grid
 ```
 
-## Arms
-Generate populations and endpoint data using generators (functions).
+## Analysis function
 
-```{r population}
-population_generators <- list(
-  pbo = function(n) vector_to_dataframe(stats::rnorm(n)),
-  trt = function(n) vector_to_dataframe(stats::rnorm(n, mean = delta, sd = 3.14))
-)
-```
+For each scenario we run a two-sample t-test at full enrollment. The
+`scenario` data frame (created inside the `lapply`) carries the current
+`sample_size` and `delta` into every result row automatically.
 
-## Triggers & Analysis
-Run one final analysis at full enrollment.
+```{r analysis_fn}
+make_generators <- function(ss, d) {
+  sc <- data.frame(sample_size = ss, delta = d)
 
-```{r trigger}
-analysis_generators <- list(
-  final = list(
-    trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, current_time) {
-      df_enrolled <- df |> subset(!is.na(enroll_time))
-      mean_pbo <- df_enrolled |> subset(arm == "pbo") |> with(mean(data))
-      mean_trt <- df_enrolled |> subset(arm == "trt") |> with(mean(data))
-      data.frame(
-        scenario,
-        mean_pbo = mean_pbo,
-        mean_trt = mean_trt,
-        n_total = nrow(df_enrolled),
-        stringsAsFactors = FALSE
-      )
-    }
+  population_generators <- list(
+    pbo = function(n) {
+      data.frame(id = 1:n, value = rnorm(n),    readout_time = 1)
+    },
+    trt = local({
+      delta_i <- d
+      function(n) {
+        data.frame(id = 1:n, value = rnorm(n, delta_i), readout_time = 1)
+      }
+    })
   )
+
+  analysis_generators <- list(
+    final = list(
+      trigger  = enroll_trigger(1.0, ss),
+      analysis = function(df, current_time) {
+        enrolled <- subset(df, !is.na(enroll_time))
+        tt <- t.test(value ~ arm, data = enrolled)
+        data.frame(
+          sc,
+          n_total  = nrow(enrolled),
+          p_value  = unname(tt$p.value),
+          estimate = unname(diff(tt$estimate))
+        )
+      }
+    )
+  )
+
+  list(
+    population_generators = population_generators,
+    analysis_generators   = analysis_generators
+  )
+}
+```
+
+## Run across grid
+
+```{r run_grid, results=FALSE}
+n_reps <- 200
+
+all_trials <- lapply(seq_len(nrow(scenario_grid)), function(i) {
+  ss <- scenario_grid$sample_size[i]
+  d  <- scenario_grid$delta[i]
+  g  <- make_generators(ss, d)
+  tr <- replicate_trial(
+    trial_name            = paste0("grid_n", ss, "_d", d),
+    sample_size           = ss,
+    arms                  = arms,
+    allocation            = allocation,
+    enrollment            = enrollment_fn,
+    dropout               = dropout_fn,
+    analysis_generators   = g$analysis_generators,
+    population_generators = g$population_generators,
+    n                     = n_reps
+  )
+  run_trials(tr)
+  tr
+})
+```
+
+## Collect and summarise
+
+`collect_results()` works on a single trial object. We apply it to each
+element of `all_trials` and row-bind the outputs.
+
+```{r collect}
+results_df <- do.call(rbind, lapply(all_trials, collect_results))
+head(results_df)
+```
+
+```{r summarise}
+power_summary <- aggregate(
+  p_value ~ sample_size + delta,
+  data = results_df,
+  FUN  = function(p) mean(p < 0.05)
 )
+names(power_summary)[3] <- "power"
+power_summary
 ```
 
-## Trial
-Make the trial objects for when data is using generators.
+## Power heatmap
 
-```{r trial}
-trials <- replicate_trial(
-  trial_name    = "trial",
-  sample_size   = sample_size,
-  arms          = arms,
-  allocation    = allocation,
-  enrollment    = enrollment,
-  dropout       = dropout,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n             = 3
-)
+```{r plot_grid}
+ggplot(power_summary,
+       aes(x = factor(delta), y = factor(sample_size), fill = power)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = sprintf("%.2f", power)), size = 5) +
+  scale_fill_gradient2(
+    low = "white", mid = "steelblue", high = "navy",
+    midpoint = 0.5, limits = c(0, 1),
+    name = "Power"
+  ) +
+  labs(
+    x     = "True effect delta (SD units)",
+    y     = "Sample size",
+    title = "Empirical power across scenario grid (alpha = 0.05)"
+  ) +
+  theme_minimal(base_size = 13)
 ```
 
-## Simulate
-Run all replicates and bind one row per replicate.
+## Next steps
 
-```{r sim}
-run_trials(trials)
-replicate_results <- collect_results(trials)
-replicate_results
-```
+- [API Styles](api-styles.html) - direct vs generator API: when to use each
+- [Interim Analyses](interims.html) - extend this grid to compare fixed vs
+  adaptive designs
+- [Getting Started](getting-started.html) - single-scenario direct API
+  walkthrough

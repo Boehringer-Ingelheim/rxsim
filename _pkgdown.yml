@@ -1,6 +1,10 @@
 url: https://boehringer-ingelheim.github.io/rxsim
 template:
   bootstrap: 5
+  includes:
+    in_header: |
+      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+      <script>document.addEventListener("DOMContentLoaded", function(){ mermaid.initialize({ startOnLoad: true }); });</script>
 
 navbar:
   structure:
@@ -12,11 +16,26 @@ articles:
     contents:
       - getting-started
 
-  - title: "Concepts"
-    navbar: Concepts
+  - title: "Architecture"
+    navbar: Architecture
     contents:
       - concepts
+
+  - title: "Class reference"
+    navbar: Classes
+    contents:
+      - class-population
+      - class-timer
+      - class-condition
+      - class-trial
+
+  - title: "How-to guides"
+    navbar: How-to
+    contents:
+      - api-styles
+      - endpoints
       - enrollment-dropout
+      - interims
 
   - title: "Examples"
     navbar: Examples

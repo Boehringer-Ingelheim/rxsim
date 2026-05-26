@@ -31,11 +31,13 @@ endpoints (e.g., a primary efficacy score and a key secondary biomarker) and
 apply multiplicity adjustment via Holm's procedure. See [Example
 1](example-1.html) for the simpler single-endpoint baseline.
 
+**Unique focus:** correlated endpoints via `MASS::mvrnorm`, Holm correction,
+joint vs marginal rejection rates as correlation varies.
+
 ## Scenario
 
 We consider a **two-arm, fixed design** with **two correlated continuous
-endpoints** per subject. Enrollment is piece-wise linear; analysis happens
-**once at the final time**.
+endpoints** per subject. A single analysis fires at full enrollment.
 
 ```{r scenario}
 # Total target sample size
@@ -44,17 +46,6 @@ sample_size <- 100
 # Arms and allocation (balanced)
 arms       <- c("pbo", "trt")
 allocation <- c(1, 1)
-
-# Piece-wise linear enrollment and dropout rates (per unit time)
-# (You can tweak these to match your program's cadence.)
-enrollment <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(5, 10, 15, 20)
-)
-dropout <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(1, 2, 4, 8)
-)
 
 # Endpoint model parameters
 # Endpoint correlation structure (common across arms for simplicity)
@@ -87,48 +78,24 @@ scenario <- tidyr::expand_grid(
   delta1 = delta1,
   delta2 = delta2
 )
+
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
 `rho = 0.60` represents a moderate positive correlation between the two
-endpoints — plausible when both reflect the same underlying biological process.
+endpoints - plausible when both reflect the same underlying biological process.
 The covariance matrix `Sigma` is constructed from the marginal SDs and
 correlation using the standard identity cov(y1, y2) = rho × sd1 × sd2. Treatment
 shifts are delta1 = 0.30 SD for the primary endpoint and delta2 = 0.20 SD for
 the secondary, reflecting a scenario where the primary endpoint is more
 sensitive to treatment.
 
-## Time points
 
-Generate timeline of discrete timepoints and add them to a `Timer`.
-
-```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
-)
-
-t <- Timer$new(name = "trial_timer_two_endpoints")
-add_timepoints(t, timepoints)
-
-final_time <- t$get_end_timepoint()
-final_time
-```
-
-`gen_timepoints()` converts piecewise-constant enrollment and dropout rate lists
-into a deterministic set of calendar timepoints — in contrast to the stochastic
-`rexp` calls used in [Examples 1](example-1.html) and [2](example-2.html).
-`t$get_end_timepoint()` returns the latest timepoint at which all expected
-enrollment and follow-up will have completed, providing the calendar time for
-the single final analysis.
-
-## Arms (Populations)
+## Populations
 
 For each arm we simulate **two correlated endpoints** per subject using
-`MASS::mvrnorm`. We keep **50** subjects per arm (consistent with `sample_size =
-100` and equal allocation).
+`MASS::mvrnorm`.
 
 ```{r population}
 # Create closure to capture parameters
@@ -159,30 +126,12 @@ vector and covariance matrix `Sigma`. The closure pattern
 (`mk_population_generator`) captures the arm-specific means at definition time,
 so each call to `population_generators$pbo(n)` or `population_generators$trt(n)`
 produces data under the correct arm parameters. Endpoint correlation flows
-entirely through the shared `Sigma` matrix — changing `rho` in the scenario
+entirely through the shared `Sigma` matrix - changing `rho` in the scenario
 automatically updates both arms.
-
-## Trial Parameters
-
-Define enrollment/dropout profiles and parameters.
-
-```{r trial_params}
-arms <- c("pbo", "trt")
-allocation <- c(1, 1)
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
-
-Note that `enrollment_fn` and `dropout_fn` here are stochastic functions passed
-to `replicate_trial()`, which uses them in `gen_plan()` to generate
-per-replicate enrollment and dropout times. They are separate from the
-piecewise-constant `enrollment` and `dropout` lists used by `gen_timepoints()`
-above — those lists drive the deterministic timer, while these functions drive
-per-subject event times within each simulated replicate.
 
 ## Trigger & Analysis
 
-This is a **fixed design**: perform analysis **once**.  
+This is a **fixed design**: perform analysis **once**.
 We run two independent two-sample t-tests (one per endpoint).
 
 ```{r trigger}
@@ -219,28 +168,21 @@ smaller raw p-value (most significant) and `padj[2]` to the larger. The adjusted
 values account for the familywise error rate across the two endpoints, so
 `p_holm_y1 >= p_y1` always holds.
 
-## Trial
-
-Create and run the trial. (We supply a `seed` for reproducibility inside the
-trial engine—e.g., enrollment/dropout sampling.)
-
-```{r trial}
-trials <- replicate_trial(
-  trial_name = "two_endpoints_fixed_design",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
-```{r sim}
+```{r trial, results=FALSE}
+set.seed(3)
+trials <- replicate_trial(
+  trial_name            = "two_endpoints_fixed_design",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 5
+)
 run_trials(trials)
 ```
 
@@ -254,8 +196,90 @@ replicate_results
 ```
 
 `collect_results()` prepends `replicate`, `timepoint`, and `analysis` columns to
-the four p-value columns. `p_holm_y1` and `p_holm_y2` will always be ≥ their
+the four p-value columns. `p_holm_y1` and `p_holm_y2` will always be >= their
 unadjusted counterparts because Holm correction is more conservative. Because
 the two endpoints are positively correlated (rho = 0.6), replicates that reject
-for y1 tend to also reject for y2 — joint rejection probability exceeds what you
+for y1 tend to also reject for y2 - joint rejection probability exceeds what you
 would expect for independent endpoints under the same effect sizes.
+
+## Power curve
+
+Higher endpoint correlation affects the joint rejection rate in a
+counter-intuitive way: positive correlation means both endpoints tend to move
+together, so a trial that is "lucky" in one endpoint is often lucky in the other.
+The following sweep quantifies marginal and joint power across four `rho` values.
+
+```{r power_corr, cache=TRUE}
+set.seed(43)
+n_reps_pw <- 200
+rho_vals <- c(0.0, 0.3, 0.6, 0.9)
+
+pw_df3 <- do.call(rbind, lapply(rho_vals, function(r) {
+  Sig_r <- matrix(c(1, r, r, 1), 2)
+  pop_pw <- list(
+    pbo = local({
+      S <- Sig_r
+      function(n) {
+        xy <- MASS::mvrnorm(n, c(0, 0), S)
+        data.frame(id = 1:n, y1 = xy[, 1], y2 = xy[, 2], readout_time = 1)
+      }
+    }),
+    trt = local({
+      S <- Sig_r
+      function(n) {
+        xy <- MASS::mvrnorm(n, c(delta1, delta2), S)
+        data.frame(id = 1:n, y1 = xy[, 1], y2 = xy[, 2], readout_time = 1)
+      }
+    })
+  )
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      d <- subset(df, !is.na(enroll_time))
+      p1 <- t.test(y1 ~ arm, data = d)$p.value
+      p2 <- t.test(y2 ~ arm, data = d)$p.value
+      pa <- p.adjust(c(p1, p2), method = "holm")
+      data.frame(p1 = p1, p2 = p2, pa1 = pa[1], pa2 = pa[2])
+    }
+  ))
+  tr <- replicate_trial(
+    "pw3", sample_size, arms, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  res <- collect_results(tr)
+  data.frame(
+    rho           = r,
+    power_y1      = mean(res$p1  < 0.05),
+    power_y2      = mean(res$p2  < 0.05),
+    power_joint   = mean(res$pa1 < 0.05 & res$pa2 < 0.05)
+  )
+}))
+```
+
+```{r plot_power3}
+matplot(
+  pw_df3$rho,
+  pw_df3[, c("power_y1", "power_y2", "power_joint")],
+  type = "b", pch = 19, lty = 1,
+  col  = c("steelblue", "tomato", "forestgreen"),
+  xlab = "Endpoint correlation rho",
+  ylab = "Empirical power (alpha = 0.05)",
+  main = "Marginal and joint power vs endpoint correlation",
+  ylim = c(0, 1)
+)
+legend("topright",
+       legend = c("y1 (marginal)", "y2 (marginal)", "Joint (Holm)"),
+       col    = c("steelblue", "tomato", "forestgreen"),
+       lty = 1, pch = 19)
+abline(h = 0.80, lty = 2, col = "grey50")
+```
+
+## Next steps
+
+- [Example 4](example-4.html) - adds a time-to-event endpoint alongside
+  the continuous one
+- [Endpoint Types](endpoints.html) - modeling continuous, binary, and TTE
+  endpoints
+- [Enrollment and Dropout](enrollment-dropout.html) - piecewise enrollment
+  with `gen_timepoints()`

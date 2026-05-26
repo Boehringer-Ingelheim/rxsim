@@ -163,9 +163,9 @@ data and a non-informative prior for active.
 For final Bayesian MCP-Mod, we pass arm-wise priors to `BayesianMCPMod`.
 
 The same historical borrowing approach as [Example 7](example-7.html) is used
-for the interim and final placebo priors. `prior_list_final` has five entries —
+for the interim and final placebo priors. `prior_list_final` has five entries -
 `Ctrl` (the robustified historical placebo prior) and `DG_1` through `DG_4`
-(non-informative priors for d5, d10, d20, d40) — matching the five dose groups
+(non-informative priors for d5, d10, d20, d40) - matching the five dose groups
 expected by `BayesianMCPMod::assessDesign()`.
 
 ```{r priors}
@@ -206,11 +206,11 @@ prior_list_final <- list(
 
 We define two `Condition` objects:
 
-1. `cond_interim` — fires when `time == interim_time` (calendar time 4). Runs a
+1. `cond_interim` - fires when `time == interim_time` (calendar time 4). Runs a
    Bayesian Go/No-Go analysis on d20 vs placebo. The `<<-` operator in
    `go_interim <<- as.integer(...)` writes the Go/No-Go decision to the enclosing
    environment, making it available to downstream logic in the final condition.
-2. `cond_final` — fires when `time == final_time` (calendar time 12). Calls
+2. `cond_final` - fires when `time == final_time` (calendar time 12). Calls
    `BayesianMCPMod::assessDesign()` with arm-level sample sizes (`n_patients`), the
    candidate dose-response models (`mods`), the five-arm prior list (`prior_list`),
    and arm-level posterior mean estimates (`estimates_sim`); `alpha_crit_val =

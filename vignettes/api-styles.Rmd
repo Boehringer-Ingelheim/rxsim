@@ -1,0 +1,373 @@
+---
+title: "Two API Styles: Direct and Generator"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Two API Styles: Direct and Generator}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+options(rmarkdown.html_vignette.check_title = FALSE)
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  cache = TRUE
+)
+```
+
+```{r setup}
+library(rxsim)
+set.seed(42)
+```
+
+## Introduction
+
+rxsim supports two equivalent ways to build the same trial.
+
+- **Style A: Direct instantiation** builds `Population`, `Timer`,
+  `Condition`, and `Trial` objects yourself.
+- **Style B: Generator API** gives `replicate_trial()` the population and
+  analysis generators, then lets rxsim build each `Trial` for you.
+
+The two styles are equivalent when the design itself is the same: same arms,
+endpoint distributions, enrollment, dropout, and trigger logic. The difference
+is where you want control.
+
+Prefer the direct style when you want to inspect or edit the `Timer`, work with
+fixed schedules, or debug one trial step by step. Prefer the generator style
+when you want many stochastic replicates, quick scenario grids, or minimal
+boilerplate.
+
+The sections below use the same two-arm design in both styles:
+
+- placebo (`pbo`) versus treatment (`trt`)
+- `sample_size = 40` with `allocation = c(1, 1)`
+- stochastic enrollment from `rexp(n, rate = 1)`
+- stochastic dropout from `rexp(n, rate = 0.05)`
+- continuous endpoint with mean `0` for placebo and `0.5` for treatment
+- one final analysis at full enrollment
+- `100` replicates for the operating characteristics
+
+```{r shared-design}
+sample_size <- 40L
+arms <- c("pbo", "trt")
+allocation <- c(1, 1)
+delta <- 0.5
+n_reps <- 100L
+
+enrollment <- function(n) rexp(n, rate = 1)
+dropout <- function(n) rexp(n, rate = 0.05)
+
+make_outcome_data <- function(n, mean_shift) {
+  data.frame(
+    id = seq_len(n),
+    outcome = rnorm(n, mean = mean_shift, sd = 1),
+    readout_time = 0,
+    stringsAsFactors = FALSE
+  )
+}
+
+final_analysis <- function(df, current_time) {
+  enrolled <- subset(df, !is.na(enroll_time))
+  fit <- stats::t.test(outcome ~ arm, data = enrolled)
+
+  data.frame(
+    n = nrow(enrolled),
+    mean_pbo = mean(enrolled$outcome[enrolled$arm == "pbo"]),
+    mean_trt = mean(enrolled$outcome[enrolled$arm == "trt"]),
+    p_value = unname(fit$p.value),
+    stringsAsFactors = FALSE
+  )
+}
+
+make_final_condition <- function() {
+  Condition$new(
+    where = enroll_trigger(1.0, sample_size),
+    analysis = final_analysis,
+    name = "final"
+  )
+}
+```
+
+## Style A: Direct instantiation
+
+Use the direct style when you want to see every moving part. You create the
+plan, build the timer, size each arm, define the trigger, and assemble the
+trial yourself.
+
+```{r direct-single}
+# 1. Draw one stochastic enrollment and dropout plan.
+direct_plan <- gen_plan(
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment,
+  dropout = dropout
+)
+
+# 2. Build the timer from that plan.
+direct_timer <- Timer$new(name = "direct_timer")
+add_timepoints(direct_timer, direct_plan)
+
+# 3. Compute the planned arm sizes from the timer input.
+direct_n_by_arm <- vapply(
+  arms,
+  function(arm_name) {
+    as.integer(sum(direct_plan$enroller[direct_plan$arm == arm_name]))
+  },
+  integer(1)
+)
+
+# 4. Instantiate each arm population explicitly.
+pop_pbo <- Population$new(
+  name = "pbo",
+  data = make_outcome_data(direct_n_by_arm[["pbo"]], mean_shift = 0)
+)
+pop_trt <- Population$new(
+  name = "trt",
+  data = make_outcome_data(direct_n_by_arm[["trt"]], mean_shift = delta)
+)
+
+# 5. Define the final analysis with an rxsim_trigger object.
+direct_final <- make_final_condition()
+
+# 6. Assemble the Trial object.
+direct_trial <- Trial$new(
+  name = "direct_trial",
+  timer = direct_timer,
+  population = list(pop_pbo, pop_trt),
+  conditions = list(direct_final)
+)
+```
+
+In this style, the timer is a first-class object. You can inspect the time grid,
+modify individual timepoints, or replace the whole schedule before running.
+
+```{r direct-inspect}
+head(direct_plan)
+direct_timer$get_end_timepoint()
+```
+
+```{r direct-run, results=FALSE}
+# 7. Run the single direct trial.
+direct_trial$run()
+```
+
+```{r direct-one-result}
+collect_results(direct_trial)
+```
+
+For many stochastic replicates, the direct pattern is usually wrapped in a small
+constructor function.
+
+```{r direct-builder}
+build_direct_trial <- function(name) {
+  # 1. Generate a fresh stochastic plan for this replicate.
+  plan <- gen_plan(
+    sample_size = sample_size,
+    arms = arms,
+    allocation = allocation,
+    enrollment = enrollment,
+    dropout = dropout
+  )
+
+  # 2. Turn that plan into a timer.
+  timer <- Timer$new(name = paste0(name, "_timer"))
+  add_timepoints(timer, plan)
+
+  # 3. Size each arm from the generated plan.
+  n_by_arm <- vapply(
+    arms,
+    function(arm_name) {
+      as.integer(sum(plan$enroller[plan$arm == arm_name], na.rm = TRUE))
+    },
+    integer(1)
+  )
+
+  # 4. Instantiate populations explicitly.
+  populations <- list(
+    Population$new(
+      name = "pbo",
+      data = make_outcome_data(n_by_arm[["pbo"]], mean_shift = 0)
+    ),
+    Population$new(
+      name = "trt",
+      data = make_outcome_data(n_by_arm[["trt"]], mean_shift = delta)
+    )
+  )
+
+  # 5. Create a fresh condition object for this replicate.
+  conditions <- list(make_final_condition())
+
+  # 6. Return the assembled trial.
+  Trial$new(
+    name = name,
+    timer = timer,
+    population = populations,
+    conditions = conditions
+  )
+}
+```
+
+```{r direct-replicates, results=FALSE}
+direct_trials <- lapply(seq_len(n_reps), function(i) {
+  build_direct_trial(paste0("direct_", i))
+})
+
+run_trials(direct_trials)
+```
+
+```{r direct-results}
+direct_results <- collect_results(direct_trials)
+head(direct_results)
+```
+
+## Style B: Generator API
+
+Use the generator API when you want the same design with less setup. You define
+functions for the arm populations and analyses, then let `replicate_trial()`
+build the timers, conditions, and trials internally.
+
+```{r generator-spec}
+# 1. Define one population generator per arm.
+population_generators <- list(
+  pbo = function(n) make_outcome_data(n, mean_shift = 0),
+  trt = function(n) make_outcome_data(n, mean_shift = delta)
+)
+
+# 2. Define the analysis generator with an rxsim_trigger object.
+analysis_generators <- list(
+  final = list(
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = final_analysis
+  )
+)
+```
+
+The trigger must be an `rxsim_trigger` object such as
+`enroll_trigger(1.0, sample_size)`. There is no need for `rlang::exprs()` here.
+
+```{r generator-replicates, results=FALSE}
+# 3. Ask rxsim to build 100 independent trials.
+generator_trials <- replicate_trial(
+  trial_name = "generator",
+  sample_size = sample_size,
+  arms = arms,
+  allocation = allocation,
+  enrollment = enrollment,
+  dropout = dropout,
+  analysis_generators = analysis_generators,
+  population_generators = population_generators,
+  n = n_reps
+)
+
+# 4. Run all generated trials.
+run_trials(generator_trials)
+```
+
+```{r generator-results}
+generator_results <- collect_results(generator_trials)
+head(generator_results)
+```
+
+This style is shorter because `replicate_trial()` handles the timer
+construction, population sizing, and condition creation for every replicate.
+
+## Side-by-side results comparison
+
+Because the data-generating assumptions are the same, both APIs should produce
+matching operating-characteristic distributions. The rows are not identical
+replicate by replicate, but the summaries should line up.
+
+```{r comparison-summary}
+comparison_results <- rbind(
+  transform(direct_results, style = "Direct"),
+  transform(generator_results, style = "Generator")
+)
+comparison_results$effect_hat <-
+  comparison_results$mean_trt - comparison_results$mean_pbo
+
+comparison_summary <- do.call(
+  rbind,
+  lapply(split(comparison_results, comparison_results$style), function(x) {
+    data.frame(
+      style = unique(x$style),
+      mean_effect = mean(x$effect_hat),
+      sd_effect = sd(x$effect_hat),
+      mean_p_value = mean(x$p_value),
+      q25_p_value = unname(stats::quantile(x$p_value, 0.25)),
+      q50_p_value = unname(stats::quantile(x$p_value, 0.50)),
+      q75_p_value = unname(stats::quantile(x$p_value, 0.75)),
+      stringsAsFactors = FALSE
+    )
+  })
+)
+
+comparison_summary
+```
+
+```{r comparison-plots, fig.width=8, fig.height=4}
+op <- par(mfrow = c(1, 2))
+boxplot(effect_hat ~ style, data = comparison_results,
+        main = "Estimated treatment effect")
+boxplot(p_value ~ style, data = comparison_results,
+        main = "Final p-value")
+par(op)
+```
+
+The two summaries should be very close. That is the main practical point:
+choose the style that fits how much control you need before the simulation runs.
+
+## When to use Style A
+
+Prefer direct instantiation when you want to work directly with the underlying
+objects.
+
+- Manually manipulate the `Timer` before running.
+- Use deterministic schedules from `gen_timepoints()` or a hand-built plan.
+- Debug a single trial by inspecting `timer`, `population`, and `locked_data`.
+- Build multi-stage designs where the schedule is easier to express directly,
+  such as the seamless pattern in [Example 8](example-8.html).
+
+## When to use Style B
+
+Prefer the generator API when the design follows the standard workflow that
+`replicate_trial()` already knows how to build.
+
+- Run scenario grids generated with `expand_grid()`.
+- Simulate standard stochastic enrollment and dropout with minimal setup.
+- Write scripts that need many replicates and little boilerplate.
+- Keep design changes local to a few small generator functions.
+
+## Mixing the styles
+
+A common workflow is to start with the direct style for one trial, inspect it,
+then scale out with `run_trials()` once you are happy with the setup.
+
+```{r mixing-styles, results=FALSE}
+# 1. Build one trial directly so you can inspect it.
+mixed_trial <- build_direct_trial("mixed_1")
+head(do.call(rbind, mixed_trial$timer$timelist))
+
+# 2. Extend the same direct pattern to more replicates.
+mixed_trials <- c(
+  list(mixed_trial),
+  lapply(2:5, function(i) build_direct_trial(paste0("mixed_", i)))
+)
+
+# 3. Run them together with the usual batch helper.
+run_trials(mixed_trials)
+```
+
+If you intentionally want the same fixed timer and populations in each
+replicate, `clone_trial()` is also useful. That pattern is most natural for
+deterministic schedules, not for stochastic enrollment.
+
+## Next steps
+
+- Add interims and multiple analyses: [Example 2](example-2.html)
+- Learn more about trigger objects and analyses:
+  [Condition](class-condition.html)
+- Inspect the simulation loop and result structure:
+  [Trial](class-trial.html)

@@ -34,7 +34,11 @@ required sample size. This example demonstrates a Bayesian Go/No-Go decision
 rule for a Phase IIa trial, where the placebo posterior is informed by
 historical data via a robust mixture prior, and the treatment posterior uses a
 non-informative prior. A "Go" decision is issued when the posterior probability
-of a meaningful treatment effect (Δ > δ) exceeds a predefined threshold γ.
+of a meaningful treatment effect (delta > threshold) exceeds a predefined
+threshold.
+
+**Unique focus:** Bayesian Go/No-Go criterion, historical data borrowing via
+`RBesT::robustify()`, Go probability as a function of true effect size.
 
 ## Scenario
 
@@ -44,20 +48,13 @@ continuous endpoint** and a **single final analysis**.
 - Placebo arm uses **historical borrowing** through an informative prior derived
   from historical placebo data and robustified with a non-informative component.
 - Treatment arm uses a **non-informative prior**.
-- Go/No-Go rule at final analysis:
-
-\[
-\text{Go if } P(\Delta > \delta \mid \text{data}) \ge \gamma,
-\]
-
-where \(\Delta = \mu_T - \mu_P\), with \(\delta = 0.1\) and \(\gamma = 0.8\).
+- Go/No-Go rule: Go if P(mu_T - mu_P > delta | data) >= gamma.
 
 `delta = 0.1` defines the minimum treatment-placebo difference of clinical
-relevance — the effect must exceed this threshold for the drug to be worth
-advancing. `gamma = 0.8` requires 80% posterior probability of exceeding that
-threshold before a Go decision is issued, balancing false-positive risk against
-the cost of a missed opportunity. The true simulated effect `mu_treat = 0.30`
-lies above `delta`, so a well-powered trial should frequently result in a Go.
+relevance. `gamma = 0.8` requires 80% posterior probability of exceeding that
+threshold before a Go decision is issued. The true simulated effect `delta_true
+= 0.30` lies above `delta`, so a well-powered trial should frequently result in
+a Go.
 
 ```{r scenario}
 # Trial design
@@ -70,16 +67,6 @@ mu_placebo_true <- 0.00
 delta_true      <- 0.30  # true treatment - placebo mean difference
 sigma_known     <- 1.0
 
-# Enrollment/dropout profile (fixed design timeline)
-enrollment <- list(
-  end_time = c(4, 8),
-  rate     = c(6, 10)
-)
-dropout <- list(
-  end_time = c(4, 8),
-  rate     = c(0, 0)
-)
-
 # Bayesian decision thresholds
 delta <- 0.1
 gamma <- 0.8
@@ -91,6 +78,9 @@ scenario <- tidyr::expand_grid(
   delta       = delta,
   gamma       = gamma
 )
+
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
 ## Historical placebo dataset and priors
@@ -99,7 +89,7 @@ We include a small historical placebo dataset as study-level means and sample
 sizes.
 
 Studies H1, H2, and H3 contribute a combined 62 historical placebo observations
-and are summarised into an informative prior via `postmix()` — a Bayesian update
+and are summarised into an informative prior via `postmix()` - a Bayesian update
 of the non-informative starting prior with the pooled historical data.
 `robustify()` blends this informative component with a vague component (20%
 weight), producing a mixture prior that protects against prior-data conflict: if
@@ -172,26 +162,13 @@ population_generators <- list(
 )
 ```
 
-## Trial Parameters
-
-`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
-distributions for individual subjects. These are passed to `replicate_trial()`,
-which uses them when building each replicate's enrollment schedule.
-
-```{r trial_params}
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
-
 ## Final analysis trigger (Bayesian Go/No-Go)
 
-Only one trigger is added at final analysis.
-
 `RBesT::pmixdiff(post_treat, post_placebo, delta, lower.tail = FALSE)` evaluates
-P(μ_T − μ_P > δ | data) by numerical integration over the mixture posterior
+P(mu_T - mu_P > delta | data) by numerical integration over the mixture posterior
 distributions for treatment and placebo. `qmixdiff()` computes quantiles of the
-same posterior difference distribution, yielding a 95% credible interval for Δ =
-μ_T − μ_P.
+same posterior difference distribution, yielding a 95% credible interval for
+Delta = mu_T - mu_P.
 
 ```{r trigger}
 analysis_generators <- list(
@@ -239,25 +216,21 @@ analysis_generators <- list(
 )
 ```
 
-## Trial
-
-```{r trial}
-trials <- replicate_trial(
-  trial_name = "example_7_bayes_two_arm_fixed",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
-```{r simulate}
+```{r trial, results=FALSE}
+set.seed(7)
+trials <- replicate_trial(
+  trial_name            = "example_7_bayes_two_arm_fixed",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 5
+)
 run_trials(trials)
 ```
 
@@ -281,5 +254,86 @@ replicate_results <- collect_results(trials)
 replicate_results
 ```
 
-`decision_go = 1` indicates **Go**, and `decision_go = 0` indicates **No-Go**
-under the criterion \(P(\Delta > 0.1 \mid \text{data}) \ge 0.8\).
+`decision_go = 1` indicates Go; `decision_go = 0` indicates No-Go under the
+criterion P(Delta > 0.1 | data) >= 0.8.
+
+## Go probability curve
+
+The operating characteristics of a Bayesian Go/No-Go design are summarised by
+the Go probability under a range of true treatment effects: near zero for small
+effects (false Go = type I error analog) and approaching 1 for large effects.
+
+```{r go_curve, cache=TRUE}
+set.seed(77)
+n_reps_pw   <- 200
+delta_sweep <- c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5)
+
+go_df <- do.call(rbind, lapply(delta_sweep, function(dt) {
+  pop_pw <- list(
+    placebo = function(n) {
+      data.frame(
+        id = 1:n, y = rnorm(n, 0, sigma_known), readout_time = 1
+      )
+    },
+    treatment = local({
+      d <- dt
+      function(n) {
+        data.frame(
+          id = 1:n,
+          y  = rnorm(n, d, sigma_known),
+          readout_time = 1
+        )
+      }
+    })
+  )
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      dat <- dplyr::filter(df, !is.na(enroll_time)) |>
+        dplyr::mutate(arm = factor(arm, levels = c("placebo", "treatment")))
+      y_p <- dat$y[dat$arm == "placebo"]
+      y_t <- dat$y[dat$arm == "treatment"]
+      pp  <- RBesT::postmix(prior_placebo,   n = length(y_p), m = mean(y_p))
+      pt  <- RBesT::postmix(prior_treatment, n = length(y_t), m = mean(y_t))
+      data.frame(
+        go = as.integer(
+          RBesT::pmixdiff(pt, pp, delta, lower.tail = FALSE) >= gamma
+        )
+      )
+    }
+  ))
+  tr <- replicate_trial(
+    "pw7", sample_size, arms, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  data.frame(
+    delta_true   = dt,
+    go_prob      = mean(collect_results(tr)$go)
+  )
+}))
+```
+
+```{r plot_go}
+plot(go_df$delta_true, go_df$go_prob, type = "b", pch = 19,
+     col = "steelblue",
+     xlab = "True treatment - placebo difference",
+     ylab = "Go probability",
+     main = sprintf("Go/No-Go operating characteristics (n = %d)", sample_size),
+     ylim = c(0, 1))
+abline(v = delta, lty = 3, col = "grey50")  # decision threshold
+abline(h = gamma, lty = 2, col = "grey50")  # gamma threshold
+legend("topleft",
+       legend = c(
+         sprintf("delta threshold = %.1f", delta),
+         sprintf("gamma threshold = %.1f", gamma)
+       ),
+       lty = c(3, 2), col = "grey50")
+```
+
+## Next steps
+
+- [Example 8](example-8.html) - seamless Phase IIa/IIb design using
+  BayesianMCPMod
+- [Interim Analyses](interims.html) - adding interim looks to a Bayesian
+  design
