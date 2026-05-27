@@ -12,16 +12,6 @@ knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
-
-# Register a knitr engine that converts ```{mermaid} blocks into
-# <pre class="mermaid"> elements for the Mermaid JS library to render.
-knitr::knit_engines$set(mermaid = function(options) {
-  code <- paste(options$code, collapse = "\n")
-  knitr::engine_output(
-    options, code,
-    out = paste0('<pre class="mermaid">\n', code, '\n</pre>\n')
-  )
-})
 ```
 
 ```{r setup, include = FALSE}
@@ -40,7 +30,8 @@ snapshot data meets a criterion. A `Trial` orchestrates the simulation
 by iterating over timepoints, updating populations, snapshotting the
 enrolled cohort, and collecting results.
 
-```{mermaid}
+```{=html}
+<pre class="mermaid">
 graph LR
   P1(Control) --> TR(Trial)
   P2(Treatment) --> TR
@@ -48,22 +39,7 @@ graph LR
   CO(Condition) --> TR
   TR --> LD(Locked Data)
   TR --> RS(Results)
-```
-
-The `run()` loop that `Trial` executes at each timepoint follows this
-sequence:
-
-```{mermaid}
-graph TD
-  A([Next timepoint]) --> B[Enroll and drop subjects]
-  B --> C[Snapshot enrolled subjects]
-  C --> D{Condition triggered?}
-  D -->|Yes| E[Run analysis]
-  D -->|No| F[Advance clock]
-  E --> F
-  F --> G{More timepoints?}
-  G -->|Yes| A
-  G -->|No| H([Done])
+</pre>
 ```
 
 In most workflows you will never construct these objects by hand.
