@@ -156,4 +156,5 @@ abline(h = 0.05, lty = 3, col = "grey50")
 
 - [Example 2](example-2.html) - adds a second endpoint
 - [Conditions and Triggers](conditions.html) - in-depth guide to multi-look designs
-- [Endpoint Types](endpoints.html) - continuous, binary, and time-to-event
+- [Population](class-population.html) - endpoint data shapes for continuous,
+  binary, and time-to-event outcomes

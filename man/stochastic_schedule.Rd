@@ -20,8 +20,8 @@ times (e.g. \code{function(n) rexp(n, rate = 1)}).}
 times.}
 }
 \value{
-\code{data.frame} with columns: \code{time}, \code{arm}, \code{enroller} (always 1),
-\code{dropper} (always 0 or 1). One row per subject event, sorted by \code{time}.
+\code{data.frame} with columns: \code{time}, \code{arm}, \code{enroll} (always 1),
+\code{drop} (always 0 or 1). One row per subject event, sorted by \code{time}.
 }
 \description{
 Creates a time-indexed schedule of enrollment and dropout events across

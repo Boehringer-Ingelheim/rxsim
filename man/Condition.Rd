@@ -8,11 +8,11 @@ A \code{Condition} encapsulates a single trigger rule that is evaluated against
 a data snapshot at each simulated timepoint. It combines three concerns:
 
 \enumerate{
-\item \strong{Filtering} — a \code{dplyr::filter()} expression selects the rows
+\item \strong{Filtering}  -  a \code{dplyr::filter()} expression selects the rows
 relevant to this condition (e.g. "only enrolled subjects in arm A").
-\item \strong{Analysis} — an optional function transforms the filtered snapshot
+\item \strong{Analysis}  -  an optional function transforms the filtered snapshot
 into a result (e.g. a t-test, a subject count, a Go/No-Go decision).
-\item \strong{Trigger bookkeeping} — the condition fires only when the
+\item \strong{Trigger bookkeeping}  -  the condition fires only when the
 filtered data is non-empty, the cooldown period has elapsed since the
 last trigger, and the maximum trigger count has not been reached.
 }

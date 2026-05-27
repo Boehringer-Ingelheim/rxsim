@@ -311,5 +311,5 @@ abline(h = 0.80, lty = 2, col = "grey50")
 
 - [Example 4](example-4.html) - Bayesian Go/No-Go with historical placebo
   borrowing
-- [Endpoint Types](endpoints.html) - modeling continuous, binary, and
-  time-to-event outcomes
+- [Population](class-population.html) - endpoint data setup for continuous,
+  binary, and time-to-event outcomes

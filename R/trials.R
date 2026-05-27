@@ -127,7 +127,7 @@ replicate_trial <- function(
     }
     vapply(
       pop_names,
-      function(a) as.integer(sum(plan_df$enroller[plan_df$arm == a], na.rm = TRUE)),
+      function(a) as.integer(sum(plan_df$enroll[plan_df$arm == a], na.rm = TRUE)),
       integer(1)
     )
   })

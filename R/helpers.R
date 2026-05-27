@@ -5,7 +5,7 @@
 #'
 #' @param timer [`Timer`] instance.
 #' @param df `data.frame` with columns: `time` (numeric), `arm` (character),
-#'   `enroller` (integer), `dropper` (integer).
+#'   `enroll` (integer), `drop` (integer).
 #'
 #' @seealso [Timer], [stochastic_schedule()], [deterministic_schedule()].
 #'
@@ -17,14 +17,14 @@
 #' timepoints <- data.frame(
 #'   time = c(1, 2, 3.1, 4, 5, 6),
 #'   arm = rep("Arm A", 6),
-#'   dropper = c(2L, rep(1L, 5)),
-#'   enroller = rep(3L, 6)
+#'   drop = c(2L, rep(1L, 5)),
+#'   enroll = rep(3L, 6)
 #' )
 #'
 #' add_timepoints(t, timepoints)
 add_timepoints <- function(timer, df) {
   if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
-  if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroller, dropper")
+  if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroll, drop")
   invisible(
     sapply(
       split(df, seq_len(nrow(df))),

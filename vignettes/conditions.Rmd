@@ -125,19 +125,26 @@ plan <- deterministic_schedule(
 tmr <- Timer$new(name = "conditions_timer")
 add_timepoints(tmr, plan)
 
-pop_gens <- list(
-  pbo = function(n) data.frame(id = seq_len(n), y = rnorm(n, 0), readout_time = 1),
-  trt = function(n) data.frame(id = seq_len(n), y = rnorm(n, 0.4), readout_time = 1)
+n_by_arm <- c(
+  pbo = sum(plan$enroll[plan$arm == "pbo"]),
+  trt = sum(plan$enroll[plan$arm == "trt"])
 )
 
-n_by_arm <- c(
-  pbo = sum(plan$enroller[plan$arm == "pbo"]),
-  trt = sum(plan$enroller[plan$arm == "trt"])
+pbo_data <- data.frame(
+  id = seq_len(n_by_arm[["pbo"]]),
+  y = rnorm(n_by_arm[["pbo"]], mean = 0),
+  readout_time = 1
+)
+
+trt_data <- data.frame(
+  id = seq_len(n_by_arm[["trt"]]),
+  y = rnorm(n_by_arm[["trt"]], mean = 0.4),
+  readout_time = 1
 )
 
 populations <- list(
-  Population$new("pbo", pop_gens$pbo(n_by_arm[["pbo"]])),
-  Population$new("trt", pop_gens$trt(n_by_arm[["trt"]]))
+  Population$new("pbo", pbo_data),
+  Population$new("trt", trt_data)
 )
 ```
 
@@ -213,6 +220,6 @@ guardrails against over-triggering.
 
 - [Enrollment and Dropout](enrollment.html) - building timers for fixed or
   stochastic schedules
-- [Trial](class-trial.html) - detailed walkthrough of run loop and result
-  storage
+- [Trial reference](../reference/Trial.html) - how Trial orchestrates timer,
+  populations, and conditions
 - [Example 5](example-5.html) - seamless Ph2a/2b with interim and final looks

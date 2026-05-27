@@ -20,8 +20,8 @@ deterministic_schedule(sample_size, arms, allocation, enrollment, dropout)
 }
 \value{
 \code{data.frame} with columns: \code{time} (integer period), \code{arm},
-\code{enroller} (subjects enrolled in that period), \code{dropper} (subjects
-dropped). Aggregated counts — multiple subjects per row.
+\code{enroll} (subjects enrolled in that period), \code{drop} (subjects
+dropped). Aggregated counts  -  multiple subjects per row.
 }
 \description{
 Creates a time-indexed schedule with piecewise-constant enrollment and

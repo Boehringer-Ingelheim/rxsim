@@ -97,8 +97,8 @@ enrollment or a dropout:
 | `arm` | Arm label (`"pbo"` or `"trt"`) |
 | `enroll_time` | Calendar time of enrollment (cumulative sum of inter-arrival gaps) |
 | `drop_time` | Calendar time of dropout; `NA` if the subject completes |
-| `enroller` | `1` if this row is an enrollment event, `0` otherwise |
-| `dropper` | `1` if this row is a dropout event, `0` otherwise |
+| `enroll` | `1` if this row is an enrollment event, `0` otherwise |
+| `drop` | `1` if this row is a dropout event, `0` otherwise |
 
 Because the times are cumulative sums of exponential random variables, they
 are continuous-valued and always positive.
@@ -203,10 +203,10 @@ the semantics differ:
 | `arm` | Arm label |
 | `enroll_time` | Integer calendar time at which one or more subjects enroll |
 | `drop_time` | Integer calendar time of dropout event |
-| `enroller` | Count of subjects enrolling at this time (can be > 1) |
-| `dropper` | Count of subjects dropping out at this time |
+| `enroll` | Count of subjects enrolling at this time (can be > 1) |
+| `drop` | Count of subjects dropping out at this time |
 
-Because multiple subjects may enroll in the same time unit, `enroller` can
+Because multiple subjects may enroll in the same time unit, `enroll` can
 be greater than 1. All times are positive integers.
 
 ### Every call returns the same schedule
@@ -265,10 +265,10 @@ plan_det <- deterministic_schedule(
 )
 
 # stochastic_schedule: continuous (fractional) enrollment times
-head(plan_stoch[plan_stoch$enroller == 1, ], 5)
+head(plan_stoch[plan_stoch$enroll == 1, ], 5)
 
 # deterministic_schedule: integer times, counts >= 1
-head(plan_det[plan_det$enroller > 0, ], 5)
+head(plan_det[plan_det$enroll > 0, ], 5)
 ```
 
 The key trade-offs:
@@ -302,7 +302,7 @@ dropout_fn <- function(n) rexp(n, rate = 0.05)
 
 Each subject is assigned an independent dropout time drawn from this
 distribution. Dropout events appear in the returned data frame as rows where
-`dropper == 1` and `enroller == 0`. In the locked data snapshot produced during
+`drop == 1` and `enroll == 0`. In the locked data snapshot produced during
 a trial run, subjects who have not yet dropped out have `drop_time = NA`.
 
 ### Piecewise-constant dropout with `deterministic_schedule()`
@@ -325,7 +325,7 @@ and then combined into a single schedule.
 
 A `Timer` is the trial clock. It stores a list of timepoint records, where each
 record says when something happens in one arm and how many subjects are
-affected. Each record has four fields: `time`, `arm`, `enroller`, and `dropper`.
+affected. Each record has four fields: `time`, `arm`, `enroll`, and `drop`.
 
 `Trial$run()` does not step through subjects one by one. Instead, it collects
 all distinct event times from the timer, sorts them, and updates the trial at
@@ -341,13 +341,13 @@ and inspect it with the query methods.
 ```{r manual_timer_build}
 manual_timer <- Timer$new(name = "manual_timer")
 
-manual_timer$add_timepoint(time = 1, arm = "pbo", dropper = 0L, enroller = 3L)
-manual_timer$add_timepoint(time = 2, arm = "pbo", dropper = 1L, enroller = 2L)
-manual_timer$add_timepoint(time = 4, arm = "pbo", dropper = 1L, enroller = 0L)
+manual_timer$add_timepoint(time = 1, arm = "pbo", drop = 0L, enroll = 3L)
+manual_timer$add_timepoint(time = 2, arm = "pbo", drop = 1L, enroll = 2L)
+manual_timer$add_timepoint(time = 4, arm = "pbo", drop = 1L, enroll = 0L)
 
-manual_timer$add_timepoint(time = 1, arm = "trt", dropper = 0L, enroller = 2L)
-manual_timer$add_timepoint(time = 3, arm = "trt", dropper = 0L, enroller = 3L)
-manual_timer$add_timepoint(time = 4, arm = "trt", dropper = 1L, enroller = 0L)
+manual_timer$add_timepoint(time = 1, arm = "trt", drop = 0L, enroll = 2L)
+manual_timer$add_timepoint(time = 3, arm = "trt", drop = 0L, enroll = 3L)
+manual_timer$add_timepoint(time = 4, arm = "trt", drop = 1L, enroll = 0L)
 
 # Inspect the timelist structure
 manual_timer$get_end_timepoint()
@@ -383,13 +383,13 @@ stochastic_timer$get_end_timepoint()
 
 `timer$timelist` is a named list of individual timepoint records. Each element
 corresponds to one call to `add_timepoint()` and contains the four fields
-`time`, `arm`, `enroller`, and `dropper`.
+`time`, `arm`, `enroll`, and `drop`.
 
 ```{r timelist_structure}
 trial_clock <- Timer$new(name = "trial_clock")
-trial_clock$add_timepoint(time = 1, arm = "pbo", dropper = 0L, enroller = 3L)
-trial_clock$add_timepoint(time = 1, arm = "trt", dropper = 0L, enroller = 3L)
-trial_clock$add_timepoint(time = 4, arm = "pbo", dropper = 1L, enroller = 0L)
+trial_clock$add_timepoint(time = 1, arm = "pbo", drop = 0L, enroll = 3L)
+trial_clock$add_timepoint(time = 1, arm = "trt", drop = 0L, enroll = 3L)
+trial_clock$add_timepoint(time = 4, arm = "pbo", drop = 1L, enroll = 0L)
 
 trial_clock$timelist
 sort(unique(vapply(trial_clock$timelist, function(x) x$time, numeric(1))))
@@ -433,19 +433,24 @@ cond_final <- condition_calendar_time(
 )
 
 # Build populations (sized to match the fixed plan)
-pop_pbo <- gen_population(
-  name        = "pbo",
-  generator   = function(n) data.frame(
-    id = seq_len(n), response = rnorm(n, 0), readout_time = 0
-  ),
-  sample_size = 6
+n_pbo <- sum(fixed_plan$enroll[fixed_plan$arm == "pbo"])
+n_trt <- sum(fixed_plan$enroll[fixed_plan$arm == "trt"])
+
+pop_pbo <- Population$new(
+  name = "pbo",
+  data = data.frame(
+    id = seq_len(n_pbo),
+    response = rnorm(n_pbo, 0),
+    readout_time = 0
+  )
 )
-pop_trt <- gen_population(
-  name        = "trt",
-  generator   = function(n) data.frame(
-    id = seq_len(n), response = rnorm(n, 0.5), readout_time = 0
-  ),
-  sample_size = 6
+pop_trt <- Population$new(
+  name = "trt",
+  data = data.frame(
+    id = seq_len(n_trt),
+    response = rnorm(n_trt, 0.5),
+    readout_time = 0
+  )
 )
 
 trial_fixed <- Trial$new(

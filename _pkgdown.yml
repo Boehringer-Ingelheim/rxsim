@@ -3,8 +3,10 @@ template:
   bootstrap: 5
   includes:
     in_header: |
-      <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-      <script>document.addEventListener("DOMContentLoaded", function(){ mermaid.initialize({ startOnLoad: true }); });</script>
+      <script type="module">
+        import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+        mermaid.initialize({ startOnLoad: true });
+      </script>
 
 navbar:
   structure:
@@ -22,13 +24,11 @@ articles:
       - class-population
       - enrollment
       - conditions
-      - class-trial
 
   - title: "How-to guides"
     navbar: How-to
     contents:
       - api-styles
-      - endpoints
 
   - title: "Examples"
     navbar: Examples

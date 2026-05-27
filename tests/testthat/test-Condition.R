@@ -42,7 +42,7 @@ testthat::test_that("Condition initialize: errors on invalid max_triggers", {
   testthat::expect_error(Condition$new(max_triggers = c(1L, 2L)), "`max_triggers`")
 })
 
-# Condition: check_conditions — filtering and analysis
+# Condition: check_conditions  -  filtering and analysis
 
 testthat::test_that("check_conditions: applies filter and returns filtered data with warning", {
   cond <- Condition$new(
@@ -231,7 +231,7 @@ testthat::test_that("check_conditions: state persists across calls", {
 # --- analysis_args tests ---
 
 testthat::test_that("analysis_args: extra named arg is passed to analysis function", {
-  threshold <- 99  # wrong value — should be overridden by analysis_args
+  threshold <- 99  # wrong value  -  should be overridden by analysis_args
   cond <- Condition$new(
     analysis      = function(df, current_time, threshold) current_time > threshold,
     analysis_args = list(threshold = 5),
@@ -269,7 +269,7 @@ testthat::test_that("analysis_args: NULL analysis_args leaves call unchanged", {
   testthat::expect_equal(res$no_extra, 5)
 })
 
-testthat::test_that("analysis_args: scenario isolation — two conditions with different args", {
+testthat::test_that("analysis_args: scenario isolation  -  two conditions with different args", {
   make_cond <- function(cov_val) {
     Condition$new(
       analysis      = function(df, current_time, cov_matrix) cov_matrix,

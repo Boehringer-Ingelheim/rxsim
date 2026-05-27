@@ -25,10 +25,10 @@
 #'
 #' # Create a timer and add timepoints
 #' t <- Timer$new("Timer")
-#' t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-#' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-#' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-#' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+#' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+#' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 #'
 #' # Build a condition: fire at time >= 2 and count enrolled rows
 #' cond <- Condition$new(
@@ -126,8 +126,8 @@ Trial <- R6::R6Class(
           timepoints <- data.frame(
             time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
             arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
-            enroller = 1L,
-            dropper = 0L
+            enroll = 1L,
+            drop = 0L
           )
           add_timepoints(timer, timepoints)
           self$timer <- timer
@@ -167,10 +167,10 @@ Trial <- R6::R6Class(
     #'
     #' # Create a timer and add timepoints
     #' t <- Timer$new("Timer")
-    #' t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-    #' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-    #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-    #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+    #' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+    #' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+    #' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+    #' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
     #'
     #' # Create a trial
     #' trial <- Trial$new(
@@ -200,15 +200,15 @@ Trial <- R6::R6Class(
         for (p in self$population) {
           idx <- which(plan_df$arm == p$name & plan_df$time == i)
           if (length(idx) > 0L) {
-            enroller_n <- as.integer(sum(plan_df$enroller[idx], na.rm = TRUE))
-            dropper_n <- as.integer(sum(plan_df$dropper[idx], na.rm = TRUE))
+            enroll_n <- as.integer(sum(plan_df$enroll[idx], na.rm = TRUE))
+            drop_n <- as.integer(sum(plan_df$drop[idx], na.rm = TRUE))
 
-            if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
-              p$set_enrolled(enroller_n, time = i)
+            if (enroll_n > 0L && sum(is.na(p$enrolled)) > 0L) {
+              p$set_enrolled(enroll_n, time = i)
             }
 
-            if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
-              p$set_dropped(dropper_n, time = i)
+            if (drop_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
+              p$set_dropped(drop_n, time = i)
             }
           }
         }

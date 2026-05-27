@@ -16,8 +16,8 @@
 #' @param dropout `function` that takes `n` and returns `n` inter-dropout
 #'   times.
 #'
-#' @return `data.frame` with columns: `time`, `arm`, `enroller` (always 1),
-#'   `dropper` (always 0 or 1). One row per subject event, sorted by `time`.
+#' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
+#'   `drop` (always 0 or 1). One row per subject event, sorted by `time`.
 #'
 #' @seealso [deterministic_schedule()] for piecewise-constant rates,
 #'   [add_timepoints()] to attach to a `Timer`.
@@ -111,16 +111,16 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
   df_enroll <- data.frame(
     time = cumsum(enroll_events),
     arm = shuffled_arms,
-    enroller = 1L,
-    dropper = 0L
+    enroll = 1L,
+    drop = 0L
   )
 
   # Create dropout events (cumulative timing)
   df_drop <- data.frame(
     time = cumsum(drop_events),
     arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
-    enroller = 0L,
-    dropper = 1L
+    enroll = 0L,
+    drop = 1L
   )
 
   # Combine and sort by time
@@ -145,8 +145,8 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #' @param dropout `list` with `end_time` and `rate` (same structure).
 #'
 #' @return `data.frame` with columns: `time` (integer period), `arm`,
-#'   `enroller` (subjects enrolled in that period), `dropper` (subjects
-#'   dropped). Aggregated counts — multiple subjects per row.
+#'   `enroll` (subjects enrolled in that period), `drop` (subjects
+#'   dropped). Aggregated counts  -  multiple subjects per row.
 #'
 #' @seealso [stochastic_schedule()] for random inter-event times,
 #'   [add_timepoints()].
@@ -250,11 +250,11 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   df <- data.frame(
     time = rep(seq_len(end), n_arms),
     arm = rep(arms, each = end),
-    enroller = rep(
+    enroll = rep(
       as.vector(outer(enrollment$rate, ratio)),
       rep(get_durations(enrollment$end_time), n_arms)
     ) |> as.integer(),
-    dropper = rep(
+    drop = rep(
       as.vector(outer(dropout$rate, ratio)),
       rep(get_durations(dropout$end_time), n_arms)
     ) |> as.integer()
@@ -263,7 +263,7 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   # Identify undershooting periods (cumulative < target)
   checks <- df |>
     dplyr::group_by(.data$arm) |>
-    dplyr::mutate(cum = cumsum(.data$enroller)) |>
+    dplyr::mutate(cum = cumsum(.data$enroll)) |>
     dplyr::ungroup() |>
     dplyr::mutate(under = .data$cum < target[.data$arm])
 
@@ -291,8 +291,8 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   df_add <- data.frame(
     time = next_t,
     arm = arms,
-    enroller = next_enroll,
-    dropper = as.integer(round(dropout$rate[findInterval(next_t, dropout$end_time)] * ratio))
+    enroll = next_enroll,
+    drop = as.integer(round(dropout$rate[findInterval(next_t, dropout$end_time)] * ratio))
   )
 
   # Combine schedule and corrections, sort by arm and time

@@ -27,11 +27,11 @@
 #' a data snapshot at each simulated timepoint. It combines three concerns:
 #'
 #' \enumerate{
-#'   \item **Filtering** — a `dplyr::filter()` expression selects the rows
+#'   \item **Filtering**  -  a `dplyr::filter()` expression selects the rows
 #'     relevant to this condition (e.g. "only enrolled subjects in arm A").
-#'   \item **Analysis** — an optional function transforms the filtered snapshot
+#'   \item **Analysis**  -  an optional function transforms the filtered snapshot
 #'     into a result (e.g. a t-test, a subject count, a Go/No-Go decision).
-#'   \item **Trigger bookkeeping** — the condition fires only when the
+#'   \item **Trigger bookkeeping**  -  the condition fires only when the
 #'     filtered data is non-empty, the cooldown period has elapsed since the
 #'     last trigger, and the maximum trigger count has not been reached.
 #' }
@@ -212,7 +212,7 @@ Condition <- R6::R6Class(
       }
 
       if (length(max_triggers) == 1L && is.infinite(max_triggers) && max_triggers > 0) {
-        # Inf means unlimited — keep as-is
+        # Inf means unlimited  -  keep as-is
       } else {
         max_triggers <- as.integer(max_triggers)
         if (length(max_triggers) != 1L || is.na(max_triggers) || max_triggers < 0L) {

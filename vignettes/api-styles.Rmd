@@ -113,7 +113,7 @@ add_timepoints(direct_timer, direct_plan)
 direct_n_by_arm <- vapply(
   arms,
   function(arm_name) {
-    as.integer(sum(direct_plan$enroller[direct_plan$arm == arm_name]))
+    as.integer(sum(direct_plan$enroll[direct_plan$arm == arm_name]))
   },
   integer(1)
 )
@@ -179,7 +179,7 @@ build_direct_trial <- function(name) {
   n_by_arm <- vapply(
     arms,
     function(arm_name) {
-      as.integer(sum(plan$enroller[plan$arm == arm_name], na.rm = TRUE))
+      as.integer(sum(plan$enroll[plan$arm == arm_name], na.rm = TRUE))
     },
     integer(1)
   )
@@ -273,51 +273,6 @@ head(generator_results)
 This style is shorter because `replicate_trial()` handles the timer
 construction, population sizing, and condition creation for every replicate.
 
-## Side-by-side results comparison
-
-Because the data-generating assumptions are the same, both APIs should produce
-matching operating-characteristic distributions. The rows are not identical
-replicate by replicate, but the summaries should line up.
-
-```{r comparison-summary}
-comparison_results <- rbind(
-  transform(direct_results, style = "Direct"),
-  transform(generator_results, style = "Generator")
-)
-comparison_results$effect_hat <-
-  comparison_results$mean_trt - comparison_results$mean_pbo
-
-comparison_summary <- do.call(
-  rbind,
-  lapply(split(comparison_results, comparison_results$style), function(x) {
-    data.frame(
-      style = unique(x$style),
-      mean_effect = mean(x$effect_hat),
-      sd_effect = sd(x$effect_hat),
-      mean_p_value = mean(x$p_value),
-      q25_p_value = unname(stats::quantile(x$p_value, 0.25)),
-      q50_p_value = unname(stats::quantile(x$p_value, 0.50)),
-      q75_p_value = unname(stats::quantile(x$p_value, 0.75)),
-      stringsAsFactors = FALSE
-    )
-  })
-)
-
-comparison_summary
-```
-
-```{r comparison-plots, fig.width=8, fig.height=4}
-op <- par(mfrow = c(1, 2))
-boxplot(effect_hat ~ style, data = comparison_results,
-        main = "Estimated treatment effect")
-boxplot(p_value ~ style, data = comparison_results,
-        main = "Final p-value")
-par(op)
-```
-
-The two summaries should be very close. That is the main practical point:
-choose the style that fits how much control you need before the simulation runs.
-
 ## When to use Style A
 
 Prefer direct instantiation when you want to work directly with the underlying
@@ -368,5 +323,5 @@ deterministic schedules, not for stochastic enrollment.
 - Add interims and multiple analyses: [Conditions and Triggers](conditions.html)
 - Learn more about trigger objects and analyses:
   [Conditions and Triggers](conditions.html)
-- Inspect the simulation loop and result structure:
-  [Trial](class-trial.html)
+- Inspect the `Trial` class documentation:
+  [Trial reference](../reference/Trial.html)

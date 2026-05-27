@@ -87,11 +87,11 @@ final_time   <- 12
 In this implementation, all arms are pre-defined, but enrollment switches from
 two-arm to multi-arm by time.
 
-The `enroll_plan` data frame specifies integer subject counts (`enroller`) per
+The `enroll_plan` data frame specifies integer subject counts (`enroll`) per
 arm per time unit. During time 1–4 (Ph2a), only `d0` and `d20` enroll (8 per
 time each). From time 5 onward (Ph2b), three new doses (`d5`, `d10`, `d40`)
 begin enrolling while the d20 arm tapers off; `d0` continues at 8 per time
-throughout. `dropper` is set to 0 (no dropout). `tr_timer$get_end_timepoint()`
+throughout. `drop` is set to 0 (no dropout). `tr_timer$get_end_timepoint()`
 confirms the last time point at which any enrollment occurs.
 
 ```{r timepoints}
@@ -102,7 +102,7 @@ time <- 1:12
 enroll_plan <- data.frame(
   time = rep(time, times = length(arm_names)),
   arm  = rep(arm_names, each = length(time)),
-  enroller = c(
+  enroll = c(
     # d0 placebo (total 80)
     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
     # d5 (total 20)
@@ -114,11 +114,11 @@ enroll_plan <- data.frame(
     # d40 (total 20)
     0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0
   ),
-  dropper = 0L
+  drop = 0L
 )
 
-enroll_plan$enroller <- as.integer(enroll_plan$enroller)
-enroll_plan$dropper  <- as.integer(enroll_plan$dropper)
+enroll_plan$enroll <- as.integer(enroll_plan$enroll)
+enroll_plan$drop  <- as.integer(enroll_plan$drop)
 
 tr_timer <- Timer$new(name = "timer_example_5")
 add_timepoints(tr_timer, enroll_plan)
@@ -129,7 +129,7 @@ tr_timer$get_end_timepoint()
 ## Populations
 
 `mk_pop()` creates `Population` objects directly from pre-generated data (not
-from generator functions), computing each arm's `n` from `sum(enroller)` in the
+from generator functions), computing each arm's `n` from `sum(enroll)` in the
 enrollment plan. This approach pre-generates the full cohort up-front;
 `Trial$new()` then draws from each population's pool according to the
 time-specific enrollment counts.
@@ -138,7 +138,7 @@ time-specific enrollment counts.
 # Planned max N by arm from enrollment schedule
 n_by_arm <- enroll_plan |>
   group_by(arm) |>
-  summarise(n = sum(enroller), .groups = "drop")
+  summarise(n = sum(enroll), .groups = "drop")
 
 mk_pop <- function(arm, n) {
   d <- dose_map[[arm]]

@@ -4,8 +4,8 @@
 \alias{Timer}
 \title{Timer: Track timed events across arms}
 \description{
-A class to collect and query \emph{timepoints} — time-based enrollment and
-dropout events — across trial arms.
+A class to collect and query \emph{timepoints}  -  time-based enrollment and
+dropout events  -  across trial arms.
 
 Use \code{add_timepoint()} to register events, \code{get_timepoint()} for lookup,
 \code{get_end_timepoint()} / \code{get_n_arms()} / \code{get_unique_times()} for
@@ -25,9 +25,9 @@ a \code{\link{Condition}} that you pass to \code{Trial$new(conditions = list(...
 t <- Timer$new(name = "Timer")
 
 # Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
+t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
 
 # Query
 t$get_end_timepoint() # max time => 2
@@ -50,8 +50,8 @@ t <- Timer$new(name = "Timer")
 t$add_timepoint(
   time = 1,
   arm = "A",
-  dropper = 1L,
-  enroller = 3L
+  drop = 1L,
+  enroll = 3L
 )
 
 ## ------------------------------------------------
@@ -59,7 +59,7 @@ t$add_timepoint(
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
 t$get_end_timepoint()
 
 ## ------------------------------------------------
@@ -67,8 +67,8 @@ t$get_end_timepoint()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_n_arms()
 
 ## ------------------------------------------------
@@ -76,8 +76,8 @@ t$get_n_arms()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_unique_times()
 
 ## ------------------------------------------------
@@ -85,8 +85,8 @@ t$get_unique_times()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 
 t$get_timepoint("A", 1)
 }
@@ -104,8 +104,8 @@ t$get_timepoint("A", 1)
 \itemize{
 \item \code{time} \code{numeric} Calendar time
 \item \code{arm} \code{character} Unique identifier of the arm
-\item \code{dropper} \code{integer} # of subjects dropped at \code{time}
-\item \code{enroller} \code{integer} # of subjects enrolled at \code{time}
+\item \code{drop} \code{integer} # of subjects dropped at \code{time}
+\item \code{enroll} \code{integer} # of subjects enrolled at \code{time}
 }}
 }
 \if{html}{\out{</div>}}
@@ -158,7 +158,7 @@ A new \code{Timer} instance.
 \subsection{Method \code{add_timepoint()}}{
 Add a timepoint to a timer.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, dropper, enroller)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop, enroll)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -168,9 +168,9 @@ Add a timepoint to a timer.
 
 \item{\code{arm}}{\code{character} Arm identifier.}
 
-\item{\code{dropper}}{\code{integer} Count of subjects to drop.}
+\item{\code{drop}}{\code{integer} Count of subjects to drop.}
 
-\item{\code{enroller}}{\code{integer} Count of subjects to enroll.}
+\item{\code{enroll}}{\code{integer} Count of subjects to enroll.}
 }
 \if{html}{\out{</div>}}
 }
@@ -180,8 +180,8 @@ Add a timepoint to a timer.
 t$add_timepoint(
   time = 1,
   arm = "A",
-  dropper = 1L,
-  enroller = 3L
+  drop = 1L,
+  enroll = 3L
 )
 }
 \if{html}{\out{</div>}}
@@ -201,7 +201,7 @@ Determine the last timepoint for a given instance of \code{Timer} class.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
 t$get_end_timepoint()
 }
 \if{html}{\out{</div>}}
@@ -224,8 +224,8 @@ Get number of unique arms.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_n_arms()
 }
 \if{html}{\out{</div>}}
@@ -248,8 +248,8 @@ Get unique timepoints.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_unique_times()
 }
 \if{html}{\out{</div>}}
@@ -281,8 +281,8 @@ Get a timepoint by arm and index.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 
 t$get_timepoint("A", 1)
 }

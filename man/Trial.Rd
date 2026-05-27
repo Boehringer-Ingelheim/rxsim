@@ -26,10 +26,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
 # Build a condition: fire at time >= 2 and count enrolled rows
 cond <- Condition$new(
@@ -75,10 +75,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
 # Create a trial
 trial <- Trial$new(
@@ -209,10 +209,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
 # Create a trial
 trial <- Trial$new(

@@ -14,12 +14,12 @@ knitr::opts_chunk$set(
 )
 
 # Register a knitr engine that converts ```{mermaid} blocks into
-# <div class="mermaid"> elements for the Mermaid JS library to render.
+# <pre class="mermaid"> elements for the Mermaid JS library to render.
 knitr::knit_engines$set(mermaid = function(options) {
   code <- paste(options$code, collapse = "\n")
   knitr::engine_output(
     options, code,
-    out = paste0('<div class="mermaid">\n', code, '\n</div>\n')
+    out = paste0('<pre class="mermaid">\n', code, '\n</pre>\n')
   )
 })
 ```
@@ -58,12 +58,12 @@ graph TD
   A([Next timepoint]) --> B[Enroll and drop subjects]
   B --> C[Snapshot enrolled subjects]
   C --> D{Condition triggered?}
-  D -- Yes --> E[Run analysis]
-  D -- No --> F[Advance clock]
+  D -->|Yes| E[Run analysis]
+  D -->|No| F[Advance clock]
   E --> F
   F --> G{More timepoints?}
-  G -- Yes --> A
-  G -- No --> H([Done])
+  G -->|Yes| A
+  G -->|No| H([Done])
 ```
 
 In most workflows you will never construct these objects by hand.
@@ -87,7 +87,7 @@ full reference, see the dedicated vignettes linked in the table.
 | `Population` | Holds subject-level endpoint data and enrollment/dropout state for one arm | [Population](class-population.html) |
 | `Timer` | Stores the trial clock: when subjects enroll or drop in each arm | [Enrollment and Dropout](enrollment.html) |
 | `Condition` | Pairs a trigger expression with an analysis function; manages trigger state | [Conditions and Triggers](conditions.html) |
-| `Trial` | Orchestrates the simulation loop; stores snapshots and results | [Trial](class-trial.html) |
+| `Trial` | Orchestrates the simulation loop; stores snapshots and results | [Trial reference](../reference/Trial.html) |
 
 ## How the pieces fit together
 
@@ -126,7 +126,6 @@ For the generator shortcut (`replicate_trial`) see
 - [Population](class-population.html) - subject data format and enrollment
   tracking
 - [Conditions and Triggers](conditions.html) - triggers and analysis functions
-- [Trial](class-trial.html) - the simulation loop, results structure, and
-  replication
+- [Trial reference](../reference/Trial.html) - class documentation for run loop
+  and outputs
 - [Two API Styles](api-styles.html) - direct vs. generator API
-

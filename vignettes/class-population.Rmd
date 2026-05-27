@@ -161,17 +161,17 @@ multi_pop$n_readouts
 multi_pop$data
 ```
 
-## Endpoint types and generator choices
+## Endpoint types
 
 `Population` itself is endpoint-agnostic: it stores rows and metadata, not a
-special endpoint class. In practice, endpoint type is controlled by the
-generator you use to produce the endpoint columns.
+special endpoint class. Endpoint type is determined by which endpoint columns
+you include in the data frame.
 
-| Endpoint type | Typical generator | Example column |
+| Endpoint type | Typical data construction | Example column |
 |---|---|---|
-| Continuous | `rnorm()` | `response` |
-| Binary | `rbinom(..., size = 1, prob = p)` | `response_bin` |
-| Time-to-event | `rexp()` / Weibull draws | `tte` |
+| Continuous | `rnorm()` draws in a numeric column | `response` |
+| Binary | `rbinom(..., size = 1, prob = p)` as 0/1 | `response_bin` |
+| Time-to-event | `rexp()` / Weibull draws for event times | `tte` |
 
 This matters because the analysis function in each `Condition` must match the
 endpoint scale: t-test or linear model for continuous endpoints, proportion or
@@ -230,9 +230,9 @@ set.seed(303)
 trial_pop <- Population$new(name = "active", data = subject_data)
 
 timer <- Timer$new(name = "population_timer")
-timer$add_timepoint(time = 1, arm = "active", enroller = 2L, dropper = 0L)
-timer$add_timepoint(time = 3, arm = "active", enroller = 1L, dropper = 0L)
-timer$add_timepoint(time = 5, arm = "active", enroller = 0L, dropper = 1L)
+timer$add_timepoint(time = 1, arm = "active", enroll = 2L, drop = 0L)
+timer$add_timepoint(time = 3, arm = "active", enroll = 1L, drop = 0L)
+timer$add_timepoint(time = 5, arm = "active", enroll = 0L, drop = 1L)
 
 snapshot_condition <- Condition$new(
   where = calendar_trigger(5),
@@ -303,4 +303,5 @@ data.frame(
 To see how `Population` fits into the broader workflow, continue with:
 
 - [Enrollment and Dropout](enrollment.html): stochastic and deterministic enrollment, Timer reference
-- [Trial reference](class-trial.html): orchestration across arms and analyses
+- [Trial reference](../reference/Trial.html): orchestration across population,
+  timer, and conditions

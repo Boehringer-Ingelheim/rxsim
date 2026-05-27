@@ -283,7 +283,7 @@ abline(h = 0.80, lty = 2, col = "grey50")
 
 - [Example 3](example-3.html) - adds a time-to-event endpoint alongside
   the continuous one
-- [Endpoint Types](endpoints.html) - modeling continuous, binary, and TTE
-  endpoints
+- [Population](class-population.html) - endpoint data setup for continuous,
+  binary, and time-to-event outcomes
 - [Enrollment and Dropout](enrollment.html) - piecewise enrollment
   with `deterministic_schedule()`
