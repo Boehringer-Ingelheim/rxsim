@@ -108,7 +108,7 @@ not dropped before that look.
 
 ```{r direct-condition}
 summary_condition <- Condition$new(
-  where = calendar_trigger(c(3, 8)),
+  where = value_trigger("time", "%in%", c(3, 8)),
   analysis = function(df, current_time) {
     observed <- subset(
       df,
@@ -151,7 +151,7 @@ trial$run()
 ```{r direct-inspect}
 names(trial$locked_data)
 names(trial$results)
-prettify_results(trial$results)
+collect_results(trial)
 ```
 
 The `summary` analysis fired at calendar times 3 and 8, so both
@@ -188,7 +188,7 @@ make_trial_template <- function(effect = 0.6, seed = 2025) {
   add_timepoints(trial_timer, schedule)
 
   summary_condition <- Condition$new(
-    where = calendar_trigger(c(3, 8)),
+    where = value_trigger("time", "%in%", c(3, 8)),
     analysis = function(df, current_time) {
       observed <- subset(
         df,
@@ -375,17 +375,13 @@ This is the core operating-characteristic workflow with the direct API:
 4. flatten the results with `collect_results()`
 5. summarize the statistic of interest
 
-## `prettify_results()` and `collect_results()`
+## `collect_results()`
 
-These two helpers are complementary.
+`collect_results(x)` accepts a single `Trial` object or a list of `Trial`
+objects and returns a tidy data frame with `replicate`, `timepoint`, and
+`analysis` columns prepended to each row of analysis output.
 
-- `prettify_results(trial$results)` is for a single trial when you want a
-  compact, print-friendly summary
-- `collect_results(trials)` is for one or many trials when you want a tidy
-  data frame with `replicate`, `timepoint`, and `analysis` columns
-
-```{r pretty-vs-collect}
-prettify_results(trial$results)
+```{r collect-results}
 collect_results(trial)
 ```
 
@@ -510,6 +506,6 @@ abline(h = 0.05, lty = 3, col = "grey50")
 From here, the most useful follow-on references are:
 
 - [Two API Styles](api-styles.html): direct API versus generator API
-- [Interims](interims.html): designing multi-look analyses
+- [Conditions and Triggers](conditions.html): designing multi-look analyses
 - [Examples](example-1.html): complete trial designs built on the same core
   `Trial` workflow

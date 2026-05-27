@@ -8,7 +8,6 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-options(rmarkdown.html_vignette.check_title = FALSE)
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -98,7 +97,7 @@ trial yourself.
 
 ```{r direct-single}
 # 1. Draw one stochastic enrollment and dropout plan.
-direct_plan <- gen_plan(
+direct_plan <- stochastic_schedule(
   sample_size = sample_size,
   arms = arms,
   allocation = allocation,
@@ -129,7 +128,7 @@ pop_trt <- Population$new(
   data = make_outcome_data(direct_n_by_arm[["trt"]], mean_shift = delta)
 )
 
-# 5. Define the final analysis with an rxsim_trigger object.
+# 5. Define the final analysis with a condition object.
 direct_final <- make_final_condition()
 
 # 6. Assemble the Trial object.
@@ -164,7 +163,7 @@ constructor function.
 ```{r direct-builder}
 build_direct_trial <- function(name) {
   # 1. Generate a fresh stochastic plan for this replicate.
-  plan <- gen_plan(
+  plan <- stochastic_schedule(
     sample_size = sample_size,
     arms = arms,
     allocation = allocation,
@@ -236,7 +235,7 @@ population_generators <- list(
   trt = function(n) make_outcome_data(n, mean_shift = delta)
 )
 
-# 2. Define the analysis generator with an rxsim_trigger object.
+# 2. Define the analysis generator with a condition object.
 analysis_generators <- list(
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
@@ -245,8 +244,8 @@ analysis_generators <- list(
 )
 ```
 
-The trigger must be an `rxsim_trigger` object such as
-`enroll_trigger(1.0, sample_size)`. There is no need for `rlang::exprs()` here.
+The trigger must be a `trigger` object such as
+`enroll_trigger(1.0, sample_size)`. No quotation helpers are needed.
 
 ```{r generator-replicates, results=FALSE}
 # 3. Ask rxsim to build 100 independent trials.
@@ -325,10 +324,10 @@ Prefer direct instantiation when you want to work directly with the underlying
 objects.
 
 - Manually manipulate the `Timer` before running.
-- Use deterministic schedules from `gen_timepoints()` or a hand-built plan.
+- Use deterministic schedules from `deterministic_schedule()` or a hand-built plan.
 - Debug a single trial by inspecting `timer`, `population`, and `locked_data`.
 - Build multi-stage designs where the schedule is easier to express directly,
-  such as the seamless pattern in [Example 8](example-8.html).
+  such as the seamless pattern in [Example 5](example-5.html).
 
 ## When to use Style B
 
@@ -366,8 +365,8 @@ deterministic schedules, not for stochastic enrollment.
 
 ## Next steps
 
-- Add interims and multiple analyses: [Example 2](example-2.html)
+- Add interims and multiple analyses: [Conditions and Triggers](conditions.html)
 - Learn more about trigger objects and analyses:
-  [Condition](class-condition.html)
+  [Conditions and Triggers](conditions.html)
 - Inspect the simulation loop and result structure:
   [Trial](class-trial.html)

@@ -13,7 +13,7 @@
 #' [`Condition`] class. `Condition` objects are stored in `trial$conditions`
 #' and evaluated by [`Trial`]`$run()` at each timepoint.
 #'
-#' Helper functions [`trigger_by_calendar()`] and [`trigger_by_fraction()`]
+#' Helper functions [`condition_calendar_time()`] and [`condition_enrollment_fraction()`]
 #' provide convenient shortcuts for building `Condition` objects; both return
 #' a [`Condition`] that you pass to `Trial$new(conditions = list(...))`.
 #'

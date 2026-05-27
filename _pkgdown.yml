@@ -11,11 +11,6 @@ navbar:
     left: [intro, articles, reference]
 
 articles:
-  - title: "Getting started"
-    navbar: ~
-    contents:
-      - getting-started
-
   - title: "Architecture"
     navbar: Architecture
     contents:
@@ -25,8 +20,8 @@ articles:
     navbar: Classes
     contents:
       - class-population
-      - class-timer
-      - class-condition
+      - enrollment
+      - conditions
       - class-trial
 
   - title: "How-to guides"
@@ -34,8 +29,6 @@ articles:
     contents:
       - api-styles
       - endpoints
-      - enrollment-dropout
-      - interims
 
   - title: "Examples"
     navbar: Examples
@@ -45,10 +38,6 @@ articles:
       - example-3
       - example-4
       - example-5
-      - example-6
-      - example-7
-      - example-8
-      - example-multi-run
 
 reference:
   - title: "Core classes"
@@ -70,29 +59,27 @@ reference:
     desc: "Helpers for building Timer timepoint lists"
     contents:
       - add_timepoints
-      - gen_timepoints
+      - deterministic_schedule
+      - stochastic_schedule
 
   - title: "Condition helpers"
     desc: "Convenience constructors for Condition objects"
     contents:
       - trigger_primitives
-      - trigger_by_calendar
-      - trigger_by_fraction
+      - condition_calendar_time
+      - condition_enrollment_fraction
 
   - title: "Population helpers"
     desc: "Helpers for building Population generators"
     contents:
       - gen_population
-      - gen_plan
+      - as_population_data
 
   - title: "Results helpers"
     desc: "Functions to collect and display simulation results"
     contents:
       - collect_results
-      - prettify_results
 
   - title: "Utilities"
     contents:
       - get_col_names
-      - vector_to_dataframe
-

@@ -74,7 +74,7 @@ pop$data
 
 You can construct a `Population` directly from a data frame when you already
 have subject-level rows. For quick single-endpoint examples,
-`vector_to_dataframe()` is a compact shortcut that creates `id`, `data`, and
+`as_population_data()` is a compact shortcut that creates `id`, `data`, and
 `readout_time` so that `Population$new()` can fill the arm label.
 
 The first object reuses the explicit data frame from above. The second shows the
@@ -85,7 +85,7 @@ pop_df <- Population$new(name = "active", data = subject_data)
 
 pop_vector <- Population$new(
   name = "placebo",
-  data = vector_to_dataframe(c(8.7, 9.1, 8.9, 9.4))
+  data = as_population_data(c(8.7, 9.1, 8.9, 9.4))
 )
 
 pop_df$data
@@ -159,6 +159,58 @@ multi_pop <- Population$new(name = "active", data = multi_readout_data)
 multi_pop$n
 multi_pop$n_readouts
 multi_pop$data
+```
+
+## Endpoint types and generator choices
+
+`Population` itself is endpoint-agnostic: it stores rows and metadata, not a
+special endpoint class. In practice, endpoint type is controlled by the
+generator you use to produce the endpoint columns.
+
+| Endpoint type | Typical generator | Example column |
+|---|---|---|
+| Continuous | `rnorm()` | `response` |
+| Binary | `rbinom(..., size = 1, prob = p)` | `response_bin` |
+| Time-to-event | `rexp()` / Weibull draws | `tte` |
+
+This matters because the analysis function in each `Condition` must match the
+endpoint scale: t-test or linear model for continuous endpoints, proportion or
+logistic methods for binary endpoints, and survival methods for time-to-event
+outcomes.
+
+```{r endpoint-types}
+set.seed(4040)
+
+pop_cont <- Population$new(
+  name = "cont",
+  data = data.frame(
+    id = 1:5,
+    response = rnorm(5, mean = 0, sd = 1),
+    readout_time = 1
+  )
+)
+
+pop_bin <- Population$new(
+  name = "bin",
+  data = data.frame(
+    id = 1:5,
+    response_bin = rbinom(5, size = 1, prob = 0.35),
+    readout_time = 1
+  )
+)
+
+pop_tte <- Population$new(
+  name = "tte",
+  data = data.frame(
+    id = 1:5,
+    tte = rexp(5, rate = 0.2),
+    readout_time = 1
+  )
+)
+
+names(pop_cont$data)
+names(pop_bin$data)
+names(pop_tte$data)
 ```
 
 ## Role in Trial
@@ -250,6 +302,5 @@ data.frame(
 
 To see how `Population` fits into the broader workflow, continue with:
 
-- [Getting Started](getting-started.html): end-to-end rxsim workflow
-- [Timer reference](class-timer.html): timepoint scheduling and trial clocks
+- [Enrollment and Dropout](enrollment.html): stochastic and deterministic enrollment, Timer reference
 - [Trial reference](class-trial.html): orchestration across arms and analyses

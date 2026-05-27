@@ -40,7 +40,7 @@ clone_trial <- function(trial, n = 1) {
 #'
 #' @return `Population` R6 object.
 #'
-#' @seealso [Population], [replicate_trial()], [vector_to_dataframe()].
+#' @seealso [Population], [replicate_trial()], [as_population_data()].
 #'
 #' @examples
 #' gen_control <- function(n) data.frame(id = 1:n, value = rnorm(n), readout_time = 0)
@@ -72,7 +72,7 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @param enrollment `function` that generates inter-enrollment times.
 #' @param dropout `function` that generates inter-dropout times.
 #' @param analysis_generators `list` (named) of analysis specifications. Each
-#'   `$trigger` must be an `rxsim_trigger` object created by
+#'   `$trigger` must be a `trigger` object created by
 #'   `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or
 #'   `calendar_trigger()`.
 #' @param population_generators `list` (named) of population generator functions.
@@ -81,7 +81,7 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @return `list` of `n` `Trial` objects with indexed names,
 #'   cloned timers, and generated populations.
 #'
-#' @seealso [gen_plan()], [gen_population()], [clone_trial()], [run_trials()].
+#' @seealso [stochastic_schedule()], [gen_population()], [clone_trial()], [run_trials()].
 #'
 #' @export
 replicate_trial <- function(
@@ -98,7 +98,7 @@ replicate_trial <- function(
 
   timers <- lapply(seq_len(n), function(i) {
     t <- Timer$new(name = paste("timer", i, sep="_"))
-    plan <- gen_plan(sample_size, arms, allocation, enrollment, dropout)
+    plan <- stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
     add_timepoints(t, plan)
     return(t)
   })
@@ -144,9 +144,9 @@ replicate_trial <- function(
   trials <- lapply(seq_len(n), function(i) {
     conditions <- lapply(names(analysis_generators), function(aname) {
       trigger <- analysis_generators[[aname]]$trigger
-      if (!inherits(trigger, "rxsim_trigger")) {
+      if (!inherits(trigger, "trigger")) {
         stop(
-          "Trigger for '", aname, "' must be an `rxsim_trigger` object. ",
+          "Trigger for '", aname, "' must be a `trigger` object. ",
           "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or `calendar_trigger()`."
         )
       }

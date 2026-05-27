@@ -84,8 +84,8 @@ population_generators <- list(
 sample_size <- 100L
 analysis_generators <- list(
   final = list(
-    trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= !!sample_size),
-    analysis = function(df, timer) {
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(n = nrow(enrolled), p_value = t.test(y ~ arm, data = enrolled)$p.value)
     }
@@ -108,8 +108,8 @@ trials <- replicate_trial(
 run_trials(trials)
 ```
 
-Collect results across all replicates in one pass — see the
-[Getting Started vignette](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html)
+Collect results across all replicates in one pass - see the
+[Two API Styles vignette](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)
 for the full walkthrough.
 
 ## Documentation
@@ -119,16 +119,17 @@ Full documentation lives on the
 
 | Vignette | What it covers |
 |----------|----------------|
-| [Getting Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html) | End-to-end walkthrough of a complete trial simulation |
-| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html) | Population, Timer, and Trial in depth; trigger expressions explained |
-| [Enrollment & Dropout Modeling](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html) | `gen_plan()` vs `gen_timepoints()` — stochastic vs piecewise-constant |
+| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html) | Architecture overview: Population, Timer, Condition, Trial |
+| [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.html) | Subject data, enrollment/dropout mechanics, endpoint types |
+| [Enrollment & Dropout](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html) | `stochastic_schedule()` vs `deterministic_schedule()` |
+| [Conditions & Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/class-condition.html) | Trigger API, combining triggers, interim analyses |
+| [Trial](https://boehringer-ingelheim.github.io/rxsim/articles/class-trial.html) | Trial class reference, run loop, seed reproducibility |
+| [Two API Styles](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html) | Direct instantiation vs generator + replicate_trial |
 | [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html) | Two-arm fixed design, t-test |
-| [Example 2: Interim analysis, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html) | Interim + final analyses |
-| [Example 3: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html) | Two correlated continuous endpoints, Holm correction |
-| [Example 4: Continuous + time-to-event](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html) | Mixed endpoint — continuous + TTE, Cox PH |
-| [Example 5: Multi-arm, Dunnett + MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html) | Dose-finding with Dunnett test and MCP-Mod |
-| [Example 6: Subgroup analysis](https://boehringer-ingelheim.github.io/rxsim/articles/example-6.html) | Overall + exploratory subgroup treatment effects |
-| [Example 7: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-7.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
+| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html) | Two correlated continuous endpoints, Holm correction |
+| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html) | Multi-arm dose-finding with Dunnett + MCP-Mod |
+| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
+| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html) | Multi-stage adaptive design with BayesianMCPMod |
 
 ## Installation
 

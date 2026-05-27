@@ -28,5 +28,5 @@ timepoints <- data.frame(
 add_timepoints(t, timepoints)
 }
 \seealso{
-\link{Timer}, \code{\link[=gen_plan]{gen_plan()}}, \code{\link[=gen_timepoints]{gen_timepoints()}}.
+\link{Timer}, \code{\link[=stochastic_schedule]{stochastic_schedule()}}, \code{\link[=deterministic_schedule]{deterministic_schedule()}}.
 }

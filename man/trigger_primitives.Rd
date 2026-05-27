@@ -6,9 +6,9 @@
 \alias{count_trigger}
 \alias{enroll_trigger}
 \alias{calendar_trigger}
-\alias{&.rxsim_trigger}
-\alias{|.rxsim_trigger}
-\title{Build Safe Trial Triggers}
+\alias{&.trigger}
+\alias{|.trigger}
+\title{Build Trial Triggers}
 \usage{
 value_trigger(col, op, rhs)
 
@@ -18,9 +18,9 @@ enroll_trigger(fraction, sample_size)
 
 calendar_trigger(cal_time)
 
-\method{&}{rxsim_trigger}(e1, e2)
+\method{&}{trigger}(e1, e2)
 
-\method{|}{rxsim_trigger}(e1, e2)
+\method{|}{trigger}(e1, e2)
 }
 \arguments{
 \item{col}{\code{character} Column name referenced by the trigger.}
@@ -35,16 +35,18 @@ numeric for \code{count_trigger()}.}
 
 \item{sample_size}{\code{numeric} Target sample size.}
 
-\item{cal_time}{\code{numeric} Calendar time(s) at which to trigger.}
+\item{cal_time}{\code{numeric} Calendar time at or after which to trigger.
+Uses \code{>=} so it works with both stochastic (continuous) and deterministic
+(integer) schedules.}
 
-\item{e1, e2}{\code{rxsim_trigger} objects to combine.}
+\item{e1, e2}{\code{trigger} objects to combine.}
 }
 \value{
-An \code{rxsim_trigger} object.
+A \code{trigger} object.
 }
 \description{
-Create inert trigger specifications that can be safely
-passed to \code{\link{Condition}} or composed with \code{&} and \code{|}.
+Create trigger specifications that can be passed to
+\code{\link{Condition}} or composed with \code{&} and \code{|}.
 }
 \examples{
 t1 <- value_trigger("time", ">=", 52)

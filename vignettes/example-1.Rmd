@@ -23,8 +23,7 @@ This example simulates a parallel-group trial evaluating a new treatment against
 placebo on a continuous primary endpoint (e.g., a biomarker score). 100
 subjects are randomised 1:1; a two-sample t-test is run at full enrollment. This
 is the simplest complete rxsim workflow using the generator API
-(`replicate_trial`). For the direct API equivalent see
-[Getting Started](getting-started.html); for a side-by-side comparison see
+(`replicate_trial`). For a side-by-side comparison see
 [Two API Styles](api-styles.html).
 
 **Unique focus:** generator API, `enroll_trigger`, single final analysis.
@@ -61,7 +60,7 @@ population_generators <- list(
 `readout_time = 1` means the endpoint is observed 1 time unit after enrollment.
 The treatment arm has a mean shift of `delta` SD units over placebo.
 
-## Trigger and analysis
+## Conditions
 
 `enroll_trigger(1.0, sample_size)` fires once all 100 subjects are enrolled.
 `subset(!is.na(enroll_time))` removes subjects allocated but not yet arrived.
@@ -155,7 +154,6 @@ abline(h = 0.05, lty = 3, col = "grey50")
 
 ## Next steps
 
-- [Example 2](example-2.html) - adds an interim analysis
-- [Interim Analyses](interims.html) - in-depth guide to multi-look designs
+- [Example 2](example-2.html) - adds a second endpoint
+- [Conditions and Triggers](conditions.html) - in-depth guide to multi-look designs
 - [Endpoint Types](endpoints.html) - continuous, binary, and time-to-event
-

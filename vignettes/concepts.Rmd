@@ -73,9 +73,9 @@ from your generator functions. Understanding the three classes directly
 is useful when you want to:
 
 - inspect the locked snapshot mid-simulation for debugging
-- write custom multi-timepoint designs that `gen_plan()` cannot express
+- write custom multi-timepoint designs that `stochastic_schedule()` cannot express
 - use `Trial$new()` directly for a one-off single-run simulation
-  (as in [Example 8](example-8.html))
+  (as in [Example 5](example-5.html))
 
 The sections below give a short summary of each building block. For the
 full reference, see the dedicated vignettes linked in the table.
@@ -85,8 +85,8 @@ full reference, see the dedicated vignettes linked in the table.
 | Class | Role | Deep dive |
 |-------|------|-----------|
 | `Population` | Holds subject-level endpoint data and enrollment/dropout state for one arm | [Population](class-population.html) |
-| `Timer` | Stores the trial clock: when subjects enroll or drop in each arm | [Timer](class-timer.html) |
-| `Condition` | Pairs a trigger expression with an analysis function; manages trigger state | [Condition](class-condition.html) |
+| `Timer` | Stores the trial clock: when subjects enroll or drop in each arm | [Enrollment and Dropout](enrollment.html) |
+| `Condition` | Pairs a trigger expression with an analysis function; manages trigger state | [Conditions and Triggers](conditions.html) |
 | `Trial` | Orchestrates the simulation loop; stores snapshots and results | [Trial](class-trial.html) |
 
 ## How the pieces fit together
@@ -100,7 +100,7 @@ pop_trt <- Population$new("trt", trt_data)
 
 # 2. Timer: register enrollment/dropout events
 tmr <- Timer$new("my_timer")
-add_timepoints(tmr, gen_plan(n, arms, alloc, enroll_fn, dropout_fn))
+add_timepoints(tmr, stochastic_schedule(n, arms, alloc, enroll_fn, dropout_fn))
 
 # 3. Condition: fire at full enrollment, run a t-test
 cond <- Condition$new(
@@ -116,17 +116,16 @@ trial <- Trial$new("trial", timer=tmr,
 trial$run()
 ```
 
-For a step-by-step walkthrough see [Getting Started](getting-started.html).
+For a step-by-step walkthrough see [Enrollment and Dropout](enrollment.html).
 For the generator shortcut (`replicate_trial`) see
 [Two API Styles](api-styles.html).
 
 ## Next steps
 
-- [Getting Started](getting-started.html) - complete end-to-end walkthrough
+- [Enrollment and Dropout](enrollment.html) - stochastic and deterministic enrollment
 - [Population](class-population.html) - subject data format and enrollment
   tracking
-- [Timer](class-timer.html) - building the trial clock
-- [Condition](class-condition.html) - triggers and analysis functions
+- [Conditions and Triggers](conditions.html) - triggers and analysis functions
 - [Trial](class-trial.html) - the simulation loop, results structure, and
   replication
 - [Two API Styles](api-styles.html) - direct vs. generator API

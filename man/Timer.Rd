@@ -16,7 +16,7 @@ Trigger conditions (filtering + analysis) are now managed by the separate
 \code{\link{Condition}} class. \code{Condition} objects are stored in \code{trial$conditions}
 and evaluated by \code{\link{Trial}}\verb{$run()} at each timepoint.
 
-Helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}
+Helper functions \code{\link[=condition_calendar_time]{condition_calendar_time()}} and \code{\link[=condition_enrollment_fraction]{condition_enrollment_fraction()}}
 provide convenient shortcuts for building \code{Condition} objects; both return
 a \code{\link{Condition}} that you pass to \code{Trial$new(conditions = list(...))}.
 }

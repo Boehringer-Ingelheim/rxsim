@@ -16,13 +16,13 @@ At each unique time defined in the trial's \code{Timer}, the \code{Trial}:
 }
 
 Use \code{run()} to execute the simulation. Trigger conditions are built with
-\code{\link{Condition}}\verb{$new()} (or helpers \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} /
-\code{\link[=trigger_by_fraction]{trigger_by_fraction()}}) and stored in \code{trial$conditions}.
+\code{\link{Condition}}\verb{$new()} (or helpers \code{\link[=condition_calendar_time]{condition_calendar_time()}} /
+\code{\link[=condition_enrollment_fraction]{condition_enrollment_fraction()}}) and stored in \code{trial$conditions}.
 }
 \examples{
 # Create two populations
-popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+popA <- Population$new("A", data = as_population_data(rnorm(10)))
+popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
@@ -31,9 +31,9 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 
-# Build a condition: fire at time 2 and count enrolled rows
+# Build a condition: fire at time >= 2 and count enrolled rows
 cond <- Condition$new(
-  where    = rlang::quos(.data$time \%in\% 2),
+  where    = calendar_trigger(2),
   analysis = function(df, current_time) nrow(df),
   name     = "final"
 )
@@ -50,7 +50,7 @@ trial <- Trial$new(
 # Run the simulation
 trial$run()
 
-prettify_results(trial$results)
+collect_results(trial)
 
 
 ## ------------------------------------------------
@@ -60,7 +60,7 @@ prettify_results(trial$results)
 t <- Timer$new(name="simple_timer")
 pop <- Population$new(
   name = "simple_pop",
-  data = vector_to_dataframe(rnorm(5))
+  data = as_population_data(rnorm(5))
 )
 pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
@@ -70,8 +70,8 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 ## ------------------------------------------------
 
 # Create two populations
-popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+popA <- Population$new("A", data = as_population_data(rnorm(10)))
+popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
@@ -91,13 +91,13 @@ trial <- Trial$new(
 # Run the simulation
 trial$run()
 
-prettify_results(trial$results)
+collect_results(trial)
 }
 \seealso{
-\link{Population}, \link{Timer}, \link{Condition}, \code{\link[=prettify_results]{prettify_results()}},
+\link{Population}, \link{Timer}, \link{Condition}, \code{\link[=collect_results]{collect_results()}},
 \code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=clone_trial]{clone_trial()}}.
 
-\link{Timer}, \link{Condition}, \code{\link[=prettify_results]{prettify_results()}}.
+\link{Timer}, \link{Condition}, \code{\link[=collect_results]{collect_results()}}.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -170,7 +170,7 @@ A new \code{Trial} instance.
 \preformatted{t <- Timer$new(name="simple_timer")
 pop <- Population$new(
   name = "simple_pop",
-  data = vector_to_dataframe(rnorm(5))
+  data = as_population_data(rnorm(5))
 )
 pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
@@ -204,8 +204,8 @@ Updates \code{locked_data} and \code{results} fields.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{# Create two populations
-popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+popA <- Population$new("A", data = as_population_data(rnorm(10)))
+popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
@@ -225,7 +225,7 @@ trial <- Trial$new(
 # Run the simulation
 trial$run()
 
-prettify_results(trial$results)
+collect_results(trial)
 }
 \if{html}{\out{</div>}}
 
