@@ -9,7 +9,7 @@
 <!-- badges: end -->
 
 > **Reduce friction in randomized controlled trial simulation.** rxsim
-> lets you prototype Phase II/III trial designs at high speed  -  without
+> lets you prototype Phase II/III trial designs at high speed - without
 > writing hundreds of lines of low-level plumbing code.
 
 ------------------------------------------------------------------------
@@ -18,7 +18,7 @@
 
 Simulating a randomized controlled trial from scratch means manually
 wiring together enrollment schedules, randomization, data snapshots,
-analyses, and result collection  -  across potentially thousands of
+analyses, and result collection - across potentially thousands of
 replicates. Done in base R or even with the tidyverse, that
 orchestration routinely reaches **1,000+ lines of fragile,
 hard-to-reuse, -maintain, and -review code**.
@@ -29,21 +29,21 @@ matter: endpoints, allocation, analysis rules, and adaptive strategies.
 
 ## Key Features
 
-- 👌 **Very easy to use**  -  Add/remove arms, and interims as list
+- 👌 **Very easy to use** - Add/remove arms, and interims as list
   elements
-- 🏗️ **Declarative trial design**  -  define arms, populations, and
+- 🏗️ **Declarative trial design** - define arms, populations, and
   analyses as plain R functions; let rxsim handle the orchestration
-- 📅 **Flexible enrollment & dropout**  -  stochastic or deterministic
+- 📅 **Flexible enrollment & dropout** - stochastic or deterministic
   schedules
-- ⚡ **Trigger-based analyses**  -  fire any analysis at a calendar time,
+- ⚡ **Trigger-based analyses** - fire any analysis at a calendar time,
   an enrollment fraction, or any custom data condition
-- 🔁 **Scalable replication**  -  generate and run thousands of
+- 🔁 **Scalable replication** - generate and run thousands of
   independent trial replicates
-- 🧩 **Any endpoint type**  -  continuous, time-to-event, binary,
+- 🧩 **Any endpoint type** - continuous, time-to-event, binary,
   correlated multi-endpoint; supply any analysis function
-- 🔬 **Adaptive designs**  -  interims, Go/No-Go rules, Bayesian
+- 🔬 **Adaptive designs** - interims, Go/No-Go rules, Bayesian
   borrowing; all composable from the same building blocks
-- 📦 **Integrates cleanly**  -  works with `survival`, `RBesT`,
+- 📦 **Integrates cleanly** - works with `survival`, `RBesT`,
   `DoseFinding`, `multcomp`, `dplyr`, and more
 
 ## Core Concepts
@@ -53,8 +53,8 @@ rxsim is built on three composable classes:
 | Class | Role |
 |----|----|
 | **`Population`** | Holds subject-level data (endpoints, covariates) and tracks each subject’s enrollment and dropout times |
-| **`Timer`** | Drives the trial clock  -  stores discrete timepoints per arm and evaluates condition-triggered analyses |
-| **`Trial`** | Orchestrates the simulation  -  iterates over timepoints, updates populations, snapshots data, and collects results |
+| **`Timer`** | Drives the trial clock - stores discrete timepoints per arm and evaluates condition-triggered analyses |
+| **`Trial`** | Orchestrates the simulation - iterates over timepoints, updates populations, snapshots data, and collects results |
 
 The high-level helpers `replicate_trial()` and `run_trials()` wrap these
 three classes into an ergonomic one-call workflow for the common case.
@@ -193,7 +193,7 @@ analyses?</strong>
 <br>
 
 Yes. Trigger conditions fire whenever a boolean expression on the
-accumulating data is satisfied  -  at a calendar time, an enrollment
+accumulating data is satisfied - at a calendar time, an enrollment
 fraction, or any custom condition. Multiple triggers can be registered
 on the same trial, allowing interim and final analyses to coexist
 naturally. Adaptive rules (e.g., stopping early, adjusting sample size)
@@ -216,7 +216,7 @@ for a detailed explanation of the trigger system.
 <br>
 
 rxsim is designed for **rapid trial design prototyping and operating
-characteristic evaluation**  -  estimating power, type I error, and
+characteristic evaluation** - estimating power, type I error, and
 decision probabilities under a range of scenarios. It is not a validated
 submission package, yet. Simulation outputs it produces can feed into
 submission-supporting analyses when the user applies appropriate
@@ -236,7 +236,7 @@ validation and documentation.
 `replicate_trial(n = N)` creates `N` fully independent `Trial` objects
 (each with its own population data and timer state). `run_trials()` then
 executes them sequentially. For very large `N`, parallelization is
-straightforward  -  replace `run_trials()` with any R parallel back-end:
+straightforward - replace `run_trials()` with any R parallel back-end:
 
 ``` r
 # Example using parallel::mclapply (Unix/macOS)
