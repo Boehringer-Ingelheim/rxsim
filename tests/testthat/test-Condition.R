@@ -319,3 +319,48 @@ testthat::test_that("analysis_args: works end-to-end through replicate_trial", {
   testthat::expect_r6_class(trials[[1L]]$conditions[[1L]], "Condition")
   testthat::expect_equal(trials[[1L]]$conditions[[1L]]$analysis_args, list(multiplier = 3L))
 })
+
+testthat::test_that("collect_results: combines analyses with different columns", {
+  sample_size   <- 100L
+  arms          <- c("treatment", "placebo")
+  allocation    <- c(1, 1)
+  enrollment_fn <- function(n) rexp(n, 1)
+  dropout_fn    <- function(n) rexp(n, 0.05)
+
+  trt <- Population$new(
+    name = "treatment",
+    data = as_population_data(rnorm(sample_size / 2))
+  )
+  pbo <- Population$new(
+    name = "placebo",
+    data = as_population_data(rnorm(sample_size / 2, mean = 2))
+  )
+
+  t <- Timer$new(name = "timer")
+  add_timepoints(t, stochastic_schedule(sample_size, arms, allocation, enrollment_fn, dropout_fn))
+
+  final <- condition_enrollment_fraction(1.0, sample_size, analysis = function(df, time) {
+    enrolled <- subset(df, !is.na(enroll_time))
+    data.frame(
+      n = nrow(enrolled),
+      p_value = t.test(data ~ arm, data = enrolled)$p.value
+    )
+  })
+
+  interim <- condition_enrollment_fraction(0.5, sample_size, analysis = function(df, time) {
+    enrolled <- subset(df, !is.na(enroll_time))
+    data.frame(
+      n = nrow(enrolled),
+      mean = mean(enrolled$data)
+    )
+  })
+
+  trial <- Trial$new(name = "simple", timer = t, population = list(trt, pbo), conditions = list(final, interim))
+  trial$run()
+
+  res <- collect_results(list(trial))
+  testthat::expect_equal(nrow(res), 2L)
+  testthat::expect_setequal(names(res), c("replicate", "timepoint", "analysis", "n", "p_value", "mean"))
+  testthat::expect_true(any(is.na(res$p_value)))
+  testthat::expect_true(any(is.na(res$mean)))
+})

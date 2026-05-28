@@ -136,13 +136,13 @@ collect_results <- function(trials, analysis = NULL) {
         )
       })
 
-      do.call(rbind, an_rows)
+      dplyr::bind_rows(an_rows)
     })
 
-    do.call(rbind, tp_rows)
+    dplyr::bind_rows(tp_rows)
   })
 
-  result <- do.call(rbind, rows)
+  result <- dplyr::bind_rows(rows)
   if (!is.null(result)) rownames(result) <- NULL
   result
 }
