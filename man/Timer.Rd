@@ -2,19 +2,23 @@
 % Please edit documentation in R/Timer.R
 \name{Timer}
 \alias{Timer}
-\title{Timer: Track timed events and apply condition-triggered analyses}
+\title{Timer: Track timed events across arms}
 \description{
-A class to collect and query \emph{timepoints}, time-based events, across arms.
-Timer class also supports conditions that filter data using \code{\link[dplyr:filter]{dplyr::filter()}}
-and apply custom analyses.
+A class to collect and query \emph{timepoints} — time-based enrollment and
+dropout events — across trial arms.
 
-Use \code{add_timepoint()} to append timepoints, \code{get_timepoint()} for a lookup,
-and \code{check_conditions()} to filter a data frame based on a trigger condition
-and return either analysis results or the filtered data.
+Use \code{add_timepoint()} to register events, \code{get_timepoint()} for lookup,
+\code{get_end_timepoint()} / \code{get_n_arms()} / \code{get_unique_times()} for
+summary queries.
 }
 \details{
-Helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}} provide
-convenient shortcuts for common trigger patterns.
+Trigger conditions (filtering + analysis) are now managed by the separate
+\code{\link{Condition}} class. \code{Condition} objects are stored in \code{trial$conditions}
+and evaluated by \code{\link{Trial}}\verb{$run()} at each timepoint.
+
+Helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}
+provide convenient shortcuts for building \code{Condition} objects; both return
+a \code{\link{Condition}} that you pass to \code{Trial$new(conditions = list(...))}.
 }
 \examples{
 # Basic construction
@@ -27,36 +31,9 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
 
 # Query
 t$get_end_timepoint() # max time => 2
-t$get_n_arms() # unique arms => 2
-t$get_unique_times() # unique times => c(1, 2)
+t$get_n_arms()        # unique arms => 2
+t$get_unique_times()  # unique times => c(1, 2)
 t$get_timepoint("A", 1) # returns a single timepoint
-
-# Add conditions using trigger helpers or dplyr style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A", "A", "B", "B", "A", "B"),
-  status = c("active", "inactive", "active", "active", "inactive", "active"),
-  visit = c(1, 2, 1, 3, 3, 2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Or add conditions manually with dplyr style
-# Condition: arm A, visit >= 2, no analysis -> returns filtered df
-t$add_condition(
-  arm == "A", visit >= 2,
-  name = "armA_visit2plus"
-)
-
-# Run checks
-res <- t$check_conditions(locked_data = df, current_time = 3)
-names(res)
 
 
 ## ------------------------------------------------
@@ -75,38 +52,6 @@ t$add_timepoint(
   arm = "A",
   dropper = 1L,
   enroller = 3L
-)
-
-## ------------------------------------------------
-## Method `Timer$add_condition`
-## ------------------------------------------------
-
-#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-
-# Add conditions using `dplyr` style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition 1: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
 )
 
 ## ------------------------------------------------
@@ -144,50 +89,11 @@ t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
 t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
 
 t$get_timepoint("A", 1)
-
-## ------------------------------------------------
-## Method `Timer$check_conditions`
-## ------------------------------------------------
-
-#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
-
-# Query
-t$get_end_timepoint()     # max time => 2
-t$get_n_arms()            # unique arms => 2
-t$get_unique_times()      # unique times => c(1, 2)
-t$get_timepoint("A", 1)   # returns a single timepoint
-
-# Add conditions using dplyr style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active", "inactive", "active", "active", "inactive", "active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
-)
 }
 \seealso{
-\link{Trial} to coordinate simulations with populations, \code{\link[=add_timepoints]{add_timepoints()}}
-to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for condition syntax.
+\code{\link{Trial}} to coordinate simulations with populations,
+\code{\link{Condition}} for trigger/analysis logic,
+\code{\link[=add_timepoints]{add_timepoints()}} to attach multiple timepoints.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -198,17 +104,8 @@ to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for c
 \itemize{
 \item \code{time} \code{numeric} Calendar time
 \item \code{arm} \code{character} Unique identifier of the arm
-\item \code{dropper} \code{integer} # of subjects dropper at \code{time}
+\item \code{dropper} \code{integer} # of subjects dropped at \code{time}
 \item \code{enroller} \code{integer} # of subjects enrolled at \code{time}
-}}
-
-\item{\code{conditions}}{\code{list} A list of condition entries. Each entry is a list with keys:
-\itemize{
-\item \code{where} \code{expr} filter conditions in \code{\link[dplyr:filter]{dplyr::filter()}} style
-\item \code{analysis} \code{function} or \code{NULL} analysis applied to filtered data
-\item \code{name} \code{character} or \code{NULL} unique key for the condition
-\item \code{cooldown} \code{numeric} minimum time between consecutive triggers
-\item \code{max_triggers} \code{integer} maximum number of times this condition can trigger
 }}
 }
 \if{html}{\out{</div>}}
@@ -218,12 +115,10 @@ to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for c
 \itemize{
 \item \href{#method-Timer-new}{\code{Timer$new()}}
 \item \href{#method-Timer-add_timepoint}{\code{Timer$add_timepoint()}}
-\item \href{#method-Timer-add_condition}{\code{Timer$add_condition()}}
 \item \href{#method-Timer-get_end_timepoint}{\code{Timer$get_end_timepoint()}}
 \item \href{#method-Timer-get_n_arms}{\code{Timer$get_n_arms()}}
 \item \href{#method-Timer-get_unique_times}{\code{Timer$get_unique_times()}}
 \item \href{#method-Timer-get_timepoint}{\code{Timer$get_timepoint()}}
-\item \href{#method-Timer-check_conditions}{\code{Timer$check_conditions()}}
 \item \href{#method-Timer-clone}{\code{Timer$clone()}}
 }
 }
@@ -233,7 +128,7 @@ to attach multiple timepoints, \code{\link[dplyr:filter]{dplyr::filter()}} for c
 \subsection{Method \code{new()}}{
 Create a new \code{Timer} instance.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$new(name, timelist = NULL, conditions = NULL)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$new(name, timelist = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -242,8 +137,6 @@ Create a new \code{Timer} instance.
 \item{\code{name}}{\code{character} Unique identifier.}
 
 \item{\code{timelist}}{\code{list} Optional list of timepoints.}
-
-\item{\code{conditions}}{\code{list} Optional list of condition entries.}
 }
 \if{html}{\out{</div>}}
 }
@@ -289,71 +182,6 @@ t$add_timepoint(
   arm = "A",
   dropper = 1L,
   enroller = 3L
-)
-}
-\if{html}{\out{</div>}}
-
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Timer-add_condition"></a>}}
-\if{latex}{\out{\hypertarget{method-Timer-add_condition}{}}}
-\subsection{Method \code{add_condition()}}{
-Add a trigger condition to a timer.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_condition(
-  ...,
-  analysis = NULL,
-  name = NULL,
-  cooldown = 0,
-  max_triggers = 1L
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{\code{expression} Boolean expression(s) for \code{dplyr::filter()}.}
-
-\item{\code{analysis}}{\code{function} or \code{NULL} Optional function to apply.}
-
-\item{\code{name}}{\code{character} Unique condition identifier.}
-
-\item{\code{cooldown}}{\code{numeric} Minimum time between consecutive triggers (default: 0, no cooldown).}
-
-\item{\code{max_triggers}}{\code{integer} Maximum number of times this condition can trigger (default: 1, single trigger).}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-
-# Add conditions using `dplyr` style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active","inactive","active","active","inactive","active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition 1: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
 )
 }
 \if{html}{\out{</div>}}
@@ -457,70 +285,6 @@ t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
 t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
 
 t$get_timepoint("A", 1)
-}
-\if{html}{\out{</div>}}
-
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Timer-check_conditions"></a>}}
-\if{latex}{\out{\hypertarget{method-Timer-check_conditions}{}}}
-\subsection{Method \code{check_conditions()}}{
-Check conditions and return filtered data or analysis results.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$check_conditions(locked_data, current_time)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{locked_data}}{\code{data.frame} Trial data.}
-
-\item{\code{current_time}}{\code{numeric} Calendar time.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-\code{list} of filtered data or analysis results per condition.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{#' t <- Timer$new(name = "Timer")
-
-# Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
-
-# Query
-t$get_end_timepoint()     # max time => 2
-t$get_n_arms()            # unique arms => 2
-t$get_unique_times()      # unique times => c(1, 2)
-t$get_timepoint("A", 1)   # returns a single timepoint
-
-# Add conditions using dplyr style
-# Suppose you have a data.frame:
-df <- data.frame(
-  id = 1:6,
-  arm = c("A","A","B","B","A","B"),
-  status = c("active", "inactive", "active", "active", "inactive", "active"),
-  visit = c(1,2,1,3,3,2)
-)
-
-# Analysis function: count rows at/after a given visit, per arm
-my_analysis <- function(dat, current_time) {
-  out <- aggregate(id ~ arm, dat, length)
-  out$current_time <- current_time
-  out
-}
-
-# Condition: active only
-t$add_condition(
-  status == "active",
-  analysis = my_analysis,
-  name = "active_only"
-)
 }
 \if{html}{\out{</div>}}
 

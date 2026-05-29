@@ -1,68 +1,3 @@
-#' Trigger Analysis at a Calendar Time
-#'
-#' Adds an analysis trigger at a specified calendar time.
-#'
-#' @param cal_time `numeric` Calendar time(s) to trigger.
-#' @param timer [`Timer`] instance to update.
-#' @param analysis `function` or `NULL` Optional function to apply.
-#'
-#' @return Invisible [`Timer`].
-#'
-#' @seealso [Timer], [trigger_by_fraction()].
-#'
-#' @export
-#'
-#' @examples
-#' t <- Timer$new("timer")
-#' trigger_by_calendar(2, t, analysis = function(df, current_time) nrow(df))
-#' 
-#' @importFrom rlang :=
-#' @importFrom dplyr .data
-trigger_by_calendar <- function(cal_time, timer, analysis = NULL) {
-  if (missing(cal_time) || missing(timer)) stop("`cal_time` and `timer` are required.")
-  stopifnot(is.numeric(cal_time))
-  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
-
-  timer$add_condition(
-    .data$time %in% cal_time,
-    analysis = analysis,
-    name = paste0("cal_time_", do.call(paste, c(cal_time, sep = "_") |> as.list()))
-  )
-}
-
-#' Trigger Analysis at a Sample Fraction
-#'
-#' Adds an analysis trigger when a fraction of the target sample enrolls.
-#'
-#' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
-#' @param timer [`Timer`] instance to update.
-#' @param sample_size `integer` Target sample size.
-#' @param analysis `function` or `NULL` Optional function to apply.
-#'
-#' @return Invisible [`Timer`].
-#'
-#' @seealso [Timer], [trigger_by_calendar()].
-#'
-#' @export
-#'
-#' @examples
-#' t <- Timer$new("timer")
-#' trigger_by_fraction(0.5, t, sample_size = 100, analysis = function(df, current_time) nrow(df))
-#' 
-#' @importFrom rlang :=
-#' @importFrom dplyr .data
-trigger_by_fraction <- function(fraction, timer, sample_size, analysis = NULL) {
-  if (missing(fraction) || missing(timer) || missing(sample_size)) stop("`fraction`, `timer`, and `sample_size` are required.")
-  stopifnot(is.numeric(sample_size) && length(sample_size) == 1L)
-  stopifnot(fraction > 0 && fraction <= 1)
-  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
-
-  timer$add_condition(
-    sum(!is.na(.data$enroll_time)) >= fraction * sample_size,
-    analysis = analysis,
-    name = paste0("frac_", fraction)
-  )
-}
 
 #' Add Timepoints to a Timer
 #'
@@ -139,8 +74,8 @@ add_timepoints <- function(timer, df) {
 #' )
 #' an_gens <- list(
 #'   final = list(
-#'     trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= 20L),
-#'     analysis = function(df, timer) {
+#'     trigger  = count_trigger("enroll_time", ">=", 20L),
+#'     analysis = function(df, current_time) {
 #'       data.frame(mean_ctrl = mean(df$data[df$arm == "control"]))
 #'     }
 #'   )

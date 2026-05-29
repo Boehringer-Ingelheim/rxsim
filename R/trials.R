@@ -22,9 +22,10 @@ clone_trial <- function(trial, n = 1) {
 
   lapply(seq_len(n), function(i) {
     Trial$new(
-      name = paste(trial$name, i, sep="_"),
-      timer = trial$timer$clone(),
-      population = lapply(trial$population, function(x) x$clone())
+      name       = paste(trial$name, i, sep="_"),
+      timer      = trial$timer$clone(),
+      population = lapply(trial$population, function(x) x$clone()),
+      conditions = lapply(trial$conditions, function(x) x$clone())
     )
   })
 }
@@ -70,7 +71,10 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @param allocation `numeric` vector of arm allocation ratios.
 #' @param enrollment `function` that generates inter-enrollment times.
 #' @param dropout `function` that generates inter-dropout times.
-#' @param analysis_generators `list` (named) of analysis trigger specifications.
+#' @param analysis_generators `list` (named) of analysis specifications. Each
+#'   `$trigger` must be an `rxsim_trigger` object created by
+#'   `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or
+#'   `calendar_trigger()`.
 #' @param population_generators `list` (named) of population generator functions.
 #' @param n `integer` Number of trials to create.
 #'
@@ -96,13 +100,6 @@ replicate_trial <- function(
     t <- Timer$new(name = paste("timer", i, sep="_"))
     plan <- gen_plan(sample_size, arms, allocation, enrollment, dropout)
     add_timepoints(t, plan)
-    lapply(names(analysis_generators), function(name) {
-      t$add_condition(
-        !!!analysis_generators[[name]]$trigger,
-        analysis = analysis_generators[[name]]$analysis,
-        name = name
-      )
-    })
     return(t)
   })
 
@@ -145,9 +142,25 @@ replicate_trial <- function(
   }
 
   trials <- lapply(seq_len(n), function(i) {
+    conditions <- lapply(names(analysis_generators), function(aname) {
+      trigger <- analysis_generators[[aname]]$trigger
+      if (!inherits(trigger, "rxsim_trigger")) {
+        stop(
+          "Trigger for '", aname, "' must be an `rxsim_trigger` object. ",
+          "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or `calendar_trigger()`."
+        )
+      }
+      Condition$new(
+        where         = trigger,
+        analysis      = analysis_generators[[aname]]$analysis,
+        analysis_args = analysis_generators[[aname]]$analysis_args,
+        name          = aname
+      )
+    })
     Trial$new(
-      name = paste(trial_name, i, sep="_"),
-      timer = timers[[i]],
+      name       = paste(trial_name, i, sep="_"),
+      timer      = timers[[i]],
+      conditions = conditions,
       population = lapply(names(population_generators), function(name) {
         gen_population(name, population_generators[[name]], n_target[[i]][[name]])
       })

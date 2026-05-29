@@ -4,19 +4,20 @@
 \alias{Trial}
 \title{Trial: Simulate a multi‑arm clinical trial}
 \description{
-The \code{Trial} class coordinates one or more \code{Population} objects and a \code{Timer}
-to simulate a clinical trial.
+The \code{Trial} class coordinates one or more \code{Population} objects, a \code{Timer},
+and a list of \code{Condition} objects to simulate a clinical trial.
 
 At each unique time defined in the trial's \code{Timer}, the \code{Trial}:
 \itemize{
 \item applies enrollment and dropout updates to each \code{Population}
 \item builds a snapshot of all currently enrolled subjects
-\item evaluates all conditions in the \code{Timer}
-\item stores both the snapshot \code{locked_data} and the analysis outputs \code{results}
+\item evaluates each \code{\link{Condition}} in \code{self$conditions} against the snapshot
+\item stores both the snapshot (\code{locked_data}) and the analysis outputs (\code{results})
 }
 
-Use \code{run()} to execute the simulation. Trigger conditions are best added with
-helper functions \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} or \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}.
+Use \code{run()} to execute the simulation. Trigger conditions are built with
+\code{\link{Condition}}\verb{$new()} (or helpers \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} /
+\code{\link[=trigger_by_fraction]{trigger_by_fraction()}}) and stored in \code{trial$conditions}.
 }
 \examples{
 # Create two populations
@@ -30,17 +31,20 @@ t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
 t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
 t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
 
-# Add trigger for final analysis at time 2
-trigger_by_calendar(2, t, analysis = function(df, current_time) {
-  nrow(df)
-})
+# Build a condition: fire at time 2 and count enrolled rows
+cond <- Condition$new(
+  where    = rlang::quos(.data$time \%in\% 2),
+  analysis = function(df, current_time) nrow(df),
+  name     = "final"
+)
 
 # Create a trial
 trial <- Trial$new(
-  name = "ExampleTrial",
-  seed = 123,
-  timer = t,
-  population = list(popA, popB)
+  name       = "ExampleTrial",
+  seed       = 123,
+  timer      = t,
+  population = list(popA, popB),
+  conditions = list(cond)
 )
 
 # Run the simulation
@@ -90,9 +94,10 @@ trial$run()
 prettify_results(trial$results)
 }
 \seealso{
-\link{Population}, \link{Timer}, \code{\link[=prettify_results]{prettify_results()}}, \code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=clone_trial]{clone_trial()}}.
+\link{Population}, \link{Timer}, \link{Condition}, \code{\link[=prettify_results]{prettify_results()}},
+\code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=clone_trial]{clone_trial()}}.
 
-\link{Timer}, \code{\link[=prettify_results]{prettify_results()}}.
+\link{Timer}, \link{Condition}, \code{\link[=prettify_results]{prettify_results()}}.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
@@ -101,9 +106,11 @@ prettify_results(trial$results)
 
 \item{\code{seed}}{\code{numeric} or \code{NULL} Random seed for reproducibility.}
 
-\item{\code{timer}}{\code{Timer} object with timepoints and conditions.}
+\item{\code{timer}}{\code{Timer} object with timepoints.}
 
 \item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
+
+\item{\code{conditions}}{\code{list} of \link{Condition} objects evaluated at each timepoint.}
 
 \item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
 
@@ -131,6 +138,7 @@ Create a new \code{Trial} instance.
   timer = NULL,
   population = list(),
   locked_data = list(),
+  conditions = list(),
   results = list()
 )}\if{html}{\out{</div>}}
 }
@@ -142,11 +150,13 @@ Create a new \code{Trial} instance.
 
 \item{\code{seed}}{\code{numeric} or \code{NULL} Optional random seed for reproducibility.}
 
-\item{\code{timer}}{\code{Timer} object defining timepoints and conditions.}
+\item{\code{timer}}{\code{Timer} object defining timepoints.}
 
 \item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
 \item{\code{locked_data}}{\code{list} Generated at each \verb{$run()} call.}
+
+\item{\code{conditions}}{\code{list} of \link{Condition} objects to evaluate at each timepoint.}
 
 \item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
 }
@@ -181,7 +191,7 @@ At each unique time defined by the trial's \code{Timer}:
 \item Apply enrollment and dropout actions to each \code{Population}
 \item Build a combined snapshot of all currently enrolled subjects
 \item Attach a \code{time} column to the snapshot
-\item Evaluate all condition readers via \code{Timer$check_conditions()}
+\item Evaluate each \code{\link{Condition}} in \code{self$conditions} against the snapshot
 \item Store snapshots and condition outputs under time‑indexed list keys
 }
 \subsection{Usage}{

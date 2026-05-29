@@ -30,7 +30,10 @@ Defaults to \code{"name"}.}
 
 \item{dropout}{\code{function} that generates inter-dropout times.}
 
-\item{analysis_generators}{\code{list} (named) of analysis trigger specifications.}
+\item{analysis_generators}{\code{list} (named) of analysis specifications. Each
+\verb{$trigger} must be an \code{rxsim_trigger} object created by
+\code{value_trigger()}, \code{count_trigger()}, \code{enroll_trigger()}, or
+\code{calendar_trigger()}.}
 
 \item{population_generators}{\code{list} (named) of population generator functions.}
 

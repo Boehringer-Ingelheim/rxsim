@@ -53,10 +53,8 @@ Run one final analysis at full enrollment.
 ```{r trigger}
 analysis_generators <- list(
   final = list(
-    trigger = rlang::exprs(
-      sum(!is.na(enroll_time)) >= !!sample_size
-    ),
-    analysis = function(df, timer) {
+    trigger = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       df_enrolled <- df |> subset(!is.na(enroll_time))
       mean_pbo <- df_enrolled |> subset(arm == "pbo") |> with(mean(data))
       mean_trt <- df_enrolled |> subset(arm == "trt") |> with(mean(data))
