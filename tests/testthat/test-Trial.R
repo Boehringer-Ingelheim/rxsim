@@ -22,8 +22,8 @@ make_trial <- function(name = "trial",
     enroller = as.integer(enroller),
     dropper  = as.integer(dropper)
   )
-  trigger_by_calendar(cal_time, timer, analysis = analysis)
-  Trial$new(name = name, seed = seed, timer = timer, population = list(pop))
+  cal_cond <- trigger_by_calendar(cal_time, analysis = analysis)
+  Trial$new(name = name, seed = seed, timer = timer, population = list(pop), conditions = list(cal_cond))
 }
 
 ### initialize() ###
@@ -117,10 +117,10 @@ test_that("Trial run: snapshot grows cumulatively across timepoints", {
   timer <- Timer$new("t")
   timer$add_timepoint(time = 1, arm = "A", enroller = 3L, dropper = 0L)
   timer$add_timepoint(time = 2, arm = "A", enroller = 3L, dropper = 0L)
-  trigger_by_calendar(1, timer, analysis = function(df, ct) df)
-  trigger_by_calendar(2, timer, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, ct) df)
+  cal_cond_2 <-trigger_by_calendar(2, analysis = function(df, ct) df)
 
-  trial <- Trial$new("cumulative", seed = 1, timer = timer, population = list(pop))
+  trial <- Trial$new("cumulative", seed = 1, timer = timer, population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
   trial$run()
 
   testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
@@ -132,9 +132,9 @@ test_that("Trial run: dropped subjects remain in snapshot with non-NA drop_time"
   timer <- Timer$new("t")
   timer$add_timepoint(time = 1, arm = "A", enroller = 4L, dropper = 0L)
   timer$add_timepoint(time = 2, arm = "A", enroller = 0L, dropper = 2L)
-  trigger_by_calendar(2, timer, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(2, analysis = function(df, ct) df)
 
-  trial <- Trial$new("dropout", seed = 1, timer = timer, population = list(pop))
+  trial <- Trial$new("dropout", seed = 1, timer = timer, population = list(pop), conditions = list(cal_cond_1))
   trial$run()
 
   snap <- trial$locked_data[["time_2"]]
@@ -173,13 +173,14 @@ test_that("Trial run: subject_id globally unique across arms with same n_readout
   timer$add_timepoint(time = 1, arm = "A", enroller = 3L, dropper = 0L)
   timer$add_timepoint(time = 1, arm = "B", enroller = 3L, dropper = 0L)
 
-  trigger_by_calendar(1, timer, analysis = function(df, current_time) df)
+  cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, current_time) df)
 
   trial <- Trial$new(
     name       = "two_arm_repeated",
     seed       = 1,
     timer      = timer,
-    population = list(popA, popB)
+    population = list(popA, popB),
+    conditions = list(cal_cond_1)
   )
 
   trial$run()
@@ -201,8 +202,8 @@ test_that("Trial run: same seed produces identical enrolled and dropped assignme
     pop <- make_pop("A", 6, 1)
     timer <- Timer$new("t")
     timer$add_timepoint(time = 1, arm = "A", enroller = 4L, dropper = 2L)
-    trigger_by_calendar(1, timer, analysis = function(df, ct) df)
-    Trial$new("repro", seed = 7654, timer = timer, population = list(pop))
+    cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, ct) df)
+    Trial$new("repro", seed = 7654, timer = timer, population = list(pop), conditions = list(cal_cond_1))
   }
 
   t1 <- make_seeded_trial()
@@ -252,9 +253,9 @@ test_that("Trial run: arm column preserved in multi-arm snapshot", {
   timer <- Timer$new("t")
   timer$add_timepoint(time = 1, arm = "A", enroller = 3L, dropper = 0L)
   timer$add_timepoint(time = 1, arm = "B", enroller = 3L, dropper = 0L)
-  trigger_by_calendar(1, timer, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, ct) df)
 
-  trial <- Trial$new("arms", seed = 1, timer = timer, population = list(popA, popB))
+  trial <- Trial$new("arms", seed = 1, timer = timer, population = list(popA, popB), conditions = list(cal_cond_1))
   trial$run()
 
   snap <- trial$locked_data[["time_1"]]
@@ -266,7 +267,8 @@ test_that("Trial run: drop_time >= enroll_time for all dropped subjects", {
   trial <- make_trial("inv", seed = 1, n_subj = 6, dropper = 0L)
 
   trial$timer$add_timepoint(time = 2, arm = "A", enroller = 0L, dropper = 3L)
-  trigger_by_calendar(2, trial$timer, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(2, analysis = function(df, ct) df)
+  trial$conditions <- append(trial$conditions, cal_cond_1)
   trial$run()
 
   snap <- trial$locked_data[["time_2"]]
@@ -281,10 +283,10 @@ test_that("Trial run: timepoints processed in sorted order regardless of inserti
   timer_rev <- Timer$new("t_rev")
   timer_rev$add_timepoint(time = 3, arm = "A", enroller = 3L, dropper = 0L)
   timer_rev$add_timepoint(time = 1, arm = "A", enroller = 3L, dropper = 0L)
-  trigger_by_calendar(1, timer_rev, analysis = function(df, ct) df)
-  trigger_by_calendar(3, timer_rev, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, ct) df)
+  cal_cond_2 <- trigger_by_calendar(3, analysis = function(df, ct) df)
 
-  trial <- Trial$new("sort_check", seed = 123, timer = timer_rev, population = list(pop))
+  trial <- Trial$new("sort_check", seed = 123, timer = timer_rev, population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
   trial$run()
 
   testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
@@ -296,9 +298,9 @@ test_that("Trial run: duplicate time/arm timepoint rows are aggregated", {
   timer <- Timer$new("t")
   timer$add_timepoint(time = 1, arm = "A", enroller = 2L, dropper = 0L)
   timer$add_timepoint(time = 1, arm = "A", enroller = 2L, dropper = 0L)
-  trigger_by_calendar(1, timer, analysis = function(df, ct) df)
+  cal_cond_1 <- trigger_by_calendar(1, analysis = function(df, ct) df)
 
-  trial <- Trial$new("agg", seed = 1, timer = timer, population = list(pop))
+  trial <- Trial$new("agg", seed = 1, timer = timer, population = list(pop), conditions = list(cal_cond_1))
   trial$run()
 
   snap <- trial$locked_data[["time_1"]]
