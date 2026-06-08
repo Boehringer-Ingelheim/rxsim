@@ -25,6 +25,26 @@
 #' # Reset underlying data
 #' pop$set_data(as_population_data(rnorm(8)))
 #'
+.validate_population_data <- function(data, arm_name) {
+  if (!("arm" %in% names(data))) {
+    data$arm <- arm_name
+  }
+
+  required_cols <- c("id", "arm", "readout_time")
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0L) {
+    stop(sprintf(
+      "Data frame is missing required columns: %s",
+      paste(missing_cols, collapse = ", ")
+    ))
+  }
+  if (length(names(data)) < 4L) {
+    stop("Data frame is missing endpoint data.")
+  }
+
+  data
+}
+
 #' @export
 Population <- R6::R6Class(
   classname = "Population",
@@ -79,35 +99,15 @@ Population <- R6::R6Class(
     ) {
       stopifnot(is.character(name))
       self$name <- name
-      if (!("arm" %in% names(data))) {
-        data$arm <- name
-      }
-
-      # Check required data frame columns
-      col_names <- c("id", "arm", "readout_time")
-      missing_cols <- setdiff(col_names, names(data))
-      if (length(missing_cols) > 0) {
-        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
-      }
-      if (length(names(data)) < 4) {
-        stop(sprintf("Data frame is missing endpoint data."))
-      }
+      data <- .validate_population_data(data, arm_name = name)
 
       self$data <- data
       self$n <- length(unique(self$data$id))
       self$n_readouts <- as.integer((nrow(self$data) / self$n))
 
       # Initialize enrollment/dropout status if not provided
-      ifelse(
-        is.null(enrolled),
-        self$enrolled <- rep(NA_real_, self$n),
-        self$enrolled <- enrolled
-      )
-      ifelse(
-        is.null(dropped),
-        self$dropped <- rep(NA_real_, self$n),
-        self$dropped <- dropped
-      )
+      self$enrolled <- if (is.null(enrolled)) rep(NA_real_, self$n) else enrolled
+      self$dropped <- if (is.null(dropped)) rep(NA_real_, self$n) else dropped
     },
 
     # --- methods ---
@@ -197,19 +197,7 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-      if (!("arm" %in% names(data))) {
-        data$arm <- self$name
-      }
-
-      # Check required data frame columns
-      col_names <- c("id", "arm", "readout_time")
-      missing_cols <- setdiff(col_names, names(data))
-      if (length(missing_cols) > 0) {
-        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
-      }
-      if (length(names(data)) < 4) {
-        stop(sprintf("Data frame is missing endpoint data."))
-      }
+      data <- .validate_population_data(data, arm_name = self$name)
 
       self$data <- data
       self$n <- length(unique(self$data$id))

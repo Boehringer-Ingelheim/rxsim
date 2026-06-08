@@ -41,9 +41,7 @@
 #' @importFrom dplyr filter
 #' @importFrom dplyr select
 #' @importFrom dplyr arrange
-stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
-
-  # Input validation
+.validate_schedule_common_args <- function(sample_size, arms, allocation) {
   if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
     stop("`sample_size` must be a single positive number.")
   }
@@ -53,6 +51,32 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
   if (!is.numeric(allocation) || length(allocation) != length(arms)) {
     stop("`allocation` must be a numeric vector with same length as `arms`.")
   }
+}
+
+.allocate_targets <- function(sample_size, arms, ratio) {
+  n_arms <- length(arms)
+  target <- as.integer(round(ratio * sample_size))
+  names(target) <- arms
+
+  diff <- sample_size - sum(target)
+  if (diff > 0L) {
+    add_idx <- sample(seq_len(n_arms), diff, replace = TRUE, prob = ratio)
+    target <- target + stats::setNames(tabulate(add_idx, nbins = n_arms), arms)
+  } else if (diff < 0L) {
+    remove_idx <- sample(seq_len(n_arms), -diff, replace = TRUE, prob = ratio)
+    target <- target - stats::setNames(tabulate(remove_idx, nbins = n_arms), arms)
+  }
+
+  if (any(target < 0L) || sum(target) != sample_size) {
+    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
+  }
+  target
+}
+
+stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
+
+  # Input validation
+  .validate_schedule_common_args(sample_size, arms, allocation)
   if (!is.function(enrollment) || !is.function(dropout)) {
     stop("`enrollment` and `dropout` must be functions.")
   }
@@ -63,38 +87,7 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
   names(ratio) <- arms
 
   # Calculate target enrollment per arm
-  target <- as.integer(round(ratio * sample_size))
-  names(target) <- arms
-
-  # Adjust for rounding: remove excess subjects
-  if (sample_size - sum(target) < 0) {
-    remove_idx <- sample(
-      seq_len(n_arms),
-      sum(target) - sample_size,
-      replace = TRUE,
-      prob = ratio
-    )
-    remove <- tabulate(remove_idx, nbins = n_arms)
-    names(remove) <- arms
-    target <- target - remove
-  }
-
-  # Adjust for rounding: add missing subjects
-  if (sample_size - sum(target) > 0) {
-    add_idx <- sample(
-      seq_len(n_arms),
-      sample_size - sum(target),
-      replace = TRUE,
-      prob = ratio
-    )
-    addition <- tabulate(add_idx, nbins = n_arms)
-    names(addition) <- arms
-    target <- target + addition
-  }
-
-  if (any(target < 0L) || sum(target) != sample_size) {
-    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
-  }
+  target <- .allocate_targets(sample_size, arms, ratio)
 
   # Generate enrollment and dropout inter-event times
   enroll_events <- enrollment(sample_size)
@@ -179,15 +172,7 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #' @importFrom dplyr arrange
 deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
   # Input validation
-  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
-    stop("`sample_size` must be a single positive number.")
-  }
-  if (!is.character(arms) || length(arms) == 0L) {
-    stop("`arms` must be a non-empty character vector.")
-  }
-  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
-    stop("`allocation` must be a numeric vector with same length as `arms`.")
-  }
+  .validate_schedule_common_args(sample_size, arms, allocation)
   if (!is.list(enrollment) || !all(c("end_time", "rate") %in% names(enrollment))) {
     stop("`enrollment` must be a list with 'end_time' and 'rate'.")
   }
@@ -196,7 +181,6 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   }
 
   # Calculate arm allocation ratios
-  n_arms <- length(arms)
   ratio <- allocation / sum(allocation)
   names(ratio) <- arms
 
@@ -204,30 +188,7 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   end <- max(utils::tail(enrollment$end_time, 1), utils::tail(dropout$end_time, 1))
 
   # Calculate target enrollment per arm
-  target <- as.integer(round(ratio * sample_size))
-  names(target) <- arms
-
-  # Adjust for rounding: add missing subjects
-  if (sample_size - sum(target) > 0) {
-    addition <- table(sample(
-      seq_len(n_arms),
-      sample_size - sum(target),
-      replace = TRUE,
-      prob = ratio
-    )) |> as.vector()
-    target <- target + addition
-  }
-
-  # Adjust for rounding: remove excess subjects
-  if (sample_size - sum(target) < 0) {
-    remove <- table(sample(
-      seq_len(n_arms),
-      sum(target) - sample_size,
-      replace = TRUE,
-      prob = ratio
-    )) |> as.vector()
-    target <- target - remove
-  }
+  target <- .allocate_targets(sample_size, arms, ratio)
 
   # Pad rate vectors to match timeline endpoint
   pad <- function(x, end) {
@@ -244,7 +205,8 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   dropout <- pad(dropout, end)
 
   # Calculate duration of each time period
-  get_durations <- function(x) (c(0, x) - dplyr::lag(c(0, x)))[-1]
+  get_durations <- function(x) diff(c(0, x))
+  n_arms <- length(arms)
 
   # Create base schedule (may exceed target enrollment)
   df <- data.frame(
@@ -260,46 +222,42 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
     ) |> as.integer()
   )
 
-  # Identify undershooting periods (cumulative < target)
+  # Identify undershooting periods (cumulative enrollment < target)
   checks <- df |>
     dplyr::group_by(.data$arm) |>
-    dplyr::mutate(cum = cumsum(.data$enroll)) |>
+    dplyr::mutate(total_enrolled = cumsum(.data$enroll)) |>
     dplyr::ungroup() |>
-    dplyr::mutate(under = .data$cum < target[.data$arm])
+    dplyr::mutate(below_target = .data$total_enrolled < target[.data$arm])
 
-  # Find final undershooting timepoint per arm
-  next_t <- checks |>
-    dplyr::group_by(.data$arm) |>
-    dplyr::filter(.data$under) |>
-    dplyr::filter(dplyr::row_number() == dplyr::n()) |>
-    dplyr::ungroup() |>
-    dplyr::select(.data$time)
-  next_t <- as.vector(next_t$time) + rep(1, n_arms)
-  names(next_t) <- arms
+  last_under <- do.call(rbind, lapply(arms, function(a) {
+    arm_rows <- checks[checks$arm == a & checks$below_target, , drop = FALSE]
+    if (nrow(arm_rows) == 0L) {
+      data.frame(arm = a, time = 0, total_enrolled = 0)
+    } else {
+      tail(arm_rows[, c("arm", "time", "total_enrolled"), drop = FALSE], 1)
+    }
+  }))
+  rownames(last_under) <- NULL
 
-  # Calculate enrollment gap per arm
-  next_enroll <- checks |>
-    dplyr::group_by(.data$arm) |>
-    dplyr::filter(.data$under) |>
-    dplyr::filter(dplyr::row_number() == dplyr::n()) |>
-    dplyr::ungroup() |>
-    dplyr::select(.data$cum)
-  next_enroll <- target - as.vector(next_enroll$cum)
-  names(next_enroll) <- arms
+  next_t <- as.integer(last_under$time + 1L)
+  names(next_t) <- last_under$arm
+  next_enroll <- target[last_under$arm] - as.integer(last_under$total_enrolled)
+  names(next_enroll) <- last_under$arm
 
   # Create correction row(s) to reach target enrollment
   df_add <- data.frame(
-    time = next_t,
+    time = as.integer(next_t[arms]),
     arm = arms,
-    enroll = next_enroll,
+    enroll = as.integer(next_enroll[arms]),
     drop = as.integer(round(dropout$rate[findInterval(next_t, dropout$end_time)] * ratio))
   )
 
   # Combine schedule and corrections, sort by arm and time
   checks |>
-    dplyr::filter(.data$under) |>
+    dplyr::filter(.data$below_target) |>
     dplyr::bind_rows(df_add) |>
-    dplyr::select(-c(.data$cum, .data$under)) |>
+    dplyr::filter(.data$enroll > 0L | .data$drop > 0L) |>
+    dplyr::select(-dplyr::all_of(c("total_enrolled", "below_target"))) |>
     dplyr::group_by(.data$arm) |>
     dplyr::arrange(.data$time, .by_group = TRUE) |>
     dplyr::ungroup()

@@ -168,10 +168,9 @@ analysis_generators <- list(
 
 The two t-tests are run independently on the enrolled subset, producing
 unadjusted p-values `p_y1` and `p_y2`. `p.adjust(..., method = "holm")` applies
-Holm's stepwise procedure: `padj[1]` corresponds to the endpoint with the
-smaller raw p-value (most significant) and `padj[2]` to the larger. The adjusted
-values account for the familywise error rate across the two endpoints, so
-`p_holm_y1 >= p_y1` always holds.
+Holm's stepwise procedure. `padj[1]` and `padj[2]` stay in endpoint order
+(`y1`, `y2`) and account for familywise error across both endpoints, so each
+adjusted value is never smaller than its unadjusted counterpart.
 
 ## Simulate
 

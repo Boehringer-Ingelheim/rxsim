@@ -71,6 +71,15 @@ testthat::test_that("Population initialize: errors when required columns are mis
   )
 })
 
+testthat::test_that("Population initialize: missing-columns message joins multiple column names", {
+  df_bad <- data.frame(value = rnorm(5))
+  testthat::expect_error(
+    Population$new("Arm A", data = df_bad),
+    "Data frame is missing required columns: id, readout_time",
+    fixed = TRUE
+  )
+})
+
 testthat::test_that("Population initialize: computes n and n_readouts correctly (repeated measures)", {
 
 
