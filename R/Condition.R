@@ -2,6 +2,16 @@
   if (!is.null(trigger$type)) {
     expr <- if (identical(trigger$type, "value")) {
       call(trigger$op, call("[[", quote(.data), trigger$col), trigger$rhs)
+    } else if (identical(trigger$type, "notna")) {
+      call("!", call("is.na", call("[[", quote(.data), trigger$col)))
+    } else if (identical(trigger$type, "col_compare")) {
+      call(trigger$op, call("[[", quote(.data), trigger$col), call("[[", quote(.data), trigger$ref_col))
+    } else if (identical(trigger$type, "timed_count")) {
+      col_expr  <- call("[[", quote(.data), trigger$col)
+      time_expr <- call("[[", quote(.data), trigger$time_col)
+      call(trigger$op,
+           call("sum", call("&", call("!", call("is.na", col_expr)), call("<=", col_expr, time_expr))),
+           trigger$threshold)
     } else {
       call(trigger$op,
            call("sum", call("!", call("is.na", call("[[", quote(.data), trigger$col)))),
@@ -97,10 +107,11 @@
 #' \itemize{
 #'   \item [`Timer`] for managing trial timepoints
 #'   \item [`Trial`] for running the simulation and iterating over conditions
-#'   \item [`trigger_by_calendar()`] and [`trigger_by_fraction()`] for
-#'     convenient `Condition` constructors
+#'   \item [`trigger_by_calendar()`], [`trigger_by_fraction()`], and
+#'     [`trigger_by_events()`] for convenient `Condition` constructors
 #'   \item [value_trigger()], [count_trigger()], [enroll_trigger()],
-#'     [calendar_trigger()] for building safe trigger specifications
+#'     [calendar_trigger()], [notna_trigger()], [col_trigger()],
+#'     [timed_count_trigger()] for building safe trigger specifications
 #'   \item [`dplyr::filter()`] for predicate syntax
 #' }
 #'

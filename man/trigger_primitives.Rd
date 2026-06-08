@@ -4,6 +4,9 @@
 \alias{trigger_primitives}
 \alias{value_trigger}
 \alias{count_trigger}
+\alias{notna_trigger}
+\alias{col_trigger}
+\alias{timed_count_trigger}
 \alias{enroll_trigger}
 \alias{calendar_trigger}
 \alias{&.rxsim_trigger}
@@ -13,6 +16,12 @@
 value_trigger(col, op, rhs)
 
 count_trigger(col, op, rhs)
+
+notna_trigger(col)
+
+col_trigger(col, op, ref_col)
+
+timed_count_trigger(col, time_col, op, threshold)
 
 enroll_trigger(fraction, sample_size)
 
@@ -30,6 +39,14 @@ calendar_trigger(cal_time)
 
 \item{rhs}{Right-hand side value. Must be atomic for \code{value_trigger()} and
 numeric for \code{count_trigger()}.}
+
+\item{ref_col}{\code{character} Column name on the right-hand side of the
+comparison.}
+
+\item{time_col}{\code{character} Column name of the current-time column (e.g.
+\code{"time"}).}
+
+\item{threshold}{\code{numeric} Event count threshold used with \code{op}.}
 
 \item{fraction}{\code{numeric} Sample fraction (0 < fraction <= 1).}
 

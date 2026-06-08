@@ -113,10 +113,11 @@ length(res2)  # 0
 \itemize{
 \item \code{\link{Timer}} for managing trial timepoints
 \item \code{\link{Trial}} for running the simulation and iterating over conditions
-\item \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}} for
-convenient \code{Condition} constructors
+\item \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}}, and
+\code{\link[=trigger_by_events]{trigger_by_events()}} for convenient \code{Condition} constructors
 \item \code{\link[=value_trigger]{value_trigger()}}, \code{\link[=count_trigger]{count_trigger()}}, \code{\link[=enroll_trigger]{enroll_trigger()}},
-\code{\link[=calendar_trigger]{calendar_trigger()}} for building safe trigger specifications
+\code{\link[=calendar_trigger]{calendar_trigger()}}, \code{\link[=notna_trigger]{notna_trigger()}}, \code{\link[=col_trigger]{col_trigger()}},
+\code{\link[=timed_count_trigger]{timed_count_trigger()}} for building safe trigger specifications
 \item \code{\link[dplyr:filter]{dplyr::filter()}} for predicate syntax
 }
 }

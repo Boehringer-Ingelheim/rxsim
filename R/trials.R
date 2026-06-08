@@ -147,7 +147,8 @@ replicate_trial <- function(
       if (!inherits(trigger, "rxsim_trigger")) {
         stop(
           "Trigger for '", aname, "' must be an `rxsim_trigger` object. ",
-          "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or `calendar_trigger()`."
+          "Use `value_trigger()`, `count_trigger()`, `enroll_trigger()`, `calendar_trigger()`, ",
+          "`notna_trigger()`, `col_trigger()`, `timed_count_trigger()`, or `trigger_by_events()`."
         )
       }
       Condition$new(
