@@ -1,8 +1,8 @@
 ---
-title: "Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod"
+title: "Example 5: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod}
+  %\VignetteIndexEntry{Example 5: Seamless Ph2a/2b | Two-arm -> Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,255 +16,366 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup}
-# Core simulation framework (Timer, Population, Trial, gen_timepoints, add_timepoints, ...)
+# Core simulation framework
 library(rxsim)
 
-# Analyses
-library(multcomp)     # Dunnett
-library(DoseFinding)  # MCP-Mod
+# Bayesian utilities
+library(RBesT)
+library(BayesianMCPMod)
+library(DoseFinding)
 
 # Helpers
 library(dplyr)
-set.seed(4566)
+
+set.seed(8808)
 ```
 
-Dose-finding trials aim to identify the dose-response relationship and establish
-an effective dose level. This example simulates a multi-arm fixed design across
-a placebo and four active doses, with the endpoint generated from an Emax
-dose-response model. At the final analysis, two methods are applied: a Dunnett
-test (comparing each active dose against placebo while controlling family-wise
-error rate) and MCP-Mod (a model-based contrast approach that selects the
-best-fitting dose-response shape from a candidate set).
+Seamless Phase IIa/IIb designs allow a single trial to serve both exploratory
+and confirmatory objectives, starting with a limited arm set and expanding
+enrollment based on interim evidence. This example simulates a seamless design
+where the trial begins as a two-arm study (placebo + one active dose), conducts
+a Bayesian Go/No-Go interim at time 4, then expands to a full multi-arm
+dose-finding phase in Phase IIb, concluding with a Bayesian MCP-Mod analysis
+across all dose groups.
+
+Core setup follows the same pattern as [Example 1](example-1.html). The
+difference is multiple looks and stage-dependent enrollment logic.
 
 ## Scenario
 
-A **multi-arm, fixed design** (placebo + 4 active doses) with a **single
-continuous endpoint**. At the **final analysis**, we perform:
+A **seamless Ph2a/2b** trial with one continuous endpoint:
 
-- **Dunnett test**: all active doses vs placebo using a normal-theory linear
-  model.
-- **MCP-Mod**: model-based multiple contrast test + model fitting on a candidate
-  set of dose–response shapes.
+- **Ph2a** (early period): 2 arms (placebo + one active dose).
+- **Ph2b** (later period): expansion to multi-arm dose finding.
+- **Interim**: Bayesian Go/No-Go based on treatment effect for the Ph2a dose.
+- **Final**: Bayesian MCP-Mod across all doses.
 
-The Emax model generates mean responses via `E(d) = e0 + emax × d / (ed50 + d)`,
-where `e0 = 0` (placebo baseline), `emax = 1` (maximum achievable effect), and
-`ed50 = 20` (dose at half-maximum effect). `arm_names = paste0("d", doses)`
-creates human-readable labels (`d0`, `d5`, `d10`, `d20`, `d50`) that propagate
-through trial data and analysis results. `delta = 0.1` is the minimum effect
-size of clinical relevance used by MCP-Mod, and `alpha = 0.05` controls the
-family-wise Type I error rate for both testing procedures.
+`dose_map` defines five arms: `d0` (placebo, 0 mg), `d5` (5 mg), `d10` (10 mg),
+`d20` (20 mg), and `d40` (40 mg). The Emax truth has `emax = 0.9` and `ed50 =
+15`, meaning the dose-response curve saturates around 30–40 mg. The interim
+Go/No-Go at time 4 uses `delta_interim = 0.1` and `gamma_interim = 0.8` (same
+convention as [Example 4](example-4.html)), while `alpha_final = 0.05` controls
+the Type I error at the final Bayesian MCP-Mod step.
 
 ```{r scenario}
-# Dose levels (placebo + 4 actives)
-doses <- c(0, 5, 10, 20, 50)
+# Dose levels and arm labels
+dose_map <- c(d0 = 0, d5 = 5, d10 = 10, d20 = 20, d40 = 40)
+arm_names <- names(dose_map)
+dose_levels <- as.numeric(dose_map)
 
-# Total N and allocation (balanced across arms)
-sample_size <- 150
-allocation  <- rep(1, length(doses))
-arm_names   <- paste0("d", doses)  # e.g., d0, d5, ... used as arm labels
-
-# Enrollment & dropout profile (piece-wise constant)
-enrollment <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(6, 12, 18, 24)
-)
-dropout <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(0,  1,  2,  3)
-)
-
-# Data-generating model: Emax with homoscedastic noise
+# Truth for data generation (Emax shape)
 e0    <- 0.0
-emax  <- 1.0
-ed50  <- 20.0
+emax  <- 0.9
+ed50  <- 15
 sigma <- 1.0
-
 mean_fun <- function(d) e0 + emax * d / (ed50 + d)
 
-# operating characteristics
-alpha <- 0.05
-delta <- 0.1
+# Interim Go/No-Go thresholds
+delta_interim <- 0.1
+gamma_interim <- 0.8
 
-scenario <- tidyr::expand_grid(
-  sample_size = sample_size,
-  allocation = list(allocation),
-  n_arms = length(doses),
-  alpha = alpha,
-  delta = delta
-)
+# Multiplicity level for final Bayesian MCP step
+alpha_final <- 0.05
+
+# Planned analysis times
+interim_time <- 4
+final_time   <- 12
 ```
 
-## Time points
+## Seamless enrollment schedule (2-arm -> multi-arm)
 
-`gen_timepoints()` generates a piecewise-constant enrollment schedule with rates
-that increase in steps (6, 12, 18, 24 subjects per unit time), reflecting a
-realistic ramp-up in site activation. `tr_timer$get_end_timepoint()` returns the
-earliest calendar time at which all `sample_size` subjects are expected to be
-enrolled — this value is used as the trigger time for the final analysis.
+In this implementation, all arms are pre-defined, but enrollment switches from
+two-arm to multi-arm by time.
+
+The `enroll_plan` data frame specifies integer subject counts (`enroll`) per
+arm per time unit. During time 1–4 (Ph2a), only `d0` and `d20` enroll (8 per
+time each). From time 5 onward (Ph2b), three new doses (`d5`, `d10`, `d40`)
+begin enrolling while the d20 arm tapers off; `d0` continues at 8 per time
+throughout. `drop` is set to 0 (no dropout). `tr_timer$get_end_timepoint()`
+confirms the last time point at which any enrollment occurs.
 
 ```{r timepoints}
-timepoints <- gen_timepoints(
-  sample_size = sample_size,
-  arms        = arm_names,
-  allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
+time <- 1:12
+
+# Ph2a: only placebo + d20 active
+# Ph2b: expand to d5, d10, d40 while placebo/d20 continue per plan
+enroll_plan <- data.frame(
+  time = rep(time, times = length(arm_names)),
+  arm  = rep(arm_names, each = length(time)),
+  enroll = c(
+    # d0 placebo (total 80)
+    8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0,
+    # d5 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+    # d10 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0,
+    # d20 (total 40)
+    8, 8, 8, 8, 2, 2, 2, 2, 0, 0, 0, 0,
+    # d40 (total 20)
+    0, 0, 0, 0, 3, 3, 4, 3, 3, 4, 0, 0
+  ),
+  drop = 0L
 )
 
-# Timer
-tr_timer <- Timer$new(name = "timer_multiarm")
-add_timepoints(tr_timer, timepoints)
-final_time <- tr_timer$get_end_timepoint()
-final_time
+enroll_plan$enroll <- as.integer(enroll_plan$enroll)
+enroll_plan$drop  <- as.integer(enroll_plan$drop)
+
+tr_timer <- Timer$new(name = "timer_example_5")
+add_timepoints(tr_timer, enroll_plan)
+
+tr_timer$get_end_timepoint()
 ```
 
 ## Populations
 
-`mk_pop_gen` is a closure factory: it captures the dose value `d` and returns a
-generator function that, when called with `n`, draws `n` responses from N(E(d),
-σ²). Each arm's generator stores `dose` as a numeric column because MCP-Mod
-requires actual dose values — not just arm labels — to fit dose-response models
-and evaluate contrasts at analysis time.
+`mk_pop()` creates `Population` objects directly from pre-generated data (not
+from generator functions), computing each arm's `n` from `sum(enroll)` in the
+enrollment plan. This approach pre-generates the full cohort up-front;
+`Trial$new()` then draws from each population's pool according to the
+time-specific enrollment counts.
 
-```{r population}
-mk_pop_gen <- function(d) {
-  function(n) {
-    mu <- mean_fun(d)
-    y  <- rnorm(n, mean = mu, sd = sigma)
-    data.frame(
+```{r populations}
+# Planned max N by arm from enrollment schedule
+n_by_arm <- enroll_plan |>
+  group_by(arm) |>
+  summarise(n = sum(enroll), .groups = "drop")
+
+mk_pop <- function(arm, n) {
+  d <- dose_map[[arm]]
+  Population$new(
+    name = arm,
+    data = data.frame(
       id = seq_len(n),
       dose = d,
-      y = y,
+      y = rnorm(n, mean = mean_fun(d), sd = sigma),
       readout_time = 1
     )
-  }
+  )
 }
 
-population_generators <- lapply(seq_along(doses), function(i) {
-  mk_pop_gen(doses[i])
+pops <- lapply(seq_len(nrow(n_by_arm)), function(i) {
+  mk_pop(n_by_arm$arm[i], n_by_arm$n[i])
 })
-names(population_generators) <- arm_names
 ```
 
-## Trial Parameters
+## Priors
 
-`enrollment_fn` and `dropout_fn` supply the inter-arrival and time-to-dropout
-distributions for individual subjects. These are passed to `replicate_trial()`,
-which uses them internally when building each replicate's enrollment schedule.
+For interim Go/No-Go, we use placebo borrowing from small historical placebo
+data and a non-informative prior for active.
 
-```{r trial_params}
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
+For final Bayesian MCP-Mod, we pass arm-wise priors to `BayesianMCPMod`.
 
-## Triggers & Analyses
+The same historical borrowing approach as [Example 4](example-4.html) is used
+for the interim and final placebo priors. `prior_list_final` has five entries -
+`Ctrl` (the robustified historical placebo prior) and `DG_1` through `DG_4`
+(non-informative priors for d5, d10, d20, d40) - matching the five dose groups
+expected by `BayesianMCPMod::assessDesign()`.
 
-At the **final time**, run:
-
-1) **Dunnett test** (active vs placebo) using `multcomp::glht` on `lm(y ~ arm)`.
-
-2) **MCP-Mod** using `DoseFinding::MCPMod` with a candidate model set (`Mods`).
-
-The Dunnett test (`multcomp::glht` with `mcp(arm = "Dunnett")`) simultaneously
-compares each active dose against placebo while controlling the family-wise
-error rate at `alpha`. MCP-Mod is run with five candidate dose-response shapes;
-`selModel = "aveAIC"` selects the best model by AIC-weighted averaging, and
-`Delta = delta` sets the minimum effect size of clinical relevance for the
-contrast step. `mct_min_p` extracts the minimum p-value across all candidate
-model contrast tests — a small value indicates that at least one candidate model
-detects a dose-response signal.
-
-```{r trigger}
-# Candidate model set for MCP-Mod
-mods <- Mods(
-  linear     = NULL,
-  emax       = 20,
-  exponential= 50,
-  sigEmax    = c(20, 3),
-  quadratic  = -0.2,
-  doses      = doses
+```{r priors}
+# Historical placebo summary data
+hist_placebo <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c(20, 24, 18),
+  mean  = c(-0.06, 0.00, 0.03)
 )
 
-analysis_generators <- list(
-  final = list(
-    trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, current_time){
-      df_e <- df |>
-        dplyr::filter(!is.na(enroll_time)) |>
-        dplyr::mutate(
-          arm  = factor(arm, levels = paste0("d", doses)),
-          dose = as.numeric(dose)
-        )
+n_hist <- sum(hist_placebo$n)
+m_hist <- weighted.mean(hist_placebo$mean, hist_placebo$n)
 
-      # 1) Dunnett (active vs placebo)
-      fit <- lm(y ~ arm, data = df_e)
-      dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
-      summ <- summary(dun)
+# Base non-informative prior
+prior_noninf <- RBesT::mixnorm(c(1, 0, 1e-6), sigma = sigma, param = "mn")
 
-      # 2) MCP-Mod (one-step)
-      mm <- DoseFinding::MCPMod(
-          dose   = df_e$dose,
-          resp   = df_e$y,
-          models = mods,
-          type   = "normal",
-          Delta  = delta,
-          alpha  = alpha,
-          selModel = "aveAIC"
-      )
+# Placebo borrowing prior for interim and final control arm
+prior_placebo_inf <- RBesT::postmix(prior_noninf, n = n_hist, m = m_hist)
+prior_placebo <- RBesT::robustify(
+  prior_placebo_inf,
+  weight = 0.2,
+  mean = 0,
+  n = 1,
+  sigma = sigma
+)
 
-      mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
+# Prior list for Bayesian MCP-Mod (Ctrl + 4 active groups)
+prior_list_final <- list(
+  Ctrl = prior_placebo,
+  DG_1 = prior_noninf,
+  DG_2 = prior_noninf,
+  DG_3 = prior_noninf,
+  DG_4 = prior_noninf
+)
+```
 
-      data.frame(
-        scenario,
-        n_total      = nrow(df_e),
-        dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
-        mcpmod_min_p = mct_min_p,
-        stringsAsFactors = FALSE
-      )
-    }
+## Conditions
+
+We define two `Condition` objects:
+
+1. `cond_interim` - fires when `time == interim_time` (calendar time 4). Runs a
+   Bayesian Go/No-Go analysis on d20 vs placebo. The `<<-` operator in
+   `go_interim <<- as.integer(...)` writes the Go/No-Go decision to the enclosing
+   environment, making it available to downstream logic in the final condition.
+2. `cond_final` - fires when `time == final_time` (calendar time 12). Calls
+   `BayesianMCPMod::assessDesign()` with arm-level sample sizes (`n_patients`), the
+   candidate dose-response models (`mods`), the five-arm prior list (`prior_list`),
+   and arm-level posterior mean estimates (`estimates_sim`); `alpha_crit_val =
+   alpha_final` sets the significance threshold for the Bayesian MCP contrast step.
+
+Both conditions are passed to `Trial$new(conditions = ...)` and are evaluated by
+`Trial$run()` at each timepoint.
+
+```{r analyses}
+# shared state between interim and final trigger
+go_interim <- NA_integer_
+
+# Candidate dose-response models for Bayesian MCP-Mod
+mods <- DoseFinding::Mods(
+  linear      = NULL,
+  emax        = 20,
+  exponential = 20,
+  sigEmax     = c(20, 3),
+  doses       = dose_levels
+)
+
+# Interim: Bayesian Go/No-Go (d20 vs placebo)
+cond_interim <- Condition$new(
+  where = calendar_trigger(interim_time),
+  analysis = function(df, current_time) {
+  dat <- df |>
+    dplyr::filter(!is.na(enroll_time), arm %in% c("d0", "d20"))
+
+  y_p <- dat$y[dat$arm == "d0"]
+  y_t <- dat$y[dat$arm == "d20"]
+
+  n_p <- length(y_p)
+  n_t <- length(y_t)
+  m_p <- mean(y_p)
+  m_t <- mean(y_t)
+
+  post_p <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+  post_t <- RBesT::postmix(prior_noninf,  n = n_t, m = m_t)
+
+  prob_delta <- RBesT::pmixdiff(post_t, post_p, delta_interim, lower.tail = FALSE)
+  delta_q <- RBesT::qmixdiff(post_t, post_p, c(0.025, 0.5, 0.975))
+
+  go_interim <<- as.integer(prob_delta >= gamma_interim)
+
+  list(
+    n_placebo = n_p,
+    n_d20 = n_t,
+    post_prob_delta = prob_delta,
+    delta_q025 = delta_q[1],
+    delta_q500 = delta_q[2],
+    delta_q975 = delta_q[3],
+    decision_go = go_interim
   )
+},
+  name = paste0("interim_t", interim_time)
+)
+
+# Final: Bayesian MCP-Mod across all dose groups
+cond_final <- Condition$new(
+  where = calendar_trigger(final_time),
+  analysis = function(df, time) {
+    dat <- df |>
+      dplyr::filter(!is.na(enroll_time))
+
+    # Arm-wise summary at final
+    summ <- dat |>
+      dplyr::group_by(arm) |>
+      dplyr::summarise(
+        dose = unique(dose)[1],
+        n = dplyr::n(),
+        mu_hat = mean(y),
+        .groups = "drop"
+      ) |>
+      dplyr::arrange(dose)
+
+    # Order expected by BayesianMCPMod: Ctrl, DG_1 ...
+    # with dose order 0, 5, 10, 20, 40.
+    n_vec <- summ$n |> as.double()
+    mu_vec <- summ$mu_hat
+
+    # covariance of mean estimates (independent groups here)
+    S_hat <- diag((sigma / sqrt(n_vec))^2)
+
+    # Prepare estimates from observed data for assessDesign
+    estimates_sim <- list(
+      mu_hats = list(mu_vec),
+      S_hats = list(S_hat)
+    )
+
+    # Run Bayesian MCP-Mod assessment with observed data
+    bmcp <- BayesianMCPMod::assessDesign(
+      n_patients = n_vec,
+      mods = mods,
+      prior_list = prior_list_final,
+      estimates_sim = estimates_sim,
+      alpha_crit_val = alpha_final,
+      n_sim = 1
+    )
+
+    # Extract key results into row-bindable format
+    data.frame(
+      n_total_final = nrow(dat),
+      max_eff = attr(bmcp, "maxEff")
+    )
+  },
+  name = "final_bayesian_mcpmod"
 )
 ```
 
 ## Trial
 
 ```{r trial}
-trials <- replicate_trial(
-  trial_name = "multiarm_dunnett_mcpmod",
-  sample_size = sample_size,
-  arms = arm_names,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
+trial <- Trial$new(
+  name = "example_5_seamless_ph2a2b",
+  seed = 8808,
+  timer = tr_timer,
+  population = pops,
+  conditions = list(cond_interim, cond_final)
 )
 ```
 
 ## Simulate
 
-```{r sim}
-run_trials(trials)
+```{r simulate, results=FALSE}
+trial$run()
 ```
 
 ## Results
 
-`collect_results()` row-binds analysis outputs across all replicates and
-prepends three bookkeeping columns: `replicate` (integer index), `timepoint`
-(calendar time at which the analysis fired), and `analysis` (the analysis name,
-here `"final"`). `dunn_min_p` is the smallest Dunnett-adjusted p-value across
-the four active-dose comparisons — a value below `alpha` indicates that at least
-one dose is significantly different from placebo after multiplicity correction.
-`mcpmod_min_p` is the minimum MCP-Mod contrast test p-value across candidate
-models; both metrics test for the presence of a dose-response signal, but
-MCP-Mod is generally more powerful when the true dose-response shape is
-well-captured by one of the candidate models. See [Core Concepts](concepts.html)
-for background on trial parameters.
+Interim and final analyses are stored under the corresponding time keys.
 
-One row per replicate, row-bound across all replicates:
+`trial$results` is a named list indexed by time-point keys (`"time_4"`,
+`"time_12"`); each entry holds the named results from analyses registered for
+that time. The interim results (under `"time_4"`) contain the Bayesian Go/No-Go
+metrics for d20 vs placebo. The final results (under `"time_12"`) include a
+`final_bayesian_mcpmod` entry whose sub-list components can be inspected with
+`names(trial$results[[final_key]]$final_bayesian_mcpmod)`. Note that this
+single-run demonstration shows the structural output; in practice you would
+replicate using `clone_trial()` + `run_trials()` and then `collect_results()` to
+aggregate operating characteristics across many simulated trials.
 
 ```{r results}
-replicate_results <- collect_results(trials)
-replicate_results
+trial$results
 ```
+
+```{r inspect-final}
+final_key <- paste0("time_", final_time)
+
+# top-level components returned by final analysis
+names(trial$results[[final_key]]$final_bayesian_mcpmod)
+
+# Bayesian MCP-Mod object class
+class(trial$results[[final_key]]$final_bayesian_mcpmod$bayesian_mcpmod)
+```
+
+This example demonstrates the seamless setup and analysis flow in one simulation
+run: 2-arm Ph2a enrollment, interim Bayesian Go/No-Go check, then final Bayesian
+MCP-Mod after multi-arm expansion.
+
+## Next steps
+
+- [Conditions and Triggers](conditions.html) - composing multiple looks with
+  separate `Condition` objects
+- [Two API Styles](api-styles.html) - when to use direct object construction
+  vs generator workflows

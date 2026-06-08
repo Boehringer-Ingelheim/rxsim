@@ -1,8 +1,8 @@
 #' Timer: Track timed events across arms
 #'
 #' @description
-#' A class to collect and query _timepoints_ — time-based enrollment and
-#' dropout events — across trial arms.
+#' A class to collect and query _timepoints_  -  time-based enrollment and
+#' dropout events  -  across trial arms.
 #'
 #' Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
 #' `get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
@@ -13,7 +13,7 @@
 #' [`Condition`] class. `Condition` objects are stored in `trial$conditions`
 #' and evaluated by [`Trial`]`$run()` at each timepoint.
 #'
-#' Helper functions [`trigger_by_calendar()`] and [`trigger_by_fraction()`]
+#' Helper functions [`condition_calendar_time()`] and [`condition_enrollment_fraction()`]
 #' provide convenient shortcuts for building `Condition` objects; both return
 #' a [`Condition`] that you pass to `Trial$new(conditions = list(...))`.
 #'
@@ -26,9 +26,9 @@
 #' t <- Timer$new(name = "Timer")
 #'
 #' # Add timepoints
-#' t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-#' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-#' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
+#' t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
+#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
+#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
 #'
 #' # Query
 #' t$get_end_timepoint() # max time => 2
@@ -50,8 +50,8 @@ Timer <- R6::R6Class(
     #' @field timelist `list` A list of timepoints. Each timepoint is a list with keys:
     #' - `time` `numeric` Calendar time
     #' - `arm` `character` Unique identifier of the arm
-    #' - `dropper` `integer` # of subjects dropped at `time`
-    #' - `enroller` `integer` # of subjects enrolled at `time`
+    #' - `drop` `integer` # of subjects dropped at `time`
+    #' - `enroll` `integer` # of subjects enrolled at `time`
     timelist = NULL,
 
     # --- constructor ---
@@ -80,20 +80,20 @@ Timer <- R6::R6Class(
     #'
     #' @param time `numeric` Calendar time.
     #' @param arm `character` Arm identifier.
-    #' @param dropper `integer` Count of subjects to drop.
-    #' @param enroller `integer` Count of subjects to enroll.
+    #' @param drop `integer` Count of subjects to drop.
+    #' @param enroll `integer` Count of subjects to enroll.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(
     #'   time = 1,
     #'   arm = "A",
-    #'   dropper = 1L,
-    #'   enroller = 3L
+    #'   drop = 1L,
+    #'   enroll = 3L
     #' )
-    add_timepoint = function(time, arm, dropper, enroller) {
-      stopifnot(is.integer(dropper), is.integer(enroller))
-      tp <- list(time = time, arm = arm, dropper = dropper, enroller = enroller)
+    add_timepoint = function(time, arm, drop, enroll) {
+      stopifnot(is.integer(drop), is.integer(enroll))
+      tp <- list(time = time, arm = arm, drop = drop, enroll = enroll)
       self$timelist <- append(self$timelist, list(tp))
       invisible(self)
     },
@@ -103,7 +103,7 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
+    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     #' t$get_end_timepoint()
     get_end_timepoint = function() {
       max(sapply(self$timelist, function(x) {
@@ -118,8 +118,8 @@ Timer <- R6::R6Class(
     #'
     #' @examples
      #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     #' t$get_n_arms()
     get_n_arms = function() length(unique(sapply(self$timelist, function(x) x$arm))),
 
@@ -130,8 +130,8 @@ Timer <- R6::R6Class(
     #'
     #' @examples
      #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     #' t$get_unique_times()
     get_unique_times = function() unique(sapply(self$timelist, function(x) x$time)),
 
@@ -145,8 +145,8 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     #'
     #' t$get_timepoint("A", 1)
     get_timepoint = function(arm, i) {

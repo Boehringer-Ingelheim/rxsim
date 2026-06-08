@@ -27,11 +27,11 @@
 #' a data snapshot at each simulated timepoint. It combines three concerns:
 #'
 #' \enumerate{
-#'   \item **Filtering** — a `dplyr::filter()` expression selects the rows
+#'   \item **Filtering**  -  a `dplyr::filter()` expression selects the rows
 #'     relevant to this condition (e.g. "only enrolled subjects in arm A").
-#'   \item **Analysis** — an optional function transforms the filtered snapshot
+#'   \item **Analysis**  -  an optional function transforms the filtered snapshot
 #'     into a result (e.g. a t-test, a subject count, a Go/No-Go decision).
-#'   \item **Trigger bookkeeping** — the condition fires only when the
+#'   \item **Trigger bookkeeping**  -  the condition fires only when the
 #'     filtered data is non-empty, the cooldown period has elapsed since the
 #'     last trigger, and the maximum trigger count has not been reached.
 #' }
@@ -59,8 +59,8 @@
 #' @section Fields:
 #' \describe{
 #'   \item{\code{where}}{`list` of quosures (from `rlang::quos()`) used as
-#'     `dplyr::filter()` predicates. Pass `NULL` or an empty list to skip
-#'     filtering and pass the full snapshot to the analysis.}
+#'     `dplyr::filter()` predicates, or a `trigger` object (converted
+#'     automatically). `NULL` or an empty list passes the full snapshot.}
 #'   \item{\code{analysis}}{`function` or `NULL`. Called as
 #'     `analysis(df, current_time, ...)` on a successful trigger, where `...`
 #'     are any values from `analysis_args`. Should return a `data.frame` or
@@ -97,11 +97,10 @@
 #' \itemize{
 #'   \item [`Timer`] for managing trial timepoints
 #'   \item [`Trial`] for running the simulation and iterating over conditions
-#'   \item [`trigger_by_calendar()`] and [`trigger_by_fraction()`] for
-#'     convenient `Condition` constructors
 #'   \item [value_trigger()], [count_trigger()], [enroll_trigger()],
-#'     [calendar_trigger()] for building safe trigger specifications
-#'   \item [`dplyr::filter()`] for predicate syntax
+#'     [calendar_trigger()] for building trigger specifications
+#'   \item [`condition_calendar_time()`] and [`condition_enrollment_fraction()`]
+#'     for convenient `Condition` constructors
 #' }
 #'
 #' @examples
@@ -117,9 +116,9 @@
 #'   data.frame(n_active = nrow(df), fired_at = current_time)
 #' }
 #'
-#' # Condition fires once when arm A has active subjects (max_triggers = 1)
+#' # Condition fires once when 3+ subjects are active (max_triggers = 1)
 #' cond <- Condition$new(
-#'   where        = rlang::quos(arm == "A", status == "active"),
+#'   where        = count_trigger("enroll_time", ">=", 3L),
 #'   analysis     = count_fn,
 #'   name         = "interim_A",
 #'   cooldown     = 0,
@@ -142,7 +141,7 @@ Condition <- R6::R6Class(
   public = list(
     # --- fields ---
     #' @field where `list` of quosures (`rlang::quos()`) used as `dplyr::filter()`
-    #'   predicates, or an `rxsim_trigger` (converted automatically). `NULL` or
+    #'   predicates, or a `trigger` object (converted automatically). `NULL` or
     #'   empty list passes the full snapshot.
     where = NULL,
 
@@ -179,9 +178,9 @@ Condition <- R6::R6Class(
     #' @description
     #' Create a new `Condition` instance.
     #'
-    #' @param where `rxsim_trigger` (converted automatically to quosures), a
-    #'   `list` of quosures from `rlang::quos()`, or `NULL` to use the full
-    #'   snapshot.
+    #' @param where `trigger` object (from `value_trigger()`, `count_trigger()`,
+    #'   `enroll_trigger()`, or `calendar_trigger()`), a `list` of quosures
+    #'   from `rlang::quos()`, or `NULL` to use the full snapshot.
     #' @param analysis `function` or `NULL`. Called as
     #'   `analysis(df, current_time, ...)` on a successful trigger, where `...`
     #'   are the values from `analysis_args`.
@@ -201,7 +200,7 @@ Condition <- R6::R6Class(
       cooldown      = 0,
       max_triggers  = 1L
     ) {
-      if (inherits(where, "rxsim_trigger")) where <- .trigger_to_quosures(where)
+      if (inherits(where, "trigger")) where <- .trigger_to_quosures(where)
       self$where         <- where
       self$analysis      <- analysis
       self$analysis_args <- analysis_args
@@ -213,7 +212,7 @@ Condition <- R6::R6Class(
       }
 
       if (length(max_triggers) == 1L && is.infinite(max_triggers) && max_triggers > 0) {
-        # Inf means unlimited — keep as-is
+        # Inf means unlimited  -  keep as-is
       } else {
         max_triggers <- as.integer(max_triggers)
         if (length(max_triggers) != 1L || is.na(max_triggers) || max_triggers < 0L) {

@@ -8,11 +8,11 @@ A \code{Condition} encapsulates a single trigger rule that is evaluated against
 a data snapshot at each simulated timepoint. It combines three concerns:
 
 \enumerate{
-\item \strong{Filtering} — a \code{dplyr::filter()} expression selects the rows
+\item \strong{Filtering}  -  a \code{dplyr::filter()} expression selects the rows
 relevant to this condition (e.g. "only enrolled subjects in arm A").
-\item \strong{Analysis} — an optional function transforms the filtered snapshot
+\item \strong{Analysis}  -  an optional function transforms the filtered snapshot
 into a result (e.g. a t-test, a subject count, a Go/No-Go decision).
-\item \strong{Trigger bookkeeping} — the condition fires only when the
+\item \strong{Trigger bookkeeping}  -  the condition fires only when the
 filtered data is non-empty, the cooldown period has elapsed since the
 last trigger, and the maximum trigger count has not been reached.
 }
@@ -41,8 +41,8 @@ provided, the filtered data frame is returned as-is with a warning.
 
 \describe{
 \item{\code{where}}{\code{list} of quosures (from \code{rlang::quos()}) used as
-\code{dplyr::filter()} predicates. Pass \code{NULL} or an empty list to skip
-filtering and pass the full snapshot to the analysis.}
+\code{dplyr::filter()} predicates, or a \code{trigger} object (converted
+automatically). \code{NULL} or an empty list passes the full snapshot.}
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
 are any values from \code{analysis_args}. Should return a \code{data.frame} or
@@ -91,9 +91,9 @@ count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when arm A has active subjects (max_triggers = 1)
+# Condition fires once when 3+ subjects are active (max_triggers = 1)
 cond <- Condition$new(
-  where        = rlang::quos(arm == "A", status == "active"),
+  where        = count_trigger("enroll_time", ">=", 3L),
   analysis     = count_fn,
   name         = "interim_A",
   cooldown     = 0,
@@ -113,18 +113,17 @@ length(res2)  # 0
 \itemize{
 \item \code{\link{Timer}} for managing trial timepoints
 \item \code{\link{Trial}} for running the simulation and iterating over conditions
-\item \code{\link[=trigger_by_calendar]{trigger_by_calendar()}} and \code{\link[=trigger_by_fraction]{trigger_by_fraction()}} for
-convenient \code{Condition} constructors
 \item \code{\link[=value_trigger]{value_trigger()}}, \code{\link[=count_trigger]{count_trigger()}}, \code{\link[=enroll_trigger]{enroll_trigger()}},
-\code{\link[=calendar_trigger]{calendar_trigger()}} for building safe trigger specifications
-\item \code{\link[dplyr:filter]{dplyr::filter()}} for predicate syntax
+\code{\link[=calendar_trigger]{calendar_trigger()}} for building trigger specifications
+\item \code{\link[=condition_calendar_time]{condition_calendar_time()}} and \code{\link[=condition_enrollment_fraction]{condition_enrollment_fraction()}}
+for convenient \code{Condition} constructors
 }
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
-predicates, or an \code{rxsim_trigger} (converted automatically). \code{NULL} or
+predicates, or a \code{trigger} object (converted automatically). \code{NULL} or
 empty list passes the full snapshot.}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
@@ -178,9 +177,9 @@ Create a new \code{Condition} instance.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{where}}{\code{rxsim_trigger} (converted automatically to quosures), a
-\code{list} of quosures from \code{rlang::quos()}, or \code{NULL} to use the full
-snapshot.}
+\item{\code{where}}{\code{trigger} object (from \code{value_trigger()}, \code{count_trigger()},
+\code{enroll_trigger()}, or \code{calendar_trigger()}), a \code{list} of quosures
+from \code{rlang::quos()}, or \code{NULL} to use the full snapshot.}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}

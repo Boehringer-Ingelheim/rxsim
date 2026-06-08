@@ -25,5 +25,5 @@ pop <- gen_population("control", gen_control, sample_size = 50)
 
 }
 \seealso{
-\link{Population}, \code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=vector_to_dataframe]{vector_to_dataframe()}}.
+\link{Population}, \code{\link[=replicate_trial]{replicate_trial()}}, \code{\link[=as_population_data]{as_population_data()}}.
 }

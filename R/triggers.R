@@ -1,9 +1,9 @@
 .trigger_ops <- c(">=", "<=", ">", "<", "==", "!=", "%in%")
 
 #' @name trigger_primitives
-#' @title Build Safe Trial Triggers
-#' @description Create inert trigger specifications that can be safely
-#'   passed to [`Condition`] or composed with `&` and `|`.
+#' @title Build Trial Triggers
+#' @description Create trigger specifications that can be passed to
+#'   [`Condition`] or composed with `&` and `|`.
 #'
 #' @param col `character` Column name referenced by the trigger.
 #' @param op `character` Comparison operator. Must be one of
@@ -11,7 +11,7 @@
 #' @param rhs Right-hand side value. Must be atomic for `value_trigger()` and
 #'   numeric for `count_trigger()`.
 #'
-#' @return An `rxsim_trigger` object.
+#' @return A `trigger` object.
 #'
 #' @seealso [Condition], `enroll_trigger()`, `calendar_trigger()`.
 #'
@@ -28,7 +28,7 @@ value_trigger <- function(col, op, rhs) {
     stop("`rhs` must be atomic for `value_trigger()`.")
   }
 
-  structure(list(type = "value", col = col, op = op, rhs = rhs), class = "rxsim_trigger")
+  structure(list(type = "value", col = col, op = op, rhs = rhs), class = "trigger")
 }
 
 #' @rdname trigger_primitives
@@ -40,7 +40,7 @@ count_trigger <- function(col, op, rhs) {
     stop("`rhs` must be numeric for `count_trigger()`.")
   }
 
-  structure(list(type = "count", col = col, op = op, rhs = rhs), class = "rxsim_trigger")
+  structure(list(type = "count", col = col, op = op, rhs = rhs), class = "trigger")
 }
 
 #' @rdname trigger_primitives
@@ -60,41 +60,43 @@ enroll_trigger <- function(fraction, sample_size) {
 }
 
 #' @rdname trigger_primitives
-#' @param cal_time `numeric` Calendar time(s) at which to trigger.
+#' @param cal_time `numeric` Calendar time at or after which to trigger.
+#'   Uses `>=` so it works with both stochastic (continuous) and deterministic
+#'   (integer) schedules.
 #' @export
 calendar_trigger <- function(cal_time) {
   if (missing(cal_time)) stop("`cal_time` is required.")
-  if (!is.numeric(cal_time)) {
-    stop("`cal_time` must be numeric.")
+  if (!is.numeric(cal_time) || length(cal_time) != 1L) {
+    stop("`cal_time` must be a single numeric value.")
   }
 
-  value_trigger("time", "%in%", cal_time)
+  value_trigger("time", ">=", cal_time)
 }
 
 #' @rdname trigger_primitives
-#' @param e1,e2 `rxsim_trigger` objects to combine.
+#' @param e1,e2 `trigger` objects to combine.
 #' @export
-`&.rxsim_trigger` <- function(e1, e2) {
-  stopifnot(inherits(e1, "rxsim_trigger"), inherits(e2, "rxsim_trigger"))
-  structure(list(predicates = list(e1, e2), combinator = "&"), class = "rxsim_trigger")
+`&.trigger` <- function(e1, e2) {
+  stopifnot(inherits(e1, "trigger"), inherits(e2, "trigger"))
+  structure(list(predicates = list(e1, e2), combinator = "&"), class = "trigger")
 }
 
 #' @rdname trigger_primitives
-#' @param e1,e2 `rxsim_trigger` objects to combine.
+#' @param e1,e2 `trigger` objects to combine.
 #' @export
-`|.rxsim_trigger` <- function(e1, e2) {
-  stopifnot(inherits(e1, "rxsim_trigger"), inherits(e2, "rxsim_trigger"))
-  structure(list(left = e1, right = e2, combinator = "|"), class = "rxsim_trigger")
+`|.trigger` <- function(e1, e2) {
+  stopifnot(inherits(e1, "trigger"), inherits(e2, "trigger"))
+  structure(list(left = e1, right = e2, combinator = "|"), class = "trigger")
 }
 
-#' Trigger Analysis at a Calendar Time
+#' Build a Condition that Fires at a Calendar Time
 #'
-#' Builds a [`Condition`] that fires when the trial clock reaches a specified
-#' calendar time. The returned `Condition` should be passed to
+#' Convenience constructor: wraps `Condition$new()` with a
+#' `calendar_trigger()`. The returned `Condition` should be passed to
 #' `Trial$new(conditions = list(...))`.
 #'
-#' @param cal_time `numeric` Calendar time(s) at which to trigger.
-#' @param analysis `function` or `NULL` Optional analysis function called as
+#' @param cal_time `numeric` Calendar time at or after which to fire.
+#' @param analysis `function` or `NULL` Called as
 #'   `analysis(df, current_time, ...)`. If `NULL`, the filtered snapshot
 #'   is returned as-is with a warning.
 #' @param name `character` or `NULL` Result key. Defaults to
@@ -102,19 +104,19 @@ calendar_trigger <- function(cal_time) {
 #'
 #' @return A [`Condition`] object.
 #'
-#' @seealso [Condition], [trigger_by_fraction()], [Trial],
+#' @seealso [Condition], [condition_enrollment_fraction()], [Trial],
 #'   `calendar_trigger()`.
 #'
 #' @export
 #'
 #' @examples
-#' cond <- trigger_by_calendar(
+#' cond <- condition_calendar_time(
 #'   cal_time = 12,
 #'   analysis = function(df, current_time) {
 #'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
 #'   }
 #' )
-trigger_by_calendar <- function(cal_time, analysis = NULL, name = NULL) {
+condition_calendar_time <- function(cal_time, analysis = NULL, name = NULL) {
   if (missing(cal_time)) stop("`cal_time` is required.")
   stopifnot(is.numeric(cal_time))
   if (is.null(name)) name <- paste0("cal_time_", paste(cal_time, collapse = "_"))
@@ -122,15 +124,15 @@ trigger_by_calendar <- function(cal_time, analysis = NULL, name = NULL) {
   Condition$new(where = calendar_trigger(cal_time), analysis = analysis, name = name)
 }
 
-#' Trigger Analysis at a Sample Fraction
+#' Build a Condition that Fires at an Enrollment Fraction
 #'
-#' Builds a [`Condition`] that fires when a given fraction of the target sample
-#' has been enrolled. The returned `Condition` should be passed to
+#' Convenience constructor: wraps `Condition$new()` with an
+#' `enroll_trigger()`. The returned `Condition` should be passed to
 #' `Trial$new(conditions = list(...))`.
 #'
 #' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
 #' @param sample_size `integer` Target sample size.
-#' @param analysis `function` or `NULL` Optional analysis function called as
+#' @param analysis `function` or `NULL` Called as
 #'   `analysis(df, current_time, ...)`. If `NULL`, the filtered snapshot
 #'   is returned as-is with a warning.
 #' @param name `character` or `NULL` Result key. Defaults to
@@ -138,20 +140,20 @@ trigger_by_calendar <- function(cal_time, analysis = NULL, name = NULL) {
 #'
 #' @return A [`Condition`] object.
 #'
-#' @seealso [Condition], [trigger_by_calendar()], [Trial],
+#' @seealso [Condition], [condition_calendar_time()], [Trial],
 #'   `enroll_trigger()`.
 #'
 #' @export
 #'
 #' @examples
-#' cond <- trigger_by_fraction(
+#' cond <- condition_enrollment_fraction(
 #'   fraction    = 0.5,
 #'   sample_size = 100,
 #'   analysis    = function(df, current_time) {
 #'     data.frame(n_enrolled = sum(!is.na(df$enroll_time)))
 #'   }
 #' )
-trigger_by_fraction <- function(fraction, sample_size, analysis = NULL, name = NULL) {
+condition_enrollment_fraction <- function(fraction, sample_size, analysis = NULL, name = NULL) {
   if (missing(fraction) || missing(sample_size)) stop("`fraction` and `sample_size` are required.")
   stopifnot(is.numeric(sample_size) && length(sample_size) == 1L)
   stopifnot(fraction > 0 && fraction <= 1)

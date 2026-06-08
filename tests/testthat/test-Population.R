@@ -71,6 +71,15 @@ testthat::test_that("Population initialize: errors when required columns are mis
   )
 })
 
+testthat::test_that("Population initialize: missing-columns message joins multiple column names", {
+  df_bad <- data.frame(value = rnorm(5))
+  testthat::expect_error(
+    Population$new("Arm A", data = df_bad),
+    "Data frame is missing required columns: id, readout_time",
+    fixed = TRUE
+  )
+})
+
 testthat::test_that("Population initialize: computes n and n_readouts correctly (repeated measures)", {
 
 
@@ -289,12 +298,20 @@ testthat::test_that("set_dropped: caps to eligible slots and does not re-drop", 
   pop <- Population$new("Arm A", data = df)
 
   pop$set_enrolled(n = 3, time = 1)
-  pop$set_dropped(n = 999, time = 2)
+  testthat::expect_warning(
+    pop$set_dropped(n = 999, time = 2),
+    "Requested 999 dropouts but only 3 enrolled; dropping 3 subject(s).",
+    fixed = TRUE
+  )
 
   testthat::expect_equal(sum(!is.na(pop$dropped)), 3)
 
   dropped_before <- sum(!is.na(pop$dropped))
-  pop$set_dropped(n = 2, time = 3)
+  testthat::expect_warning(
+    pop$set_dropped(n = 2, time = 3),
+    "Requested 2 dropouts but only 0 enrolled; dropping 0 subject(s).",
+    fixed = TRUE
+  )
   testthat::expect_equal(sum(!is.na(pop$dropped)), dropped_before)
 })
 

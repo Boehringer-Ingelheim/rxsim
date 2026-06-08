@@ -1,22 +1,36 @@
 url: https://boehringer-ingelheim.github.io/rxsim
 template:
   bootstrap: 5
+  includes:
+    in_header: |
+      <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+      <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          mermaid.initialize({ startOnLoad: true });
+        });
+      </script>
 
 navbar:
   structure:
     left: [intro, articles, reference]
 
 articles:
-  - title: "Getting started"
-    navbar: ~
-    contents:
-      - getting-started
-
-  - title: "Concepts"
-    navbar: Concepts
+  - title: "Architecture"
+    navbar: Architecture
     contents:
       - concepts
-      - enrollment-dropout
+
+  - title: "Class reference"
+    navbar: Classes
+    contents:
+      - class-population
+      - enrollment
+      - conditions
+
+  - title: "How-to guides"
+    navbar: How-to
+    contents:
+      - api-styles
 
   - title: "Examples"
     navbar: Examples
@@ -26,10 +40,6 @@ articles:
       - example-3
       - example-4
       - example-5
-      - example-6
-      - example-7
-      - example-8
-      - example-multi-run
 
 reference:
   - title: "Core classes"
@@ -51,29 +61,27 @@ reference:
     desc: "Helpers for building Timer timepoint lists"
     contents:
       - add_timepoints
-      - gen_timepoints
+      - deterministic_schedule
+      - stochastic_schedule
 
   - title: "Condition helpers"
     desc: "Convenience constructors for Condition objects"
     contents:
       - trigger_primitives
-      - trigger_by_calendar
-      - trigger_by_fraction
+      - condition_calendar_time
+      - condition_enrollment_fraction
 
   - title: "Population helpers"
     desc: "Helpers for building Population generators"
     contents:
       - gen_population
-      - gen_plan
+      - as_population_data
 
   - title: "Results helpers"
     desc: "Functions to collect and display simulation results"
     contents:
       - collect_results
-      - prettify_results
 
   - title: "Utilities"
     contents:
       - get_col_names
-      - vector_to_dataframe
-
