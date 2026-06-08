@@ -73,6 +73,31 @@ class(combined_or)
 This is useful when an interim should happen only after both enough enrollment
 and sufficient follow-up time.
 
+## Registering composed triggers with `Condition$new()`
+
+Helper constructors are great for common single-trigger cases. When your rule is
+composed (for example `a & b`), register it directly with `Condition$new()`.
+
+```{r condition-new-composed}
+cond_composed <- Condition$new(
+  where = enroll_trigger(0.5, sample_size) & calendar_trigger(6),
+  analysis = function(df, current_time) {
+    enrolled <- subset(df, !is.na(enroll_time))
+    data.frame(
+      time = current_time,
+      n = nrow(enrolled)
+    )
+  },
+  name = "interim_enroll_and_time"
+)
+
+class(cond_composed)
+length(cond_composed$where)
+```
+
+`where` accepts any `trigger` object (primitive or composed) and internally
+converts it to the filter predicates used during condition evaluation.
+
 ## Helper constructors for common conditions
 
 Two helper constructors cover common workflows and return `Condition` objects

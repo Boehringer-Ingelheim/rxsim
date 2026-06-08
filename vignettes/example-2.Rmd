@@ -99,7 +99,8 @@ sensitive to treatment.
 ## Populations
 
 For each arm we simulate **two correlated endpoints** per subject using
-`MASS::mvrnorm`.
+`MASS::mvrnorm`. In this vignette, that arm-specific generator is the
+**custom data generating model** for endpoint behavior.
 
 ```{r population}
 # Create closure to capture parameters
