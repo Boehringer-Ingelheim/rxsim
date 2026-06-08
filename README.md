@@ -3,6 +3,11 @@
 
 # rxsim
 
+> \[!WARNING\]\
+> This package is in early development. The API is not yet stable and
+> may change without deprecation. Use with caution and please share
+> feedback!
+
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml)
