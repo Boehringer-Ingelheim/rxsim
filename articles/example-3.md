@@ -1,223 +1,205 @@
-# Example 3: Two arm \| Fixed design \| Two correlated continuous endpoints \| t-test
+# Example 3: Multi-arm \| Fixed design \| Single continuous endpoint \| Dunnett test + MCP-Mod
 
 ``` r
-# Core package that provides Timer, Population, Trial, gen_timepoints, add_timepoints, ...
+# Core simulation framework (Timer, Population, Trial, deterministic_schedule, add_timepoints, ...)
 library(rxsim)
 
-# Utilities
+# Analyses
+library(multcomp)     # Dunnett
+#> Loading required package: mvtnorm
+#> Loading required package: survival
+#> Loading required package: TH.data
+#> Loading required package: MASS
+#> 
+#> Attaching package: 'TH.data'
+#> The following object is masked from 'package:MASS':
+#> 
+#>     geyser
+library(DoseFinding)  # MCP-Mod
+
+# Helpers
 library(dplyr)
 #> 
 #> Attaching package: 'dplyr'
+#> The following object is masked from 'package:MASS':
+#> 
+#>     select
 #> The following objects are masked from 'package:stats':
 #> 
 #>     filter, lag
 #> The following objects are masked from 'package:base':
 #> 
 #>     intersect, setdiff, setequal, union
-library(MASS)   # for mvrnorm (simulate correlated endpoints)
-#> 
-#> Attaching package: 'MASS'
-#> The following object is masked from 'package:dplyr':
-#> 
-#>     select
+set.seed(4566)
 ```
 
-Many trials evaluate co-primary or key secondary endpoints
-simultaneously. Ignoring endpoint correlation when planning a study
-leads to incorrect power estimates. This example shows how to simulate
-two correlated continuous endpoints (e.g., a primary efficacy score and
-a key secondary biomarker) and apply multiplicity adjustment via Holm’s
-procedure. See [Example
-1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md)
-for the simpler single-endpoint baseline.
+Dose-finding trials aim to identify the dose-response relationship and
+establish an effective dose level. This example simulates a multi-arm
+fixed design across a placebo and four active doses, with the endpoint
+generated from an Emax dose-response model. At the final analysis, two
+methods are applied: a Dunnett test (comparing each active dose against
+placebo while controlling family-wise error rate) and MCP-Mod (a
+model-based contrast approach that selects the best-fitting
+dose-response shape from a candidate set).
+
+**Unique focus:** multi-arm design, Emax dose-response data generation,
+Dunnett test vs MCP-Mod - comparing detection rates across effect sizes.
+
+The simulation skeleton is the same as [Example
+1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md):
+define the scenario, create population generators, register conditions,
+and run replicate trials. This vignette focuses on what changes in a
+dose-finding setting.
 
 ## Scenario
 
-We consider a **two-arm, fixed design** with **two correlated continuous
-endpoints** per subject. Enrollment is piece-wise linear; analysis
-happens **once at the final time**.
+A **multi-arm, fixed design** (placebo + 4 active doses) with a **single
+continuous endpoint**. At the **final analysis**, we perform:
+
+- **Dunnett test**: all active doses vs placebo using a normal-theory
+  linear model.
+- **MCP-Mod**: model-based multiple contrast test + model fitting on a
+  candidate set of dose–response shapes.
+
+The Emax model generates mean responses via
+`E(d) = e0 + emax × d / (ed50 + d)`, where `e0 = 0` (placebo baseline),
+`emax = 1` (maximum achievable effect), and `ed50 = 20` (dose at
+half-maximum effect). `arm_names = paste0("d", doses)` creates
+human-readable labels (`d0`, `d5`, `d10`, `d20`, `d50`) that propagate
+through trial data and analysis results. `delta = 0.1` is the minimum
+effect size of clinical relevance used by MCP-Mod, and `alpha = 0.05`
+controls the family-wise Type I error rate for both testing procedures.
 
 ``` r
-# Total target sample size
-sample_size <- 100
+# Dose levels (placebo + 4 actives)
+doses <- c(0, 5, 10, 20, 50)
 
-# Arms and allocation (balanced)
-arms       <- c("pbo", "trt")
-allocation <- c(1, 1)
+# Total N and allocation (balanced across arms)
+sample_size <- 150
+allocation  <- rep(1, length(doses))
+arm_names   <- paste0("d", doses)  # e.g., d0, d5, ... used as arm labels
 
-# Piece-wise linear enrollment and dropout rates (per unit time)
-# (You can tweak these to match your program's cadence.)
-enrollment <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(5, 10, 15, 20)
-)
-dropout <- list(
-  end_time = c(4, 8, 12, 16),
-  rate     = c(1, 2, 4, 8)
-)
+# Data-generating model: Emax with homoscedastic noise
+e0    <- 0.0
+emax  <- 1.0
+ed50  <- 20.0
+sigma <- 1.0
 
-# Endpoint model parameters
-# Endpoint correlation structure (common across arms for simplicity)
-rho  <- 0.60            # correlation between endpoint1 and endpoint2
-sd1  <- 1.00            # SD of endpoint1
-sd2  <- 1.00            # SD of endpoint2
+mean_fun <- function(d) e0 + emax * d / (ed50 + d)
 
-# Mean structure per arm
-mu1_pbo <- 0.00         # Control mean for endpoint1
-mu2_pbo <- 0.00         # Control mean for endpoint2
-
-# Treatment effects (mean shifts)
-delta1  <- 0.30         # Treatment - control difference for endpoint1
-delta2  <- 0.20         # Treatment - control difference for endpoint2
-
-mu1_trt <- mu1_pbo + delta1
-mu2_trt <- mu2_pbo + delta2
-
-# Construct covariance matrix
-Sigma <- matrix(
-  c(sd1^2, rho*sd1*sd2,
-    rho*sd1*sd2, sd2^2),
-  nrow = 2, byrow = TRUE
-)
+# Operating characteristics
+alpha <- 0.05
+delta <- 0.1
 
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation = list(allocation),
-  rho = rho,
-  delta1 = delta1,
-  delta2 = delta2
-)
-```
-
-`rho = 0.60` represents a moderate positive correlation between the two
-endpoints — plausible when both reflect the same underlying biological
-process. The covariance matrix `Sigma` is constructed from the marginal
-SDs and correlation using the standard identity cov(y1, y2) = rho × sd1
-× sd2. Treatment shifts are delta1 = 0.30 SD for the primary endpoint
-and delta2 = 0.20 SD for the secondary, reflecting a scenario where the
-primary endpoint is more sensitive to treatment.
-
-## Time points
-
-Generate timeline of discrete timepoints and add them to a `Timer`.
-
-``` r
-timepoints <- gen_timepoints(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment,
-  dropout     = dropout
+  allocation  = list(allocation),
+  n_arms      = length(doses),
+  alpha       = alpha,
+  delta       = delta
 )
 
-t <- Timer$new(name = "trial_timer_two_endpoints")
-add_timepoints(t, timepoints)
-
-final_time <- t$get_end_timepoint()
-final_time
-#> [1] 12
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
-[`gen_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.md)
-converts piecewise-constant enrollment and dropout rate lists into a
-deterministic set of calendar timepoints — in contrast to the stochastic
-`rexp` calls used in [Examples
-1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md)
-and
-[2](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.md).
-`t$get_end_timepoint()` returns the latest timepoint at which all
-expected enrollment and follow-up will have completed, providing the
-calendar time for the single final analysis.
+## Populations
 
-## Arms (Populations)
-
-For each arm we simulate **two correlated endpoints** per subject using
-[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html). We keep
-**50** subjects per arm (consistent with `sample_size = 100` and equal
-allocation).
+`mk_pop_gen` is a closure factory: it captures the dose value `d` and
+returns a generator function that, when called with `n`, draws `n`
+responses from N(E(d), sigma^2). Each arm’s generator stores `dose` as a
+numeric column because MCP-Mod requires actual dose values - not just
+arm labels - to fit dose-response models and evaluate contrasts at
+analysis time.
 
 ``` r
-# Create closure to capture parameters
-mk_population_generator <- function(mu_y1, mu_y2) {
+mk_pop_gen <- function(d) {
   function(n) {
-    xy <- MASS::mvrnorm(
-      n     = n,
-      mu    = c(mu_y1, mu_y2),
-      Sigma = Sigma
-    )
+    mu <- mean_fun(d)
+    y  <- rnorm(n, mean = mu, sd = sigma)
     data.frame(
       id = seq_len(n),
-      y1 = xy[, 1],
-      y2 = xy[, 2],
+      dose = d,
+      y = y,
       readout_time = 1
     )
   }
 }
 
-population_generators <- list(
-  pbo = mk_population_generator(mu1_pbo, mu2_pbo),
-  trt = mk_population_generator(mu1_trt, mu2_trt)
+population_generators <- lapply(seq_along(doses), function(i) {
+  mk_pop_gen(doses[i])
+})
+names(population_generators) <- arm_names
+```
+
+## Conditions
+
+At the **final time**, run:
+
+1.  **Dunnett test** (active vs placebo) using
+    [`multcomp::glht`](https://rdrr.io/pkg/multcomp/man/glht.html) on
+    `lm(y ~ arm)`.
+
+2.  **MCP-Mod** using
+    [`DoseFinding::MCPMod`](https://openpharma.github.io/DoseFinding/reference/MCPMod.html)
+    with a candidate model set (`Mods`).
+
+The Dunnett test
+([`multcomp::glht`](https://rdrr.io/pkg/multcomp/man/glht.html) with
+`mcp(arm = "Dunnett")`) simultaneously compares each active dose against
+placebo while controlling the family-wise error rate at `alpha`. MCP-Mod
+is run with five candidate dose-response shapes; `selModel = "aveAIC"`
+selects the best model by AIC-weighted averaging, and `Delta = delta`
+sets the minimum effect size of clinical relevance for the contrast
+step. `mct_min_p` extracts the minimum p-value across all candidate
+model contrast tests - a small value indicates that at least one
+candidate model detects a dose-response signal.
+
+``` r
+# Candidate model set for MCP-Mod
+mods <- Mods(
+  linear     = NULL,
+  emax       = 20,
+  exponential= 50,
+  sigEmax    = c(20, 3),
+  quadratic  = -0.2,
+  doses      = doses
 )
-```
 
-[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html) draws `n`
-samples from a multivariate normal with the given mean vector and
-covariance matrix `Sigma`. The closure pattern
-(`mk_population_generator`) captures the arm-specific means at
-definition time, so each call to `population_generators$pbo(n)` or
-`population_generators$trt(n)` produces data under the correct arm
-parameters. Endpoint correlation flows entirely through the shared
-`Sigma` matrix — changing `rho` in the scenario automatically updates
-both arms.
-
-## Trial Parameters
-
-Define enrollment/dropout profiles and parameters.
-
-``` r
-arms <- c("pbo", "trt")
-allocation <- c(1, 1)
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-```
-
-Note that `enrollment_fn` and `dropout_fn` here are stochastic functions
-passed to
-[`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md),
-which uses them in
-[`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
-to generate per-replicate enrollment and dropout times. They are
-separate from the piecewise-constant `enrollment` and `dropout` lists
-used by
-[`gen_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.md)
-above — those lists drive the deterministic timer, while these functions
-drive per-subject event times within each simulated replicate.
-
-## Trigger & Analysis
-
-This is a **fixed design**: perform analysis **once**.  
-We run two independent two-sample t-tests (one per endpoint).
-
-``` r
 analysis_generators <- list(
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, current_time) {
-      df_e <- df |> subset(!is.na(enroll_time))
+    analysis = function(df, current_time){
+      df_e <- df |>
+        dplyr::filter(!is.na(enroll_time)) |>
+        dplyr::mutate(
+          arm  = factor(arm, levels = paste0("d", doses)),
+          dose = as.numeric(dose)
+        )
 
-      p1 <- t.test(y1 ~ arm, data = df_e)$p.value
-      p2 <- t.test(y2 ~ arm, data = df_e)$p.value
-      padj <- p.adjust(c(p1, p2), method = "holm")
+      # 1) Dunnett (active vs placebo)
+      fit <- lm(y ~ arm, data = df_e)
+      dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
+      summ <- summary(dun)
+
+      # 2) MCP-Mod (one-step)
+      mm <- DoseFinding::MCPMod(
+          dose   = df_e$dose,
+          resp   = df_e$y,
+          models = mods,
+          type   = "normal",
+          Delta  = delta,
+          alpha  = alpha,
+          selModel = "aveAIC"
+      )
+
+      mct_min_p <- min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE)
 
       data.frame(
         scenario,
-        p_y1      = unname(p1),
-        p_y2      = unname(p2),
-        p_holm_y1 = unname(padj[1]),
-        p_holm_y2 = unname(padj[2]),
-        n_total   = nrow(df_e),
-        n_pbo     = sum(df_e$arm == "pbo"),
-        n_trt     = sum(df_e$arm == "trt"),
+        n_total      = nrow(df_e),
+        dunn_min_p   = summ$test$pvalues |> as.numeric() |> min(),
+        mcpmod_min_p = mct_min_p,
         stringsAsFactors = FALSE
       )
     }
@@ -225,101 +207,305 @@ analysis_generators <- list(
 )
 ```
 
-The two t-tests are run independently on the enrolled subset, producing
-unadjusted p-values `p_y1` and `p_y2`. `p.adjust(..., method = "holm")`
-applies Holm’s stepwise procedure: `padj[1]` corresponds to the endpoint
-with the smaller raw p-value (most significant) and `padj[2]` to the
-larger. The adjusted values account for the familywise error rate across
-the two endpoints, so `p_holm_y1 >= p_y1` always holds.
-
-## Trial
-
-Create and run the trial. (We supply a `seed` for reproducibility inside
-the trial engine—e.g., enrollment/dropout sampling.)
-
-``` r
-trials <- replicate_trial(
-  trial_name = "two_endpoints_fixed_design",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
 ``` r
+set.seed(5)
+trials <- replicate_trial(
+  trial_name            = "multiarm_dunnett_mcpmod",
+  sample_size           = sample_size,
+  arms                  = arm_names,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 3
+)
 run_trials(trials)
-#> [[1]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_fixed_design_1
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[2]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_fixed_design_2
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[3]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_fixed_design_3
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
 ```
 
 ## Results
 
-One row per replicate, row-bound across all replicates:
+[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
+row-binds analysis outputs across all replicates and prepends
+`replicate`, `timepoint`, and `analysis` columns. `dunn_min_p` is the
+smallest Dunnett-adjusted p-value across the four active-dose
+comparisons - a value below `alpha` indicates that at least one dose
+significantly differs from placebo after multiplicity correction.
+`mcpmod_min_p` is the minimum MCP-Mod contrast test p-value across
+candidate models; MCP-Mod is generally more powerful when the true
+dose-response shape is well-captured by one of the candidate models.
 
 ``` r
 replicate_results <- collect_results(trials)
 replicate_results
-#>   replicate timepoint analysis sample_size allocation rho delta1 delta2
-#> 1         1  87.36847    final         100       1, 1 0.6    0.3    0.2
-#> 2         2  83.92580    final         100       1, 1 0.6    0.3    0.2
-#> 3         3  96.44952    final         100       1, 1 0.6    0.3    0.2
-#>         p_y1      p_y2  p_holm_y1 p_holm_y2 n_total n_pbo n_trt
-#> 1 0.07643188 0.6506456 0.15286377 0.6506456     100    50    50
-#> 2 0.01064244 0.2144255 0.02128487 0.2144255     100    50    50
-#> 3 0.17952451 0.3090734 0.35904902 0.3590490     100    50    50
+#>   replicate timepoint analysis sample_size    allocation n_arms alpha delta
+#> 1         1  163.6457    final         150 1, 1, 1, 1, 1      5  0.05   0.1
+#> 2         2  154.0418    final         150 1, 1, 1, 1, 1      5  0.05   0.1
+#> 3         3  148.2880    final         150 1, 1, 1, 1, 1      5  0.05   0.1
+#>   n_total   dunn_min_p mcpmod_min_p
+#> 1     150 1.255875e-01 3.571107e-02
+#> 2     150 2.087216e-06 3.870043e-08
+#> 3     150 1.129478e-03 2.088616e-05
 ```
 
-[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
-prepends `replicate`, `timepoint`, and `analysis` columns to the four
-p-value columns. `p_holm_y1` and `p_holm_y2` will always be ≥ their
-unadjusted counterparts because Holm correction is more conservative.
-Because the two endpoints are positively correlated (rho = 0.6),
-replicates that reject for y1 tend to also reject for y2 — joint
-rejection probability exceeds what you would expect for independent
-endpoints under the same effect sizes.
+## Power curve
+
+How does detection rate scale with the true maximum effect (`emax`)? We
+sweep `emax` over four values, keeping `ed50 = 20` and `n = 150` fixed,
+and compare the Dunnett and MCP-Mod rejection rates.
+
+``` r
+set.seed(55)
+n_reps_pw <- 100
+emax_vals <- c(0.5, 1.0, 1.5, 2.0)
+
+pw_df5 <- do.call(rbind, lapply(emax_vals, function(em) {
+  mf <- function(d) 0 + em * d / (20 + d)
+  pop_pw <- lapply(seq_along(doses), function(i) {
+    d <- doses[i]
+    local({
+      mu_d <- mf(d)
+      function(n) {
+        data.frame(
+          id = 1:n, dose = d,
+          y  = rnorm(n, mu_d, sigma),
+          readout_time = 1
+        )
+      }
+    })
+  })
+  names(pop_pw) <- arm_names
+
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      df_e <- dplyr::filter(df, !is.na(enroll_time)) |>
+        dplyr::mutate(
+          arm  = factor(arm, levels = arm_names),
+          dose = as.numeric(dose)
+        )
+      fit  <- lm(y ~ arm, data = df_e)
+      dun  <- multcomp::glht(fit, linfct = multcomp::mcp(arm = "Dunnett"))
+      mm   <- DoseFinding::MCPMod(
+        dose = df_e$dose, resp = df_e$y,
+        models = mods, type = "normal",
+        Delta = delta, alpha = alpha, selModel = "aveAIC"
+      )
+      data.frame(
+        dunn_sig   = as.integer(min(summary(dun)$test$pvalues) < alpha),
+        mcpmod_sig = as.integer(
+          min(attr(mm$MCTtest$tStat, "pVal"), na.rm = TRUE) < alpha
+        )
+      )
+    }
+  ))
+  tr <- replicate_trial(
+    "pw5", sample_size, arm_names, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  res <- collect_results(tr)
+  data.frame(
+    emax          = em,
+    power_dunnett = mean(res$dunn_sig),
+    power_mcpmod  = mean(res$mcpmod_sig)
+  )
+}))
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+#> Warning in MCTpval(contMat, corMat, df, tStat, alternative, mvtcontrol):
+#> Warning from mvtnorm::pmvt: Completion with error > abseps.
+```
+
+``` r
+matplot(
+  pw_df5$emax,
+  pw_df5[, c("power_dunnett", "power_mcpmod")],
+  type = "b", pch = 19, lty = 1,
+  col  = c("steelblue", "tomato"),
+  xlab = "True emax (maximum effect)",
+  ylab = "Empirical detection rate (alpha = 0.05)",
+  main = "Dunnett vs MCP-Mod: detection rate across emax",
+  ylim = c(0, 1)
+)
+legend("bottomright",
+       legend = c("Dunnett", "MCP-Mod"),
+       col = c("steelblue", "tomato"), lty = 1, pch = 19)
+abline(h = 0.80, lty = 2, col = "grey50")
+```
+
+![](example-3_files/figure-html/plot_power5-1.png)
+
+## Next steps
+
+- [Example
+  4](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.md) -
+  Bayesian Go/No-Go with historical placebo borrowing
+- [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.md) -
+  endpoint data setup for continuous, binary, and time-to-event outcomes

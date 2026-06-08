@@ -1,10 +1,14 @@
-# Example 4: Two arm \| Fixed design \| Correlated continuous & time-to-event endpoints \| t-test + survival analysis
+# Example 4: Two-arm \| Fixed design \| Single continuous endpoint \| Bayesian Go/No-Go with placebo borrowing
 
 ``` r
-# Core package that provides Timer, Population, Trial, gen_timepoints, add_timepoints, ...
+# Core simulation framework
 library(rxsim)
 
-# Utilities
+# Bayesian borrowing utilities
+library(RBesT)
+#> This is RBesT version 1.8.2 (released 2025-04-25, git-sha b9dab00)
+
+# Helpers
 library(dplyr)
 #> 
 #> Attaching package: 'dplyr'
@@ -14,219 +18,210 @@ library(dplyr)
 #> The following objects are masked from 'package:base':
 #> 
 #>     intersect, setdiff, setequal, union
-library(MASS)      # for mvrnorm (simulate correlated latent variables)
-#> 
-#> Attaching package: 'MASS'
-#> The following object is masked from 'package:dplyr':
-#> 
-#>     select
-library(survival)  # for Surv, survdiff, coxph
+
+set.seed(777)
 ```
 
-Oncology and cardiovascular trials often co-primary a continuous
-biomarker alongside a time-to-event (TTE) endpoint such as
-progression-free survival or overall survival. Correlation between a
-biomarker and TTE arises naturally through shared biological mechanisms.
-This example demonstrates simulating such a joint endpoint structure and
-applying both a t-test (for the continuous component) and a log-rank
-test plus Cox proportional hazards model (for TTE) at a single final
-analysis. See [Example
-3](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md)
-for the analogous two-correlated-continuous setup.
+Early development trials often face small sample sizes where borrowing
+information from historical placebo data can increase efficiency and
+reduce required sample size. This example demonstrates a Bayesian
+Go/No-Go decision rule for a Phase IIa trial, where the placebo
+posterior is informed by historical data via a robust mixture prior, and
+the treatment posterior uses a non-informative prior. A “Go” decision is
+issued when the posterior probability of a meaningful treatment effect
+(delta \> threshold) exceeds a predefined threshold.
+
+**Unique focus:** Bayesian Go/No-Go criterion, historical data borrowing
+via
+[`RBesT::robustify()`](https://opensource.nibr.com/RBesT/reference/robustify.html),
+Go probability as a function of true effect size.
+
+The setup pattern stays aligned with [Example
+1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md),
+while the analysis is replaced by a Bayesian decision rule with
+borrowing.
 
 ## Scenario
 
-We consider a **two-arm fixed design** with a **continuous endpoint
-(Y)** and a **time-to-event (TTE)** endpoint per subject. The endpoints
-are **correlated** via a shared Gaussian latent structure. Enrollment is
-piece-wise linear; analysis happens **once at the final time**.
+A **two-arm, fixed design** trial (placebo vs treatment) with a **single
+continuous endpoint** and a **single final analysis**.
+
+- Placebo arm uses **historical borrowing** through an informative prior
+  derived from historical placebo data and robustified with a
+  non-informative component.
+- Treatment arm uses a **non-informative prior**.
+- Go/No-Go rule: Go if P(mu_T - mu_P \> delta \| data) \>= gamma.
+
+`delta = 0.1` defines the minimum treatment-placebo difference of
+clinical relevance. `gamma = 0.8` requires 80% posterior probability of
+exceeding that threshold before a Go decision is issued. The true
+simulated effect `delta_true = 0.30` lies above `delta`, so a
+well-powered trial should frequently result in a Go.
 
 ``` r
-# Total target N (across both arms)
-sample_size <- 1200
+# Trial design
+sample_size <- 80
+allocation  <- c(1, 1)
+arms        <- c("placebo", "treatment")
 
-# Arms and allocation (balanced)
-arms       <- c("pbo", "trt")
-allocation <- c(1, 1)
+# Data-generating truth for this simulation example
+mu_placebo_true <- 0.00
+delta_true      <- 0.30  # true treatment - placebo mean difference
+sigma_known     <- 1.0
 
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn <- function(n) rexp(n, rate = 0.01)
-
-# Correlation between continuous endpoint driver (Z1) and frailty for TTE (Z2)
-rho <- 0.50
-
-# Continuous endpoint parameters
-mu_pbo <- 0.0
-delta  <- 0.3      # true treatment - placebo mean difference
-sd_y   <- 1.0
-
-# TTE model parameters (Exponential PH with subject frailty exp(eta))
-lambda0 <- 0.08    # baseline hazard (per time unit)
-HR_trt  <- 0.70    # treatment hazard ratio (<1 favors treatment)
-
-# Frailty scale (eta = sigma_frailty * Z2)
-sigma_frailty <- 0.6
-
-# Covariance of (Z1, Z2)
-SigmaZ <- matrix(c(1, rho, rho, 1), nrow = 2)
+# Bayesian decision thresholds
+delta <- 0.1
+gamma <- 0.8
 
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
   allocation  = list(allocation),
+  delta_true  = delta_true,
   delta       = delta,
-  rho         = rho,
-  hr_trt_true = HR_trt
+  gamma       = gamma
 )
+
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
-`HR_trt = 0.70` encodes a 30% hazard reduction in the treatment arm — a
-clinically meaningful effect in many oncology settings. `lambda0 = 0.08`
-is the baseline event rate per time unit; combined with n=1200, this
-ensures a substantial number of TTE events even with only 3 replicates.
-`sigma_frailty = 0.6` controls the strength of the subject-level frailty
-term: larger values introduce more between-subject heterogeneity in TTE,
-making the frailty the shared biological driver linking the continuous
-and TTE endpoints through the bivariate latent (Z1, Z2) with
-`rho = 0.50`.
+## Historical placebo dataset and priors
 
-## Time points
+We include a small historical placebo dataset as study-level means and
+sample sizes.
 
-Generate the discrete timepoints and add them to a `Timer`.
+Studies H1, H2, and H3 contribute a combined 62 historical placebo
+observations and are summarised into an informative prior via
+[`postmix()`](https://opensource.nibr.com/RBesT/reference/postmix.html) -
+a Bayesian update of the non-informative starting prior with the pooled
+historical data.
+[`robustify()`](https://opensource.nibr.com/RBesT/reference/robustify.html)
+blends this informative component with a vague component (20% weight),
+producing a mixture prior that protects against prior-data conflict: if
+the current trial’s placebo behaves unexpectedly, the vague component
+limits how strongly the historical data pulls the posterior. The
+treatment arm uses `prior_noninf` (effectively a flat prior), so the
+treatment posterior is driven entirely by the current data.
 
 ``` r
-plan <- gen_plan(
-  sample_size = sample_size,
-  arms        = arms,
-  allocation  = allocation,
-  enrollment  = enrollment_fn,
-  dropout     = dropout_fn
+hist_placebo <- data.frame(
+  study = c("H1", "H2", "H3"),
+  n     = c(24, 18, 20),
+  mean  = c(-0.05, 0.02, 0.00)
 )
+
+hist_placebo
+#>   study  n  mean
+#> 1    H1 24 -0.05
+#> 2    H2 18  0.02
+#> 3    H3 20  0.00
+
+# Pooled historical summary used to derive an informative placebo prior
+n_hist_total <- sum(hist_placebo$n)
+m_hist_pooled <- weighted.mean(hist_placebo$mean, hist_placebo$n)
+
+# Non-informative prior (very small pseudo-sample size in mn parametrization)
+# Used as treatment prior and as base for historical update.
+prior_noninf <- mixnorm(
+  c(1, 0, 1e-6),
+  sigma = sigma_known,
+  param = "mn"
+)
+
+# Informative placebo prior from historical placebo summary
+prior_placebo_inf <- postmix(
+  prior_noninf,
+  n = n_hist_total,
+  m = m_hist_pooled
+)
+#> Using default prior reference scale 1
+
+# Robustified placebo prior to protect against prior-data conflict
+prior_placebo <- robustify(
+  prior_placebo_inf,
+  weight = 0.2,
+  mean   = 0,
+  n      = 1,
+  sigma  = sigma_known
+)
+
+# Treatment prior remains non-informative
+prior_treatment <- prior_noninf
+
+summary(prior_placebo)
+#>        mean          sd        2.5%       50.0%       97.5% 
+#> -0.01083871  0.46144620 -1.15034971 -0.01312827  1.15034975
 ```
 
-[`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
-is called with `enrollment_fn` as a stochastic function, so each
-invocation by
-[`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md)
-generates a fresh per-replicate enrollment schedule. This differs from
-the piecewise-constant list approach in [Example
-3](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md):
-here there is no deterministic timer pre-built — enrollment timing
-varies across replicates, which is the more realistic simulation regime
-for large trials.
-
-## Arms (Populations)
-
-Per arm we simulate subject-level latent bivariate normals `(Z1, Z2)`
-with correlation `rho`. - The **continuous** endpoint is
-`Y = mu_arm + sd_y * Z1`. - The **TTE** endpoint uses a
-proportional-hazards exponential model with subject-specific frailty:
-`hazard_i = lambda_arm * exp(eta_i)`, where `eta_i = sigma_frailty * Z2`
-and `lambda_trt = lambda0 * HR_trt`. Event time
-`T_i ~ Exponential(rate = hazard_i)`.
+## Populations
 
 ``` r
-# Create generator function for arm-specific data
-mk_population_generator <- function(mu_y, lambda_arm) {
-  function(n) {
-    Z <- MASS::mvrnorm(n, mu = c(0, 0), Sigma = SigmaZ)
-    Z1 <- Z[, 1]
-    Z2 <- Z[, 2]
-    y  <- mu_y + sd_y * Z1
-    eta <- sigma_frailty * Z2
-    rate_i <- lambda_arm * exp(eta)
-    tte_true <- rexp(n, rate = rate_i)
-
+population_generators <- list(
+  placebo = function(n) {
     data.frame(
-      id = seq_len(n),
-      y  = y,
-      tte_true = tte_true,
+      id = 1:n,
+      y = rnorm(n, mean = mu_placebo_true, sd = sigma_known),
+      readout_time = 1
+    )
+  },
+  treatment = function(n) {
+    data.frame(
+      id = 1:n,
+      y = rnorm(n, mean = mu_placebo_true + delta_true, sd = sigma_known),
       readout_time = 1
     )
   }
-}
-
-lambda_pbo <- lambda0
-lambda_trt <- lambda0 * HR_trt
-
-population_generators <- list(
-  pbo = mk_population_generator(mu_y = mu_pbo, lambda_arm = lambda_pbo),
-  trt = mk_population_generator(mu_y = mu_pbo + delta, lambda_arm = lambda_trt)
 )
 ```
 
-Each subject gets a latent pair (Z1, Z2) drawn from a bivariate standard
-normal with correlation `rho`. Z1 drives the continuous endpoint:
-`Y = mu_arm + sd_y * Z1`. Z2 drives TTE through a multiplicative
-frailty: `eta = sigma_frailty * Z2`, so
-`hazard_i = lambda_arm * exp(eta_i)`, and `T_i ~ Exponential(hazard_i)`.
-The shared latent structure means subjects with higher Z2 (higher
-frailty, shorter TTE) also tend to have higher Z1 (higher Y), modelling
-a biological scenario where the biomarker and TTE share a common
-underlying driver.
+## Conditions
 
-## Trigger & Analysis
-
-This is a **fixed design**: analyze **once at the final timepoint**. We
-run a **two-sample t-test** for the continuous endpoint and a **log-rank
-test** plus **Cox PH** for the TTE endpoint.
+`RBesT::pmixdiff(post_treat, post_placebo, delta, lower.tail = FALSE)`
+evaluates P(mu_T - mu_P \> delta \| data) by numerical integration over
+the mixture posterior distributions for treatment and placebo.
+[`qmixdiff()`](https://opensource.nibr.com/RBesT/reference/mixdiff.html)
+computes quantiles of the same posterior difference distribution,
+yielding a 95% credible interval for Delta = mu_T - mu_P.
 
 ``` r
 analysis_generators <- list(
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
     analysis = function(df, current_time) {
-      df_e <- df[!is.na(df$enroll_time), , drop = FALSE]
-      if (nrow(df_e) == 0) {
-        return(data.frame(scenario, note = "no enrolled subjects", stringsAsFactors = FALSE))
-      }
+      dat <- df |>
+        dplyr::filter(!is.na(enroll_time)) |>
+        dplyr::mutate(arm = factor(arm, levels = c("placebo", "treatment")))
 
-      # Build observed TTE with censoring
-      censor_drop  <- ifelse(is.na(df_e$drop_time), Inf, pmax(0, df_e$drop_time - df_e$enroll_time))
-      censor_admin <- pmax(0, max(df_e$enroll_time) + 100 - df_e$enroll_time)
+      y_p <- dat$y[dat$arm == "placebo"]
+      y_t <- dat$y[dat$arm == "treatment"]
 
-      tte_true <- df_e$tte_true
-      t_obs    <- pmin(tte_true, censor_drop, censor_admin)
-      status   <- as.integer(tte_true <= pmin(censor_drop, censor_admin))
+      n_p <- length(y_p)
+      n_t <- length(y_t)
 
-      # Continuous endpoint t-test
-      p_t <- tryCatch(
-        t.test(y ~ arm, data = df_e)$p.value,
-        error = function(e) NA_real_
-      )
+      m_p <- mean(y_p)
+      m_t <- mean(y_t)
 
-      # Survival analysis: log-rank and Cox
-      surv_p <- NA_real_
-      hr <- hr_lo <- hr_hi <- NA_real_
-      events <- sum(status)
+      # Posterior for each arm mean
+      post_placebo <- RBesT::postmix(prior_placebo, n = n_p, m = m_p)
+      post_treat   <- RBesT::postmix(prior_treatment, n = n_t, m = m_t)
 
-      if (length(unique(df_e$arm)) == 2 && events > 0 && all(t_obs >= 0)) {
-        S <- Surv(time = t_obs, event = status)
+      # Posterior probability for treatment effect exceeding delta
+      prob_delta <- RBesT::pmixdiff(post_treat, post_placebo, delta, lower.tail = FALSE)
 
-        surv_p <- tryCatch({
-          sd <- survdiff(S ~ arm, data = df_e)
-          1 - pchisq(sd$chisq, df = length(sd$n) - 1)
-        }, error = function(e) NA_real_)
-
-        cox <- tryCatch(coxph(S ~ arm, data = df_e), error = function(e) NULL)
-        if (!is.null(cox)) {
-          s <- summary(cox)
-          hr    <- unname(s$coef[1, "exp(coef)"])
-          hr_lo <- unname(s$conf.int[1, "lower .95"])
-          hr_hi <- unname(s$conf.int[1, "upper .95"])
-        }
-      }
+      # Posterior summaries for Delta = mu_T - mu_P
+      delta_ci <- RBesT::qmixdiff(post_treat, post_placebo, c(0.025, 0.5, 0.975))
 
       data.frame(
         scenario,
-        n_total    = nrow(df_e),
-        n_pbo      = sum(df_e$arm == "pbo"),
-        n_trt      = sum(df_e$arm == "trt"),
-        p_ttest_y  = p_t,
-        logrank_p  = surv_p,
-        hr_cox     = hr,
-        hr_ci_lo   = hr_lo,
-        hr_ci_hi   = hr_hi,
-        events     = events,
+        n_placebo = n_p,
+        n_treatment = n_t,
+        mean_placebo = m_p,
+        mean_treatment = m_t,
+        post_prob_delta = prob_delta,
+        delta_q025 = delta_ci[1],
+        delta_q500 = delta_ci[2],
+        delta_q975 = delta_ci[3],
+        decision_go = as.integer(prob_delta >= gamma),
         stringsAsFactors = FALSE
       )
     }
@@ -234,112 +229,2560 @@ analysis_generators <- list(
 )
 ```
 
-`censor_drop` censors a subject at the time elapsed between enrollment
-and dropout (or infinity if no dropout). `censor_admin` provides
-administrative censoring: each subject is followed for 100 time units
-after the last enrollment, a common end-of-study rule. `t_obs` and
-`status` capture what would actually be observed. The
-[`Surv()`](https://rdrr.io/pkg/survival/man/Surv.html) object is then
-passed to [`survdiff()`](https://rdrr.io/pkg/survival/man/survdiff.html)
-for the log-rank p-value and
-[`coxph()`](https://rdrr.io/pkg/survival/man/coxph.html) for the Cox HR
-and 95% CI. `tryCatch` guards against edge cases (e.g., one arm with no
-events) so the simulation continues rather than stopping on an error.
-
-## Trial
-
-Create and run multiple trial replicates.
-
-``` r
-trials <- replicate_trial(
-  trial_name = "two_endpoints_continuous_tte_fixed",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
-
 ## Simulate
 
 ``` r
+set.seed(7)
+trials <- replicate_trial(
+  trial_name            = "example_4_bayes_two_arm_fixed",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 5
+)
 run_trials(trials)
-#> [[1]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_continuous_tte_fixed_1
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[2]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_continuous_tte_fixed_2
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[3]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: two_endpoints_continuous_tte_fixed_3
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
 ```
 
 ## Results
 
-One row per replicate, row-bound across all replicates:
+[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
+row-binds analysis outputs across all replicates and prepends
+`replicate` (integer index), `timepoint` (calendar time at which the
+analysis fired), and `analysis` (the analysis name) to each row.
+`post_prob_delta` is the key decision metric: values at or above
+`gamma = 0.8` yield `decision_go = 1` (Go) and values below yield
+`decision_go = 0` (No-Go). The credible interval columns `delta_q025`,
+`delta_q500`, and `delta_q975` characterise the posterior uncertainty
+about the treatment effect Δ; with n=80 and σ=1, the posterior is still
+relatively wide. In practice you would run thousands of replicates and
+report the Go probability under both the null (Δ = 0) and the
+alternative (e.g., Δ = 0.30) to assess the design’s operating
+characteristics. See [Example
+5](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md)
+for a seamless design that builds on this Bayesian decision rule.
 
 ``` r
 replicate_results <- collect_results(trials)
 replicate_results
-#>   replicate timepoint analysis sample_size allocation delta rho hr_trt_true
-#> 1         1  1141.764    final        1200       1, 1   0.3 0.5         0.7
-#> 2         2  1199.569    final        1200       1, 1   0.3 0.5         0.7
-#> 3         3  1214.035    final        1200       1, 1   0.3 0.5         0.7
-#>   n_total n_pbo n_trt    p_ttest_y    logrank_p    hr_cox  hr_ci_lo  hr_ci_hi
-#> 1    1200   600   600 1.437333e-07 1.352989e-05 0.7768063 0.6930741 0.8706544
-#> 2    1200   600   600 9.000125e-08 3.702888e-10 0.6950138 0.6198860 0.7792467
-#> 3    1200   600   600 9.572157e-06 3.198372e-07 0.7430600 0.6628171 0.8330175
-#>   events
-#> 1   1198
-#> 2   1200
-#> 3   1199
+#>   replicate timepoint analysis sample_size allocation delta_true delta gamma
+#> 1         1  81.22545    final          80       1, 1        0.3   0.1   0.8
+#> 2         2  85.38045    final          80       1, 1        0.3   0.1   0.8
+#> 3         3  74.54773    final          80       1, 1        0.3   0.1   0.8
+#> 4         4  80.51910    final          80       1, 1        0.3   0.1   0.8
+#> 5         5  82.06812    final          80       1, 1        0.3   0.1   0.8
+#>   n_placebo n_treatment mean_placebo mean_treatment post_prob_delta
+#> 1        40          40  -0.02043065      0.1359496       0.6096597
+#> 2        40          40  -0.14954828      0.5987274       0.9987468
+#> 3        40          40  -0.16555987      0.2343530       0.8695478
+#> 4        40          40   0.21295567      0.1868780       0.5054026
+#> 5        40          40   0.01465888      0.3709480       0.9260954
+#>     delta_q025 delta_q500 delta_q975 decision_go
+#> 1 -0.216985237  0.1523456  0.5218935           0
+#> 2  0.300417230  0.6694469  1.0447389           1
+#> 3 -0.057222457  0.3120097  0.6887534           1
+#> 4 -0.285650120  0.1026001  0.4737831           0
+#> 5  0.002710835  0.3727511  0.7417912           1
 ```
 
-[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
-prepends `replicate`, `timepoint`, and `analysis` columns to the result
-data. The `events` column shows how many TTE events were observed — with
-n=1200 and `lambda0 = 0.08`, this should be large. `logrank_p` tests the
-null of equal survival curves; `hr_cox` is the estimated hazard ratio
-from the Cox model (values \< 1 favour treatment), and
-`hr_ci_lo`/`hr_ci_hi` are its 95% CI bounds. Because the continuous
-endpoint Y and TTE share the same latent drivers, replicates with a
-small `p_ttest_y` tend to also have a small `logrank_p`, though the
-correspondence is imperfect due to the different statistical tests and
-the censoring mechanism.
+`decision_go = 1` indicates Go; `decision_go = 0` indicates No-Go under
+the criterion P(Delta \> 0.1 \| data) \>= 0.8.
+
+## Go probability curve
+
+The operating characteristics of a Bayesian Go/No-Go design are
+summarised by the Go probability under a range of true treatment
+effects: near zero for small effects (false Go = type I error analog)
+and approaching 1 for large effects.
+
+``` r
+set.seed(77)
+n_reps_pw   <- 200
+delta_sweep <- c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5)
+
+go_df <- do.call(rbind, lapply(delta_sweep, function(dt) {
+  pop_pw <- list(
+    placebo = function(n) {
+      data.frame(
+        id = 1:n, y = rnorm(n, 0, sigma_known), readout_time = 1
+      )
+    },
+    treatment = local({
+      d <- dt
+      function(n) {
+        data.frame(
+          id = 1:n,
+          y  = rnorm(n, d, sigma_known),
+          readout_time = 1
+        )
+      }
+    })
+  )
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      dat <- dplyr::filter(df, !is.na(enroll_time)) |>
+        dplyr::mutate(arm = factor(arm, levels = c("placebo", "treatment")))
+      y_p <- dat$y[dat$arm == "placebo"]
+      y_t <- dat$y[dat$arm == "treatment"]
+      pp  <- RBesT::postmix(prior_placebo,   n = length(y_p), m = mean(y_p))
+      pt  <- RBesT::postmix(prior_treatment, n = length(y_t), m = mean(y_t))
+      data.frame(
+        go = as.integer(
+          RBesT::pmixdiff(pt, pp, delta, lower.tail = FALSE) >= gamma
+        )
+      )
+    }
+  ))
+  tr <- replicate_trial(
+    "pw7", sample_size, arms, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  data.frame(
+    delta_true   = dt,
+    go_prob      = mean(collect_results(tr)$go)
+  )
+}))
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+#> Using default prior reference scale 1
+```
+
+``` r
+plot(go_df$delta_true, go_df$go_prob, type = "b", pch = 19,
+     col = "steelblue",
+     xlab = "True treatment - placebo difference",
+     ylab = "Go probability",
+     main = sprintf("Go/No-Go operating characteristics (n = %d)", sample_size),
+     ylim = c(0, 1))
+abline(v = delta, lty = 3, col = "grey50")  # decision threshold
+abline(h = gamma, lty = 2, col = "grey50")  # gamma threshold
+legend("topleft",
+       legend = c(
+         sprintf("delta threshold = %.1f", delta),
+         sprintf("gamma threshold = %.1f", gamma)
+       ),
+       lty = c(3, 2), col = "grey50")
+```
+
+![](example-4_files/figure-html/plot_go-1.png)
+
+## Next steps
+
+- [Example
+  5](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md) -
+  seamless Phase IIa/IIb design using BayesianMCPMod
+- [Conditions and
+  Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.md) -
+  adding interim looks to a Bayesian design

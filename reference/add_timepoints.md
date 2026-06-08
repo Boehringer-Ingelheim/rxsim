@@ -18,13 +18,13 @@ add_timepoints(timer, df)
 - df:
 
   `data.frame` with columns: `time` (numeric), `arm` (character),
-  `enroller` (integer), `dropper` (integer).
+  `enroll` (integer), `drop` (integer).
 
 ## See also
 
 [Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md),
-[`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md),
-[`gen_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.md).
+[`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md),
+[`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md).
 
 ## Examples
 
@@ -34,8 +34,8 @@ t <- Timer$new(name = "Timer")
 timepoints <- data.frame(
   time = c(1, 2, 3.1, 4, 5, 6),
   arm = rep("Arm A", 6),
-  dropper = c(2L, rep(1L, 5)),
-  enroller = rep(3L, 6)
+  drop = c(2L, rep(1L, 5)),
+  enroll = rep(3L, 6)
 )
 
 add_timepoints(t, timepoints)

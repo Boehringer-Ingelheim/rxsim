@@ -1,7 +1,7 @@
 # Timer: Track timed events across arms
 
-A class to collect and query *timepoints* — time-based enrollment and
-dropout events — across trial arms.
+A class to collect and query *timepoints* - time-based enrollment and
+dropout events - across trial arms.
 
 Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
 `get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
@@ -18,9 +18,9 @@ evaluated by
 at each timepoint.
 
 Helper functions
-[`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
+[`condition_calendar_time()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_calendar_time.md)
 and
-[`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
+[`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md)
 provide convenient shortcuts for building `Condition` objects; both
 return a
 [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
@@ -49,9 +49,9 @@ to attach multiple timepoints.
 
   - `arm` `character` Unique identifier of the arm
 
-  - `dropper` `integer` \# of subjects dropped at `time`
+  - `drop` `integer` \# of subjects dropped at `time`
 
-  - `enroller` `integer` \# of subjects enrolled at `time`
+  - `enroll` `integer` \# of subjects enrolled at `time`
 
 ## Methods
 
@@ -107,7 +107,7 @@ Add a timepoint to a timer.
 
 #### Usage
 
-    Timer$add_timepoint(time, arm, dropper, enroller)
+    Timer$add_timepoint(time, arm, drop, enroll)
 
 #### Arguments
 
@@ -119,11 +119,11 @@ Add a timepoint to a timer.
 
   `character` Arm identifier.
 
-- `dropper`:
+- `drop`:
 
   `integer` Count of subjects to drop.
 
-- `enroller`:
+- `enroll`:
 
   `integer` Count of subjects to enroll.
 
@@ -133,8 +133,8 @@ Add a timepoint to a timer.
     t$add_timepoint(
       time = 1,
       arm = "A",
-      dropper = 1L,
-      enroller = 3L
+      drop = 1L,
+      enroll = 3L
     )
 
 ------------------------------------------------------------------------
@@ -150,7 +150,7 @@ Determine the last timepoint for a given instance of `Timer` class.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
+    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     t$get_end_timepoint()
 
 ------------------------------------------------------------------------
@@ -170,8 +170,8 @@ Get number of unique arms.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     t$get_n_arms()
 
 ------------------------------------------------------------------------
@@ -191,8 +191,8 @@ Get unique timepoints.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     t$get_unique_times()
 
 ------------------------------------------------------------------------
@@ -222,8 +222,8 @@ Get a timepoint by arm and index.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 
     t$get_timepoint("A", 1)
 
@@ -250,9 +250,9 @@ The objects of this class are cloneable with this method.
 t <- Timer$new(name = "Timer")
 
 # Add timepoints
-t$add_timepoint(time = 1, arm = "A", dropper = 2L, enroller = 10L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 12L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 8L)
+t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
 
 # Query
 t$get_end_timepoint() # max time => 2
@@ -268,10 +268,10 @@ t$get_timepoint("A", 1) # returns a single timepoint
 #> $arm
 #> [1] "A"
 #> 
-#> $dropper
+#> $drop
 #> [1] 2
 #> 
-#> $enroller
+#> $enroll
 #> [1] 10
 #> 
 
@@ -290,8 +290,8 @@ t <- Timer$new(name = "Timer")
 t$add_timepoint(
   time = 1,
   arm = "A",
-  dropper = 1L,
-  enroller = 3L
+  drop = 1L,
+  enroll = 3L
 )
 
 ## ------------------------------------------------
@@ -299,7 +299,7 @@ t$add_timepoint(
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
 t$get_end_timepoint()
 #> [1] 3.14
 
@@ -308,8 +308,8 @@ t$get_end_timepoint()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_n_arms()
 #> [1] 2
 
@@ -318,8 +318,8 @@ t$get_n_arms()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 t$get_unique_times()
 #> [1] 3.14 3.28
 
@@ -328,8 +328,8 @@ t$get_unique_times()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", dropper = 7L, enroller = 22L)
-t$add_timepoint(time = 3.28, arm = "B", dropper = 6L, enroller = 23L)
+t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
 
 t$get_timepoint("A", 1)
 #> NULL

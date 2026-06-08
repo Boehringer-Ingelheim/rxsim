@@ -121,7 +121,7 @@ A new `Population` instance.
 
 #### Examples
 
-    Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
+    Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 
 ------------------------------------------------------------------------
 
@@ -147,7 +147,7 @@ Enrollment applies only to unenrolled subjects (`NA`).
 
 #### Examples
 
-    pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+    pop <- Population$new("Test", as_population_data(rnorm(10)))
     pop$set_enrolled(n = 4, time = 2)
 
 ------------------------------------------------------------------------
@@ -174,7 +174,7 @@ Dropout applies only to enrolled, not-yet-dropped subjects.
 
 #### Examples
 
-    pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+    pop <- Population$new("Test", as_population_data(rnorm(10)))
     pop$set_enrolled(n = 5, time = 1)
     pop$set_dropped(n = 2, time = 3)
 
@@ -197,7 +197,7 @@ Replace underlying subject data and reset enrollment/dropout status.
 
 #### Examples
 
-    pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
+    pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
     pop$set_data(
       data.frame(
         id = 1:8,
@@ -227,7 +227,7 @@ The objects of this class are cloneable with this method.
 
 ``` r
 # Basic example: vector input
-pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
+pop <- Population$new(name = "Control", data = as_population_data(rnorm(10)))
 
 pop$n # number of subjects
 #> [1] 10
@@ -247,14 +247,14 @@ pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
 # Reset underlying data
-pop$set_data(vector_to_dataframe(rnorm(8)))
+pop$set_data(as_population_data(rnorm(8)))
 
 
 ## ------------------------------------------------
 ## Method `Population$new`
 ## ------------------------------------------------
 
-Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
+Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 #> <Population>
 #>   Public:
 #>     clone: function (deep = FALSE) 
@@ -273,14 +273,14 @@ Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
 ## Method `Population$set_enrolled`
 ## ------------------------------------------------
 
-pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 
 ## ------------------------------------------------
 ## Method `Population$set_dropped`
 ## ------------------------------------------------
 
-pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
@@ -288,7 +288,7 @@ pop$set_dropped(n = 2, time = 3)
 ## Method `Population$set_data`
 ## ------------------------------------------------
 
-pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
+pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
 pop$set_data(
   data.frame(
     id = 1:8,

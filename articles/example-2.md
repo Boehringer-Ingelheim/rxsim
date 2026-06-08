@@ -1,98 +1,170 @@
-# Example 2: Two arm \| Interim \| Continuous \| t-test
+# Example 2: Two arm \| Fixed design \| Two correlated continuous endpoints \| t-test
 
 ``` r
+# Core package that provides Timer, Population, Trial, deterministic_schedule, add_timepoints, ...
 library(rxsim)
+
+# Utilities
+library(dplyr)
+#> 
+#> Attaching package: 'dplyr'
+#> The following objects are masked from 'package:stats':
+#> 
+#>     filter, lag
+#> The following objects are masked from 'package:base':
+#> 
+#>     intersect, setdiff, setequal, union
+library(MASS)   # for mvrnorm (simulate correlated endpoints)
+#> 
+#> Attaching package: 'MASS'
+#> The following object is masked from 'package:dplyr':
+#> 
+#>     select
 ```
 
-This example extends [Example
+Many trials evaluate co-primary or key secondary endpoints
+simultaneously. Ignoring endpoint correlation when planning a study
+leads to incorrect power estimates. This example shows how to simulate
+two correlated continuous endpoints (e.g., a primary efficacy score and
+a key secondary biomarker) and apply multiplicity adjustment via Holm’s
+procedure. See [Example
 1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md)
-by introducing two named analyses — `interim` and `final` — that fire at
-different enrollment milestones. Understanding how analysis names
-propagate through
-[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
-is the foundation for multi-analysis designs shown in later examples.
+for the simpler single-endpoint baseline.
+
+**Unique focus:** correlated endpoints via
+[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html), Holm
+correction, joint vs marginal rejection rates as correlation varies.
+
+Common scaffolding (packages, scenario declaration, and
+[`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md)
+pattern) follows [Example
+1](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md);
+this vignette only expands the parts that change for correlated
+multi-endpoint analyses.
 
 ## Scenario
 
-Capture scenario parameters. We will assume piece-wise linear
-enrollment.
+We consider a **two-arm, fixed design** with **two correlated continuous
+endpoints** per subject. A single analysis fires at full enrollment.
 
 ``` r
+# Total target sample size
 sample_size <- 100
-arms        <- c("pbo", "trt")
-allocation  <- c(1, 1)
-delta       <- 0.2  # true treatment - placebo mean difference
-enrollment_fn <- function(n) rexp(n, rate = 1)
-dropout_fn    <- function(n) rexp(n, rate = 0.01)
+
+# Arms and allocation (balanced)
+arms       <- c("pbo", "trt")
+allocation <- c(1, 1)
+
+# Endpoint model parameters
+# Endpoint correlation structure (common across arms for simplicity)
+rho  <- 0.60            # correlation between endpoint1 and endpoint2
+sd1  <- 1.00            # SD of endpoint1
+sd2  <- 1.00            # SD of endpoint2
+
+# Mean structure per arm
+mu1_pbo <- 0.00         # Control mean for endpoint1
+mu2_pbo <- 0.00         # Control mean for endpoint2
+
+# Treatment effects (mean shifts)
+delta1  <- 0.30         # Treatment - control difference for endpoint1
+delta2  <- 0.20         # Treatment - control difference for endpoint2
+
+mu1_trt <- mu1_pbo + delta1
+mu2_trt <- mu2_pbo + delta2
+
+# Construct covariance matrix
+Sigma <- matrix(
+  c(sd1^2, rho*sd1*sd2,
+    rho*sd1*sd2, sd2^2),
+  nrow = 2, byrow = TRUE
+)
+
 scenario <- tidyr::expand_grid(
   sample_size = sample_size,
-  allocation  = list(allocation),
-  delta       = delta
+  allocation = list(allocation),
+  rho = rho,
+  delta1 = delta1,
+  delta2 = delta2
 )
+
+enrollment_fn <- function(n) rexp(n, rate = 1)
+dropout_fn    <- function(n) rexp(n, rate = 0.01)
 ```
 
-`allocation = c(1, 1)` specifies balanced randomisation.
-[`tidyr::expand_grid()`](https://tidyr.tidyverse.org/reference/expand_grid.html)
-embeds design parameters directly into each result row for traceability
-across parameter sweeps.
+`rho = 0.60` represents a moderate positive correlation between the two
+endpoints - plausible when both reflect the same underlying biological
+process. The covariance matrix `Sigma` is constructed from the marginal
+SDs and correlation using the standard identity cov(y1, y2) = rho × sd1
+× sd2. Treatment shifts are delta1 = 0.30 SD for the primary endpoint
+and delta2 = 0.20 SD for the secondary, reflecting a scenario where the
+primary endpoint is more sensitive to treatment.
 
 ## Populations
 
-Define population generators.
+For each arm we simulate **two correlated endpoints** per subject using
+[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html). In this
+vignette, that arm-specific generator is the **custom data generating
+model** for endpoint behavior.
 
 ``` r
+# Create closure to capture parameters
+mk_population_generator <- function(mu_y1, mu_y2) {
+  function(n) {
+    xy <- MASS::mvrnorm(
+      n     = n,
+      mu    = c(mu_y1, mu_y2),
+      Sigma = Sigma
+    )
+    data.frame(
+      id = seq_len(n),
+      y1 = xy[, 1],
+      y2 = xy[, 2],
+      readout_time = 1
+    )
+  }
+}
+
 population_generators <- list(
-  pbo = function(n) data.frame(
-    id = 1:n,
-    value = rnorm(n),
-    readout_time = 1
-  ),
-  trt = function(n) data.frame(
-    id = 1:n,
-    value = rnorm(n, mean = delta),
-    readout_time = 1
-  )
+  pbo = mk_population_generator(mu1_pbo, mu2_pbo),
+  trt = mk_population_generator(mu1_trt, mu2_trt)
 )
 ```
 
-Each generator is a function of `n` returning a `data.frame` with one
-row per subject. `readout_time = 1` means the endpoint is observed 1
-time unit after enrollment. The treatment arm has a mean shift of δ =
-0.2 SD units over placebo.
+[`MASS::mvrnorm`](https://rdrr.io/pkg/MASS/man/mvrnorm.html) draws `n`
+samples from a multivariate normal with the given mean vector and
+covariance matrix `Sigma`. The closure pattern
+(`mk_population_generator`) captures the arm-specific means at
+definition time, so each call to `population_generators$pbo(n)` or
+`population_generators$trt(n)` produces data under the correct arm
+parameters. Endpoint correlation flows entirely through the shared
+`Sigma` matrix - changing `rho` in the scenario automatically updates
+both arms.
 
-## Triggers & Analysis
+## Conditions
 
-Final analysis at full enrollment.
+This is a **fixed design**: perform analysis **once**. We run two
+independent two-sample t-tests (one per endpoint).
 
 ``` r
 analysis_generators <- list(
-  interim = list(
-    trigger = enroll_trigger(0.5, sample_size),
-    analysis = function(df, current_time){
-      df_enrolled <- df |> subset(!is.na(enroll_time))
-      tt <- t.test(value ~ arm, data = df_enrolled)
-      data.frame(
-        scenario,
-        n_total = nrow(df_enrolled),
-        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
-        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(tt$p.value),
-        stringsAsFactors = FALSE
-      )
-    }
-  ),
-  
   final = list(
     trigger = enroll_trigger(1.0, sample_size),
-    analysis = function(df, current_time){
-      df_enrolled <- df |> subset(!is.na(enroll_time))
-      tt <- t.test(value ~ arm, data = df_enrolled)
+    analysis = function(df, current_time) {
+      df_e <- df |> subset(!is.na(enroll_time))
+
+      p1 <- t.test(y1 ~ arm, data = df_e)$p.value
+      p2 <- t.test(y2 ~ arm, data = df_e)$p.value
+      padj <- p.adjust(c(p1, p2), method = "holm")
+
       data.frame(
         scenario,
-        n_total = nrow(df_enrolled),
-        mean_pbo = mean(df_enrolled$value[df_enrolled$arm == "pbo"]),
-        mean_trt = mean(df_enrolled$value[df_enrolled$arm == "trt"]),
-        p_value = unname(tt$p.value),
+        p_y1      = unname(p1),
+        p_y2      = unname(p2),
+        p_holm_y1 = unname(padj[1]),
+        p_holm_y2 = unname(padj[2]),
+        n_total   = nrow(df_e),
+        n_pbo     = sum(df_e$arm == "pbo"),
+        n_trt     = sum(df_e$arm == "trt"),
         stringsAsFactors = FALSE
       )
     }
@@ -100,104 +172,145 @@ analysis_generators <- list(
 )
 ```
 
-Two analyses are defined. The `interim` analysis fires at half
-enrollment and the `final` analysis fires when all subjects are
-enrolled. These names appear in the `analysis` column of
-[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
-output, making it straightforward to distinguish interim from final
-results when stacking rows across timepoints.
-
-## Trial
-
-Make multiple trial replicates.
-
-``` r
-trials <- replicate_trial(
-  trial_name = "test_trial",
-  sample_size = sample_size,
-  arms = arms,
-  allocation = allocation,
-  enrollment = enrollment_fn,
-  dropout = dropout_fn,
-  analysis_generators = analysis_generators,
-  population_generators = population_generators,
-  n = 3
-)
-```
+The two t-tests are run independently on the enrolled subset, producing
+unadjusted p-values `p_y1` and `p_y2`. `p.adjust(..., method = "holm")`
+applies Holm’s stepwise procedure. `padj[1]` and `padj[2]` stay in
+endpoint order (`y1`, `y2`) and account for familywise error across both
+endpoints, so each adjusted value is never smaller than its unadjusted
+counterpart.
 
 ## Simulate
 
-To simulate all replicates:
-
 ``` r
+set.seed(3)
+trials <- replicate_trial(
+  trial_name            = "two_endpoints_fixed_design",
+  sample_size           = sample_size,
+  arms                  = arms,
+  allocation            = allocation,
+  enrollment            = enrollment_fn,
+  dropout               = dropout_fn,
+  analysis_generators   = analysis_generators,
+  population_generators = population_generators,
+  n                     = 5
+)
 run_trials(trials)
-#> [[1]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: test_trial_1
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[2]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: test_trial_2
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
-#> 
-#> [[3]]
-#> <Trial>
-#>   Public:
-#>     clone: function (deep = FALSE) 
-#>     conditions: list
-#>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
-#>     locked_data: list
-#>     name: test_trial_3
-#>     population: list
-#>     results: list
-#>     run: function () 
-#>     seed: NULL
-#>     timer: Timer, R6
 ```
 
-Bind one row per replicate into one data frame.
+## Results
+
+One row per replicate, row-bound across all replicates:
 
 ``` r
 replicate_results <- collect_results(trials)
 replicate_results
-#>   replicate timepoint analysis sample_size allocation delta n_total    mean_pbo
-#> 1         1  48.42750  interim         100       1, 1   0.2      50 -0.15458732
-#> 2         1  87.36847    final         100       1, 1   0.2     100 -0.02475451
-#> 3         2  40.26049  interim         100       1, 1   0.2      50 -0.04934773
-#> 4         2  83.92580    final         100       1, 1   0.2     100 -0.05831826
-#> 5         3  43.51109  interim         100       1, 1   0.2      50 -0.14213989
-#> 6         3  96.44952    final         100       1, 1   0.2     100 -0.25739017
-#>      mean_trt    p_value
-#> 1  0.42624025 0.01626231
-#> 2  0.32833062 0.05877739
-#> 3  0.02698932 0.80070480
-#> 4  0.13052493 0.36397787
-#> 5 -0.13708169 0.98578393
-#> 6  0.08945477 0.09253380
+#>   replicate timepoint analysis sample_size allocation rho delta1 delta2
+#> 1         1 104.48694    final         100       1, 1 0.6    0.3    0.2
+#> 2         2  90.38445    final         100       1, 1 0.6    0.3    0.2
+#> 3         3  98.06813    final         100       1, 1 0.6    0.3    0.2
+#> 4         4  76.77642    final         100       1, 1 0.6    0.3    0.2
+#> 5         5 110.74010    final         100       1, 1 0.6    0.3    0.2
+#>         p_y1      p_y2  p_holm_y1 p_holm_y2 n_total n_pbo n_trt
+#> 1 0.81957560 0.4076493 0.81957560 0.8152986     100    50    50
+#> 2 0.24249831 0.4246676 0.48499663 0.4849966     100    50    50
+#> 3 0.20061606 0.1935887 0.38717732 0.3871773     100    50    50
+#> 4 0.05002922 0.6006129 0.10005843 0.6006129     100    50    50
+#> 5 0.03988021 0.7102853 0.07976043 0.7102853     100    50    50
 ```
 
 [`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
-prepends `replicate`, `timepoint`, and `analysis` columns to your result
-data. Each row shows either `"interim"` or `"final"` in the `analysis`
-column, reflecting which named analysis produced it. This naming
-convention becomes essential in later examples where multiple named
-analyses fire per replicate.
+prepends `replicate`, `timepoint`, and `analysis` columns to the four
+p-value columns. `p_holm_y1` and `p_holm_y2` will always be \>= their
+unadjusted counterparts because Holm correction is more conservative.
+Because the two endpoints are positively correlated (rho = 0.6),
+replicates that reject for y1 tend to also reject for y2 - joint
+rejection probability exceeds what you would expect for independent
+endpoints under the same effect sizes.
+
+## Power curve
+
+Higher endpoint correlation affects the joint rejection rate in a
+counter-intuitive way: positive correlation means both endpoints tend to
+move together, so a trial that is “lucky” in one endpoint is often lucky
+in the other. The following sweep quantifies marginal and joint power
+across four `rho` values.
+
+``` r
+set.seed(43)
+n_reps_pw <- 200
+rho_vals <- c(0.0, 0.3, 0.6, 0.9)
+
+pw_df3 <- do.call(rbind, lapply(rho_vals, function(r) {
+  Sig_r <- matrix(c(1, r, r, 1), 2)
+  pop_pw <- list(
+    pbo = local({
+      S <- Sig_r
+      function(n) {
+        xy <- MASS::mvrnorm(n, c(0, 0), S)
+        data.frame(id = 1:n, y1 = xy[, 1], y2 = xy[, 2], readout_time = 1)
+      }
+    }),
+    trt = local({
+      S <- Sig_r
+      function(n) {
+        xy <- MASS::mvrnorm(n, c(delta1, delta2), S)
+        data.frame(id = 1:n, y1 = xy[, 1], y2 = xy[, 2], readout_time = 1)
+      }
+    })
+  )
+  an_pw <- list(final = list(
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, ct) {
+      d <- subset(df, !is.na(enroll_time))
+      p1 <- t.test(y1 ~ arm, data = d)$p.value
+      p2 <- t.test(y2 ~ arm, data = d)$p.value
+      pa <- p.adjust(c(p1, p2), method = "holm")
+      data.frame(p1 = p1, p2 = p2, pa1 = pa[1], pa2 = pa[2])
+    }
+  ))
+  tr <- replicate_trial(
+    "pw3", sample_size, arms, allocation,
+    enrollment_fn, dropout_fn, an_pw, pop_pw, n_reps_pw
+  )
+  invisible(run_trials(tr))
+  res <- collect_results(tr)
+  data.frame(
+    rho           = r,
+    power_y1      = mean(res$p1  < 0.05),
+    power_y2      = mean(res$p2  < 0.05),
+    power_joint   = mean(res$pa1 < 0.05 & res$pa2 < 0.05)
+  )
+}))
+```
+
+``` r
+matplot(
+  pw_df3$rho,
+  pw_df3[, c("power_y1", "power_y2", "power_joint")],
+  type = "b", pch = 19, lty = 1,
+  col  = c("steelblue", "tomato", "forestgreen"),
+  xlab = "Endpoint correlation rho",
+  ylab = "Empirical power (alpha = 0.05)",
+  main = "Marginal and joint power vs endpoint correlation",
+  ylim = c(0, 1)
+)
+legend("topright",
+       legend = c("y1 (marginal)", "y2 (marginal)", "Joint (Holm)"),
+       col    = c("steelblue", "tomato", "forestgreen"),
+       lty = 1, pch = 19)
+abline(h = 0.80, lty = 2, col = "grey50")
+```
+
+![](example-2_files/figure-html/plot_power3-1.png)
+
+## Next steps
+
+- [Example
+  3](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md) -
+  adds a time-to-event endpoint alongside the continuous one
+- [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.md) -
+  endpoint data setup for continuous, binary, and time-to-event outcomes
+- [Enrollment and
+  Dropout](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.md) -
+  piecewise enrollment with
+  [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)

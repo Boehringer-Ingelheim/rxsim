@@ -30,7 +30,7 @@ gen_population(name, generator, sample_size = 1)
 
 [Population](https://boehringer-ingelheim.github.io/rxsim/reference/Population.md),
 [`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md),
-[`vector_to_dataframe()`](https://boehringer-ingelheim.github.io/rxsim/reference/vector_to_dataframe.md).
+[`as_population_data()`](https://boehringer-ingelheim.github.io/rxsim/reference/as_population_data.md).
 
 ## Examples
 

@@ -49,8 +49,8 @@ replicate_trial(
 
 - analysis_generators:
 
-  `list` (named) of analysis specifications. Each `$trigger` must be an
-  `rxsim_trigger` object created by
+  `list` (named) of analysis specifications. Each `$trigger` must be a
+  `trigger` object created by
   [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
   [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
   [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
@@ -72,7 +72,7 @@ generated populations.
 
 ## See also
 
-[`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md),
+[`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md),
 [`gen_population()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_population.md),
 [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md),
 [`run_trials()`](https://boehringer-ingelheim.github.io/rxsim/reference/run_trials.md).

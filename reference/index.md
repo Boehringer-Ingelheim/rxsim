@@ -30,8 +30,10 @@ Helpers for building Timer timepoint lists
 
 - [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
   : Add Timepoints to a Timer
-- [`gen_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_timepoints.md)
-  : Generate Piecewise-Linear Enrollment and Dropout Plan
+- [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)
+  : Generate a Deterministic Enrollment and Dropout Schedule
+- [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
+  : Generate a Stochastic Enrollment and Dropout Schedule
 
 ## Condition helpers
 
@@ -41,13 +43,13 @@ Convenience constructors for Condition objects
   [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
-  [`` `&`( ``*`<rxsim_trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
-  [`` `|`( ``*`<rxsim_trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
-  : Build Safe Trial Triggers
-- [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
-  : Trigger Analysis at a Calendar Time
-- [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
-  : Trigger Analysis at a Sample Fraction
+  [`` `&`( ``*`<trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`` `|`( ``*`<trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  : Build Trial Triggers
+- [`condition_calendar_time()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_calendar_time.md)
+  : Build a Condition that Fires at a Calendar Time
+- [`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md)
+  : Build a Condition that Fires at an Enrollment Fraction
 
 ## Population helpers
 
@@ -55,8 +57,8 @@ Helpers for building Population generators
 
 - [`gen_population()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_population.md)
   : Generate a Population Object
-- [`gen_plan()`](https://boehringer-ingelheim.github.io/rxsim/reference/gen_plan.md)
-  : Generate Trial Enrollment and Dropout Plan
+- [`as_population_data()`](https://boehringer-ingelheim.github.io/rxsim/reference/as_population_data.md)
+  : Create a Population-Compatible Data Frame from a Vector
 
 ## Results helpers
 
@@ -64,12 +66,8 @@ Functions to collect and display simulation results
 
 - [`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
   : Collect Trial Results Across Replicates
-- [`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md)
-  : Format Trial Results as a Data Frame
 
 ## Utilities
 
 - [`get_col_names()`](https://boehringer-ingelheim.github.io/rxsim/reference/get_col_names.md)
   : Extract Column Names from Populations
-- [`vector_to_dataframe()`](https://boehringer-ingelheim.github.io/rxsim/reference/vector_to_dataframe.md)
-  : Convert Vector to Population Data Frame

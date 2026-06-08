@@ -1,6 +1,6 @@
-# Build Safe Trial Triggers
+# Build Trial Triggers
 
-Create inert trigger specifications that can be safely passed to
+Create trigger specifications that can be passed to
 [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
 or composed with `&` and `|`.
 
@@ -15,10 +15,10 @@ enroll_trigger(fraction, sample_size)
 
 calendar_trigger(cal_time)
 
-# S3 method for class 'rxsim_trigger'
+# S3 method for class 'trigger'
 e1 & e2
 
-# S3 method for class 'rxsim_trigger'
+# S3 method for class 'trigger'
 e1 | e2
 ```
 
@@ -48,15 +48,17 @@ e1 | e2
 
 - cal_time:
 
-  `numeric` Calendar time(s) at which to trigger.
+  `numeric` Calendar time at or after which to trigger. Uses `>=` so it
+  works with both stochastic (continuous) and deterministic (integer)
+  schedules.
 
 - e1, e2:
 
-  `rxsim_trigger` objects to combine.
+  `trigger` objects to combine.
 
 ## Value
 
-An `rxsim_trigger` object.
+A `trigger` object.
 
 ## See also
 

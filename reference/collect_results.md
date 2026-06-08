@@ -55,8 +55,8 @@ When `trials` is a single `Trial` object (e.g., from a one-off
 ``` r
 # --- replicated trial ---
 pop_gens <- list(
-  control   = function(n) vector_to_dataframe(rnorm(n)),
-  treatment = function(n) vector_to_dataframe(rnorm(n, 0.5))
+  control   = function(n) as_population_data(rnorm(n)),
+  treatment = function(n) as_population_data(rnorm(n, 0.5))
 )
 an_gens <- list(
   final = list(
@@ -116,15 +116,15 @@ run_trials(trials)
 #>     timer: Timer, R6
 #> 
 collect_results(trials)
-#>   replicate timepoint analysis  mean_ctrl
-#> 1         1  22.03729    final  0.1219045
-#> 2         2  20.51980    final -0.2771686
-#> 3         3  17.30206    final -0.2397427
+#>   replicate timepoint analysis   mean_ctrl
+#> 1         1  25.06804    final -0.02675718
+#> 2         2  16.29980    final  0.25020896
+#> 3         3  22.88046    final  0.08546772
 
 # --- filter to a specific analysis name ---
 collect_results(trials, analysis = "final")
-#>   replicate timepoint analysis  mean_ctrl
-#> 1         1  22.03729    final  0.1219045
-#> 2         2  20.51980    final -0.2771686
-#> 3         3  17.30206    final -0.2397427
+#>   replicate timepoint analysis   mean_ctrl
+#> 1         1  25.06804    final -0.02675718
+#> 2         2  16.29980    final  0.25020896
+#> 3         3  22.88046    final  0.08546772
 ```

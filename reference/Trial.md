@@ -19,9 +19,9 @@ At each unique time defined in the trial's `Timer`, the `Trial`:
 Use `run()` to execute the simulation. Trigger conditions are built with
 [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)`$new()`
 (or helpers
-[`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
+[`condition_calendar_time()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_calendar_time.md)
 /
-[`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md))
+[`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md))
 and stored in `trial$conditions`.
 
 ## See also
@@ -29,13 +29,13 @@ and stored in `trial$conditions`.
 [Population](https://boehringer-ingelheim.github.io/rxsim/reference/Population.md),
 [Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md),
 [Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md),
-[`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md),
+[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md),
 [`replicate_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/replicate_trial.md),
 [`clone_trial()`](https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.md).
 
 [Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md),
 [Condition](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md),
-[`prettify_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/prettify_results.md).
+[`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md).
 
 ## Public fields
 
@@ -142,7 +142,7 @@ A new `Trial` instance.
     t <- Timer$new(name="simple_timer")
     pop <- Population$new(
       name = "simple_pop",
-      data = vector_to_dataframe(rnorm(5))
+      data = as_population_data(rnorm(5))
     )
     pop$set_enrolled(5, 1)
     Trial$new(name = "simple_trial", timer=t, population = list(pop))
@@ -178,15 +178,15 @@ Updates `locked_data` and `results` fields.
 #### Examples
 
     # Create two populations
-    popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-    popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+    popA <- Population$new("A", data = as_population_data(rnorm(10)))
+    popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
     # Create a timer and add timepoints
     t <- Timer$new("Timer")
-    t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-    t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-    t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-    t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+    t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+    t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+    t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+    t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
     # Create a trial
     trial <- Trial$new(
@@ -199,7 +199,7 @@ Updates `locked_data` and `results` fields.
     # Run the simulation
     trial$run()
 
-    prettify_results(trial$results)
+    collect_results(trial)
 
 ------------------------------------------------------------------------
 
@@ -221,19 +221,19 @@ The objects of this class are cloneable with this method.
 
 ``` r
 # Create two populations
-popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+popA <- Population$new("A", data = as_population_data(rnorm(10)))
+popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
-# Build a condition: fire at time 2 and count enrolled rows
+# Build a condition: fire at time >= 2 and count enrolled rows
 cond <- Condition$new(
-  where    = rlang::quos(.data$time %in% 2),
+  where    = calendar_trigger(2),
   analysis = function(df, current_time) nrow(df),
   name     = "final"
 )
@@ -250,9 +250,9 @@ trial <- Trial$new(
 # Run the simulation
 trial$run()
 
-prettify_results(trial$results)
-#>   time final
-#> 1    2    14
+collect_results(trial)
+#>   replicate timepoint analysis X14L
+#> 1         1         2    final   14
 
 
 ## ------------------------------------------------
@@ -262,7 +262,7 @@ prettify_results(trial$results)
 t <- Timer$new(name="simple_timer")
 pop <- Population$new(
   name = "simple_pop",
-  data = vector_to_dataframe(rnorm(5))
+  data = as_population_data(rnorm(5))
 )
 pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
@@ -284,15 +284,15 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 ## ------------------------------------------------
 
 # Create two populations
-popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+popA <- Population$new("A", data = as_population_data(rnorm(10)))
+popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 
 # Create a trial
 trial <- Trial$new(
@@ -305,6 +305,6 @@ trial <- Trial$new(
 # Run the simulation
 trial$run()
 
-prettify_results(trial$results)
-#> NULL
+collect_results(trial)
+#> # A tibble: 0 × 0
 ```

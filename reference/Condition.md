@@ -4,15 +4,15 @@ A `Condition` encapsulates a single trigger rule that is evaluated
 against a data snapshot at each simulated timepoint. It combines three
 concerns:
 
-1.  **Filtering** — a
+1.  **Filtering** - a
     [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
     expression selects the rows relevant to this condition (e.g. "only
     enrolled subjects in arm A").
 
-2.  **Analysis** — an optional function transforms the filtered snapshot
+2.  **Analysis** - an optional function transforms the filtered snapshot
     into a result (e.g. a t-test, a subject count, a Go/No-Go decision).
 
-3.  **Trigger bookkeeping** — the condition fires only when the filtered
+3.  **Trigger bookkeeping** - the condition fires only when the filtered
     data is non-empty, the cooldown period has elapsed since the last
     trigger, and the maximum trigger count has not been reached.
 
@@ -48,8 +48,8 @@ filtered data frame is returned as-is with a warning.
   [`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html))
   used as
   [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-  predicates. Pass `NULL` or an empty list to skip filtering and pass
-  the full snapshot to the analysis.
+  predicates, or a `trigger` object (converted automatically). `NULL` or
+  an empty list passes the full snapshot.
 
 - `analysis`:
 
@@ -111,19 +111,16 @@ filtered data frame is returned as-is with a warning.
 - [`Trial`](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)
   for running the simulation and iterating over conditions
 
-- [`trigger_by_calendar()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_calendar.md)
-  and
-  [`trigger_by_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_fraction.md)
-  for convenient `Condition` constructors
-
 - [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
   [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
   [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
   [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
-  for building safe trigger specifications
+  for building trigger specifications
 
-- [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-  for predicate syntax
+- [`condition_calendar_time()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_calendar_time.md)
+  and
+  [`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md)
+  for convenient `Condition` constructors
 
 ## Public fields
 
@@ -133,7 +130,7 @@ filtered data frame is returned as-is with a warning.
   ([`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html))
   used as
   [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-  predicates, or an `rxsim_trigger` (converted automatically). `NULL` or
+  predicates, or a `trigger` object (converted automatically). `NULL` or
   empty list passes the full snapshot.
 
 - `analysis`:
@@ -201,8 +198,13 @@ Create a new `Condition` instance.
 
 - `where`:
 
-  `rxsim_trigger` (converted automatically to quosures), a `list` of
-  quosures from
+  `trigger` object (from
+  [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md),
+  or
+  [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)),
+  a `list` of quosures from
   [`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html),
   or `NULL` to use the full snapshot.
 
@@ -293,9 +295,9 @@ count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when arm A has active subjects (max_triggers = 1)
+# Condition fires once when 3+ subjects are active (max_triggers = 1)
 cond <- Condition$new(
-  where        = rlang::quos(arm == "A", status == "active"),
+  where        = count_trigger("enroll_time", ">=", 3L),
   analysis     = count_fn,
   name         = "interim_A",
   cooldown     = 0,
@@ -304,12 +306,17 @@ cond <- Condition$new(
 
 # First call: fires and returns analysis result
 res <- cond$check_conditions(snapshot, current_time = 5)
+#> Error in dplyr::filter(locked_data, !!!self$where): ℹ In argument: `sum(!is.na(.data[["enroll_time"]])) >= 3L`.
+#> Caused by error in `.data[["enroll_time"]]`:
+#> ! Column `enroll_time` not found in `.data`.
 res[["interim_A"]]  # data.frame(n_active = 3, fired_at = 5)
-#>   n_active fired_at
-#> 1        3        5
+#> Error: object 'res' not found
 
 # Second call: does not fire (max_triggers already reached)
 res2 <- cond$check_conditions(snapshot, current_time = 6)
+#> Error in dplyr::filter(locked_data, !!!self$where): ℹ In argument: `sum(!is.na(.data[["enroll_time"]])) >= 3L`.
+#> Caused by error in `.data[["enroll_time"]]`:
+#> ! Column `enroll_time` not found in `.data`.
 length(res2)  # 0
-#> [1] 0
+#> Error: object 'res2' not found
 ```

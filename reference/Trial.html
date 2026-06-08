@@ -9,8 +9,8 @@ stores both the snapshot (locked_data) and the analysis outputs (results)
 
 
 Use run() to execute the simulation. Trigger conditions are built with
-Condition$new() (or helpers trigger_by_calendar() /
-trigger_by_fraction()) and stored in trial$conditions."><meta property="og:description" content="The Trial class coordinates one or more Population objects, a Timer,
+Condition$new() (or helpers condition_calendar_time() /
+condition_enrollment_fraction()) and stored in trial$conditions."><meta property="og:description" content="The Trial class coordinates one or more Population objects, a Timer,
 and a list of Condition objects to simulate a clinical trial.
 At each unique time defined in the trial's Timer, the Trial:
 applies enrollment and dropout updates to each Population
@@ -20,8 +20,12 @@ stores both the snapshot (locked_data) and the analysis outputs (results)
 
 
 Use run() to execute the simulation. Trigger conditions are built with
-Condition$new() (or helpers trigger_by_calendar() /
-trigger_by_fraction()) and stored in trial$conditions."></head><body>
+Condition$new() (or helpers condition_calendar_time() /
+condition_enrollment_fraction()) and stored in trial$conditions."><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
+  document.addEventListener("DOMContentLoaded", function () {
+    mermaid.initialize({ startOnLoad: true });
+  });
+</script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -29,7 +33,7 @@ trigger_by_fraction()) and stored in trial$conditions."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -39,22 +43,24 @@ trigger_by_fraction()) and stored in trial$conditions."></head><body>
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Architecture</h6></li>
     <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
-    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Classes</h6></li>
+    <li><a class="dropdown-item" href="../articles/class-population.html">Population: Subject-Level Data and Enrollment Tracking</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment.html">Enrollment and Dropout</a></li>
+    <li><a class="dropdown-item" href="../articles/conditions.html">Conditions and Triggers</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
+    <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
     <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-6.html">Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
+    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
+    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -80,16 +86,16 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <li><p>evaluates each <code><a href="Condition.html">Condition</a></code> in <code>self$conditions</code> against the snapshot</p></li>
 <li><p>stores both the snapshot (<code>locked_data</code>) and the analysis outputs (<code>results</code>)</p></li>
 </ul><p>Use <code>run()</code> to execute the simulation. Trigger conditions are built with
-<code><a href="Condition.html">Condition</a></code><code>$new()</code> (or helpers <code><a href="trigger_by_calendar.html">trigger_by_calendar()</a></code> /
-<code><a href="trigger_by_fraction.html">trigger_by_fraction()</a></code>) and stored in <code>trial$conditions</code>.</p>
+<code><a href="Condition.html">Condition</a></code><code>$new()</code> (or helpers <code><a href="condition_calendar_time.html">condition_calendar_time()</a></code> /
+<code><a href="condition_enrollment_fraction.html">condition_enrollment_fraction()</a></code>) and stored in <code>trial$conditions</code>.</p>
     </div>
 
 
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><a href="Population.html">Population</a>, <a href="Timer.html">Timer</a>, <a href="Condition.html">Condition</a>, <code><a href="prettify_results.html">prettify_results()</a></code>,
+    <div class="dont-index"><p><a href="Population.html">Population</a>, <a href="Timer.html">Timer</a>, <a href="Condition.html">Condition</a>, <code><a href="collect_results.html">collect_results()</a></code>,
 <code><a href="replicate_trial.html">replicate_trial()</a></code>, <code><a href="clone_trial.html">clone_trial()</a></code>.</p>
-<p><a href="Timer.html">Timer</a>, <a href="Condition.html">Condition</a>, <code><a href="prettify_results.html">prettify_results()</a></code>.</p></div>
+<p><a href="Timer.html">Timer</a>, <a href="Condition.html">Condition</a>, <code><a href="collect_results.html">collect_results()</a></code>.</p></div>
     </div>
     <div class="section level2">
     <h2 id="public-fields">Public fields<a class="anchor" aria-label="anchor" href="#public-fields"></a></h2>
@@ -188,7 +194,7 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name<span class="op">=</span><span class="st">"simple_timer"</span><span class="op">)</span></span>
 <span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
 <span>  name <span class="op">=</span> <span class="st">"simple_pop"</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span><span class="fl">5</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"simple_trial"</span>, timer<span class="op">=</span><span class="va">t</span>, population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
@@ -215,15 +221,15 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <div class="section">
 <h4 id="examples-1">Examples<a class="anchor" aria-label="anchor" href="#examples-1"></a></h4>
 <p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="co"># Create two populations</span></span>
-<span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Create a timer and add timepoints</span></span>
 <span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Timer"</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">1L</span>, enroller <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">2L</span>, enroller <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
+<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span>
+<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span>
+<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
+<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">2L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Create a trial</span></span>
 <span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
@@ -236,7 +242,7 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <span><span class="co"># Run the simulation</span></span>
 <span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/prettify_results.html">prettify_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<span><span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 
@@ -263,19 +269,19 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Create two populations</span></span></span>
-<span class="r-in"><span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Create a timer and add timepoints</span></span></span>
 <span class="r-in"><span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Timer"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">1L</span>, enroller <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">2L</span>, enroller <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">2L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Build a condition: fire at time 2 and count enrolled rows</span></span></span>
+<span class="r-in"><span><span class="co"># Build a condition: fire at time &gt;= 2 and count enrolled rows</span></span></span>
 <span class="r-in"><span><span class="va">cond</span> <span class="op">&lt;-</span> <span class="va"><a href="Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">time</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fl">2</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  where    <span class="op">=</span> <span class="fu"><a href="trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  name     <span class="op">=</span> <span class="st">"final"</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
@@ -292,9 +298,9 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <span class="r-in"><span><span class="co"># Run the simulation</span></span></span>
 <span class="r-in"><span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu"><a href="prettify_results.html">prettify_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   time final</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1    2    14</span>
+<span class="r-in"><span><span class="fu"><a href="collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   replicate timepoint analysis X14L</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1         2    final   14</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
@@ -304,7 +310,7 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <span class="r-in"><span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name<span class="op">=</span><span class="st">"simple_timer"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  name <span class="op">=</span> <span class="st">"simple_pop"</span>,</span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span><span class="fl">5</span>, <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">Trial</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"simple_trial"</span>, timer<span class="op">=</span><span class="va">t</span>, population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop</span><span class="op">)</span><span class="op">)</span></span></span>
@@ -326,15 +332,15 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Create two populations</span></span></span>
-<span class="r-in"><span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">popA</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">popB</span> <span class="op">&lt;-</span> <span class="va"><a href="Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Create a timer and add timepoints</span></span></span>
 <span class="r-in"><span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Timer"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">0L</span>, enroller <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, dropper <span class="op">=</span> <span class="fl">1L</span>, enroller <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, dropper <span class="op">=</span> <span class="fl">2L</span>, enroller <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">4L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">5L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"A"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"B"</span>, drop <span class="op">=</span> <span class="fl">2L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Create a trial</span></span></span>
 <span class="r-in"><span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va">Trial</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span></span>
@@ -347,8 +353,8 @@ and a list of <code>Condition</code> objects to simulate a clinical trial.</p>
 <span class="r-in"><span><span class="co"># Run the simulation</span></span></span>
 <span class="r-in"><span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu"><a href="prettify_results.html">prettify_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> NULL</span>
+<span class="r-in"><span><span class="fu"><a href="collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 0 × 0</span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

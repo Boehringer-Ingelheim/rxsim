@@ -3,7 +3,11 @@
 tidy data frame. Works with any number of named analyses (e.g., both
 an interim and a final) and any number of replicates."><meta property="og:description" content="Gathers analysis outputs from one or more Trial objects into a single
 tidy data frame. Works with any number of named analyses (e.g., both
-an interim and a final) and any number of replicates."></head><body>
+an interim and a final) and any number of replicates."><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
+  document.addEventListener("DOMContentLoaded", function () {
+    mermaid.initialize({ startOnLoad: true });
+  });
+</script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -11,7 +15,7 @@ an interim and a final) and any number of replicates."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,22 +25,24 @@ an interim and a final) and any number of replicates."></head><body>
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Architecture</h6></li>
     <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
-    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Classes</h6></li>
+    <li><a class="dropdown-item" href="../articles/class-population.html">Population: Subject-Level Data and Enrollment Tracking</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment.html">Enrollment and Dropout</a></li>
+    <li><a class="dropdown-item" href="../articles/conditions.html">Conditions and Triggers</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
+    <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
     <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-6.html">Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
+    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
+    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -105,8 +111,8 @@ and stacked. Analyses that return <code>NULL</code> or <code>NA</code> are silen
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># --- replicated trial ---</span></span></span>
 <span class="r-in"><span><span class="va">pop_gens</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  control   <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  treatment <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  control   <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  treatment <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">an_gens</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
@@ -166,17 +172,17 @@ and stacked. Analyses that return <code>NULL</code> or <code>NA</code> are silen
 <span class="r-out co"><span class="r-pr">#&gt;</span>     timer: Timer, R6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="fu">collect_results</span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   replicate timepoint analysis  mean_ctrl</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1  22.03729    final  0.1219045</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2         2  20.51980    final -0.2771686</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3         3  17.30206    final -0.2397427</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   replicate timepoint analysis   mean_ctrl</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1  25.06804    final -0.02675718</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2         2  16.29980    final  0.25020896</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3         3  22.88046    final  0.08546772</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># --- filter to a specific analysis name ---</span></span></span>
 <span class="r-in"><span><span class="fu">collect_results</span><span class="op">(</span><span class="va">trials</span>, analysis <span class="op">=</span> <span class="st">"final"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   replicate timepoint analysis  mean_ctrl</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1  22.03729    final  0.1219045</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2         2  20.51980    final -0.2771686</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3         3  17.30206    final -0.2397427</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   replicate timepoint analysis   mean_ctrl</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1         1  25.06804    final -0.02675718</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2         2  16.29980    final  0.25020896</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3         3  22.88046    final  0.08546772</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -11,6 +11,11 @@
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Core Concepts">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
+  document.addEventListener("DOMContentLoaded", function () {
+    mermaid.initialize({ startOnLoad: true });
+  });
+</script>
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,22 +37,24 @@
 <li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
-<li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+<li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Architecture</h6></li>
     <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
-    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Classes</h6></li>
+    <li><a class="dropdown-item" href="../articles/class-population.html">Population: Subject-Level Data and Enrollment Tracking</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment.html">Enrollment and Dropout</a></li>
+    <li><a class="dropdown-item" href="../articles/conditions.html">Conditions and Triggers</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
+    <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
     <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-6.html">Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
+    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
+    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -78,7 +85,7 @@
 
     
     
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script><script>mermaid.initialize({ startOnLoad: true, theme: "default" });</script><div class="section level2">
+<div class="section level2">
 <h2 id="overview">Overview<a class="anchor" aria-label="anchor" href="#overview"></a>
 </h2>
 <p>rxsim organises a clinical trial simulation around four collaborating
@@ -87,50 +94,19 @@ tracks each subject’s enrollment and dropout times. A <code>Timer</code>
 drives the trial clock: it stores discrete timepoints per arm and
 defines when the simulation clock advances. A <code>Condition</code>
 pairs a filter expression with an optional analysis function and manages
-its own trigger state — it fires when the snapshot data meets a
+its own trigger state - it fires when the snapshot data meets a
 criterion. A <code>Trial</code> orchestrates the simulation by iterating
 over timepoints, updating populations, snapshotting the enrolled cohort,
 and collecting results.</p>
-<pre class="mermaid"><code>graph LR
+<pre class="mermaid">
+graph LR
   P1(Control) --&gt; TR(Trial)
   P2(Treatment) --&gt; TR
   TI(Timer) --&gt; TR
   CO(Condition) --&gt; TR
   TR --&gt; LD(Locked Data)
   TR --&gt; RS(Results)
-#&gt; &lt;div class="mermaid"&gt;
-#&gt; graph LR
-#&gt;   P1(Control) --&gt; TR(Trial)
-#&gt;   P2(Treatment) --&gt; TR
-#&gt;   TI(Timer) --&gt; TR
-#&gt;   CO(Condition) --&gt; TR
-#&gt;   TR --&gt; LD(Locked Data)
-#&gt;   TR --&gt; RS(Results)
-#&gt; &lt;/div&gt;</code></pre>
-<p>The <code>run()</code> loop that <code>Trial</code> executes at each
-timepoint follows this sequence:</p>
-<pre class="mermaid"><code>graph TD
-  A([Next timepoint]) --&gt; B[Enroll and drop subjects]
-  B --&gt; C[Snapshot enrolled subjects]
-  C --&gt; D{Condition triggered?}
-  D -- Yes --&gt; E[Run analysis]
-  D -- No --&gt; F[Advance clock]
-  E --&gt; F
-  F --&gt; G{More timepoints?}
-  G -- Yes --&gt; A
-  G -- No --&gt; H([Done])
-#&gt; &lt;div class="mermaid"&gt;
-#&gt; graph TD
-#&gt;   A([Next timepoint]) --&gt; B[Enroll and drop subjects]
-#&gt;   B --&gt; C[Snapshot enrolled subjects]
-#&gt;   C --&gt; D{Condition triggered?}
-#&gt;   D -- Yes --&gt; E[Run analysis]
-#&gt;   D -- No --&gt; F[Advance clock]
-#&gt;   E --&gt; F
-#&gt;   F --&gt; G{More timepoints?}
-#&gt;   G -- Yes --&gt; A
-#&gt;   G -- No --&gt; H([Done])
-#&gt; &lt;/div&gt;</code></pre>
+</pre>
 <p>In most workflows you will never construct these objects by hand.
 Instead you use the high-level entry point
 <code><a href="../reference/replicate_trial.html">replicate_trial()</a></code> + <code><a href="../reference/run_trials.html">run_trials()</a></code>, which build
@@ -139,885 +115,102 @@ your generator functions. Understanding the three classes directly is
 useful when you want to:</p>
 <ul>
 <li>inspect the locked snapshot mid-simulation for debugging</li>
-<li>write custom multi-timepoint designs that <code><a href="../reference/gen_plan.html">gen_plan()</a></code>
-cannot express</li>
+<li>write custom multi-timepoint designs that
+<code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code> cannot express</li>
 <li>use <code>Trial$new()</code> directly for a one-off single-run
-simulation (as in <a href="example-8.html">Example 8</a>)</li>
+simulation (as in <a href="example-5.html">Example 5</a>)</li>
 </ul>
-<p>The rest of this vignette unpacks each building block in turn.</p>
+<p>The sections below give a short summary of each building block. For
+the full reference, see the dedicated vignettes linked in the table.</p>
 </div>
 <div class="section level2">
-<h2 id="population">Population<a class="anchor" aria-label="anchor" href="#population"></a>
+<h2 id="building-blocks-at-a-glance">Building blocks at a glance<a class="anchor" aria-label="anchor" href="#building-blocks-at-a-glance"></a>
 </h2>
-<p>A <code>Population</code> object represents a single arm’s worth of
-subjects. It stores the endpoint data alongside two tracking vectors
-(<code>enrolled</code>, <code>dropped</code>) that record the calendar
-time each subject was enrolled or dropped — or <code>NA</code> if
-neither event has occurred yet.</p>
-<div class="section level3">
-<h3 id="data-structure">Data structure<a class="anchor" aria-label="anchor" href="#data-structure"></a>
-</h3>
-<p>The <code>data</code> field must be a data frame with at least four
-columns:</p>
 <table class="table">
 <colgroup>
-<col width="34%">
-<col width="26%">
-<col width="39%">
+<col width="29%">
+<col width="25%">
+<col width="45%">
 </colgroup>
 <thead><tr class="header">
-<th>Column</th>
-<th>Type</th>
-<th>Meaning</th>
+<th>Class</th>
+<th>Role</th>
+<th>Deep dive</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td><code>id</code></td>
-<td>integer</td>
-<td>Unique subject identifier within the arm</td>
+<td><code>Population</code></td>
+<td>Holds subject-level endpoint data and enrollment/dropout state for
+one arm</td>
+<td><a href="class-population.html">Population</a></td>
 </tr>
 <tr class="even">
-<td><code>arm</code></td>
-<td>character</td>
-<td>Arm label (auto-filled from <code>name</code> if absent)</td>
+<td><code>Timer</code></td>
+<td>Stores the trial clock: when subjects enroll or drop in each
+arm</td>
+<td><a href="enrollment.html">Enrollment and Dropout</a></td>
 </tr>
 <tr class="odd">
-<td><code>readout_time</code></td>
-<td>numeric</td>
-<td>Lag from enrollment to endpoint observation</td>
+<td><code>Condition</code></td>
+<td>Pairs a trigger expression with an analysis function; manages
+trigger state</td>
+<td><a href="conditions.html">Conditions and Triggers</a></td>
 </tr>
 <tr class="even">
-<td><em>(endpoint)</em></td>
-<td>numeric</td>
-<td>At least one endpoint column (e.g., <code>data</code>,
-<code>y</code>, <code>tte</code>)</td>
+<td><code>Trial</code></td>
+<td>Orchestrates the simulation loop; stores snapshots and results</td>
+<td><a href="../reference/Trial.html">Trial reference</a></td>
 </tr>
 </tbody>
 </table>
-<p>The <code>readout_time</code> column is not a calendar time — it is
-the lag between a subject’s enrollment date and the date their endpoint
-is observed. Use <code>0</code> for immediately available data (e.g., a
-baseline measure) and a positive value for delayed readouts (e.g.,
-<code>readout_time = 12</code> means the endpoint is read 12 weeks after
-enrollment).</p>
-</div>
-<div class="section level3">
-<h3 id="vector_to_dataframe">vector_to_dataframe()<a class="anchor" aria-label="anchor" href="#vector_to_dataframe"></a>
-</h3>
-<p>For the common case of a single continuous endpoint,
-<code><a href="../reference/vector_to_dataframe.html">vector_to_dataframe()</a></code> wraps a numeric vector into the
-required format with columns <code>id</code>, <code>data</code>, and
-<code>readout_time = 0</code>:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">ep</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">6</span>, mean <span class="op">=</span> <span class="fl">1</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span>
-<span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="va">ep</span><span class="op">)</span></span>
-<span><span class="va">df</span></span>
-<span><span class="co">#&gt;   id       data readout_time</span></span>
-<span><span class="co">#&gt; 1  1  0.2999782            0</span></span>
-<span><span class="co">#&gt; 2  2  1.1276585            0</span></span>
-<span><span class="co">#&gt; 3  3 -0.2186318            0</span></span>
-<span><span class="co">#&gt; 4  4  0.9972144            0</span></span>
-<span><span class="co">#&gt; 5  5  1.3107764            0</span></span>
-<span><span class="co">#&gt; 6  6  1.5742058            0</span></span></code></pre></div>
-<p>You can also build the data frame yourself — useful when you have
-covariates, time-varying endpoints, or different readout lags per
-subject.</p>
-</div>
-<div class="section level3">
-<h3 id="repeated-measurements-and-n_readouts">Repeated measurements and n_readouts<a class="anchor" aria-label="anchor" href="#repeated-measurements-and-n_readouts"></a>
-</h3>
-<p>When a subject contributes multiple measurements (a longitudinal or
-pharmacokinetic design), each measurement appears as its own row with a
-distinct <code>readout_time</code>. <code>Population</code> detects this
-automatically and stores the number of rows per subject in
-<code>n_readouts</code>:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Two timepoints per subject: baseline (0) and week 12 (12)</span></span>
-<span><span class="va">long_df</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  id           <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, each <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
-<span>  readout_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">12</span><span class="op">)</span>, times <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  response     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">pop_long</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"treatment"</span>, data <span class="op">=</span> <span class="va">long_df</span><span class="op">)</span></span>
-<span><span class="va">pop_long</span><span class="op">$</span><span class="va">n</span>          <span class="co"># 4 unique subjects</span></span>
-<span><span class="co">#&gt; [1] 4</span></span>
-<span><span class="va">pop_long</span><span class="op">$</span><span class="va">n_readouts</span> <span class="co"># 2 rows per subject</span></span>
-<span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="enrollment-and-dropout-vectors">Enrollment and dropout vectors<a class="anchor" aria-label="anchor" href="#enrollment-and-dropout-vectors"></a>
-</h3>
-<p><code>enrolled</code> and <code>dropped</code> are numeric vectors of
-length <code>n</code>, initialised to <code>NA</code> for every subject.
-<code>NA</code> means “not yet acted on”: the subject exists in the pool
-but has not been enrolled or dropped. The <code>Trial</code> assigns
-calendar times to these vectors as the simulation clock advances.</p>
-<p><code>set_enrolled(n, time)</code> marks <code>n</code> randomly
-chosen currently unenrolled subjects as enrolled at <code>time</code>.
-<code>set_dropped(n, time)</code> similarly marks <code>n</code>
-randomly chosen enrolled-and-not-yet-dropped subjects as dropped at
-<code>time</code>.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"control"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">pop</span><span class="op">$</span><span class="va">enrolled</span>  <span class="co"># all NA to start</span></span>
-<span><span class="co">#&gt; [1] NA NA NA NA NA NA NA NA</span></span>
-<span></span>
-<span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span><span class="fl">5</span>, time <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">pop</span><span class="op">$</span><span class="va">enrolled</span>  <span class="co"># 5 subjects enrolled at t=2, 3 still NA</span></span>
-<span><span class="co">#&gt; [1]  2  2  2 NA NA  2 NA  2</span></span>
-<span></span>
-<span><span class="va">pop</span><span class="op">$</span><span class="fu">set_dropped</span><span class="op">(</span><span class="fl">2</span>, time <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
-<span><span class="va">pop</span><span class="op">$</span><span class="va">dropped</span>   <span class="co"># 2 of the enrolled subjects dropped at t=7</span></span>
-<span><span class="co">#&gt; [1]  7 NA NA NA NA NA NA  7</span></span></code></pre></div>
-<p>The <code>Trial</code>’s <code>run()</code> method calls these
-setters automatically based on the <code>Timer</code>’s schedule — you
-rarely need to call them directly.</p>
-</div>
 </div>
 <div class="section level2">
-<h2 id="timer">Timer<a class="anchor" aria-label="anchor" href="#timer"></a>
+<h2 id="how-the-pieces-fit-together">How the pieces fit together<a class="anchor" aria-label="anchor" href="#how-the-pieces-fit-together"></a>
 </h2>
-<p>A <code>Timer</code> drives the trial clock. It holds a
-<code>timelist</code> that specifies how many subjects to enroll or drop
-in each arm at each time unit. At each unique time in the
-<code>timelist</code>, <code>Trial$run()</code> processes enrollment and
-dropout events, then evaluates analysis triggers.</p>
-<p>Analysis triggers are now managed by the separate
-[<code>Condition</code>] class (see <a href="#conditions">Conditions</a>
-below). <code>Condition</code> objects live in
-<code>trial$conditions</code>, not inside <code>Timer</code>.</p>
-<div class="section level3">
-<h3 id="timepoints">Timepoints<a class="anchor" aria-label="anchor" href="#timepoints"></a>
-</h3>
-<p>Each entry in the <code>timelist</code> has four fields:</p>
-<table class="table">
-<thead><tr class="header">
-<th>Field</th>
-<th>Type</th>
-<th>Meaning</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><code>time</code></td>
-<td>numeric</td>
-<td>Calendar time of the event</td>
-</tr>
-<tr class="even">
-<td><code>arm</code></td>
-<td>character</td>
-<td>Which arm the event applies to</td>
-</tr>
-<tr class="odd">
-<td><code>enroller</code></td>
-<td>integer</td>
-<td>Number of subjects to enroll at this time</td>
-</tr>
-<tr class="even">
-<td><code>dropper</code></td>
-<td>integer</td>
-<td>Number of subjects to drop at this time</td>
-</tr>
-</tbody>
-</table>
-<p>Timepoints are per-arm because the two arms in a trial may enroll
-subjects on different schedules, and enrollment events in one arm do not
-affect the other.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"my_timer"</span><span class="op">)</span></span>
+<p>A typical two-arm simulation follows this pattern:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># 1. Populations: one per arm</span></span>
+<span><span class="va">pop_pbo</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"pbo"</span>, <span class="va">pbo_data</span><span class="op">)</span></span>
+<span><span class="va">pop_trt</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"trt"</span>, <span class="va">trt_data</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>,  arm <span class="op">=</span> <span class="st">"control"</span>,   enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>,  arm <span class="op">=</span> <span class="st">"treatment"</span>, enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>,  arm <span class="op">=</span> <span class="st">"control"</span>,   enroller <span class="op">=</span> <span class="fl">3L</span>, dropper <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>,  arm <span class="op">=</span> <span class="st">"treatment"</span>, enroller <span class="op">=</span> <span class="fl">4L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">10</span>, arm <span class="op">=</span> <span class="st">"control"</span>,   enroller <span class="op">=</span> <span class="fl">0L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">10</span>, arm <span class="op">=</span> <span class="st">"treatment"</span>, enroller <span class="op">=</span> <span class="fl">0L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
+<span><span class="co"># 2. Timer: register enrollment/dropout events</span></span>
+<span><span class="va">tmr</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"my_timer"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr</span>, <span class="fu"><a href="../reference/stochastic_schedule.html">stochastic_schedule</a></span><span class="op">(</span><span class="va">n</span>, <span class="va">arms</span>, <span class="va">alloc</span>, <span class="va">enroll_fn</span>, <span class="va">dropout_fn</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">get_unique_times</span><span class="op">(</span><span class="op">)</span>   <span class="co"># c(1, 2, 10)</span></span>
-<span><span class="co">#&gt; [1]  1  2 10</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span>  <span class="co"># 10</span></span>
-<span><span class="co">#&gt; [1] 10</span></span>
-<span><span class="va">t</span><span class="op">$</span><span class="fu">get_n_arms</span><span class="op">(</span><span class="op">)</span>         <span class="co"># 2</span></span>
-<span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
-<p>Rather than adding timepoints one by one,
-<code><a href="../reference/add_timepoints.html">add_timepoints()</a></code> accepts a data frame with the four columns
-above — exactly what <code><a href="../reference/gen_plan.html">gen_plan()</a></code> and
-<code><a href="../reference/gen_timepoints.html">gen_timepoints()</a></code> return. See <a href="enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a> for
-details.</p>
-</div>
-<div class="section level3">
-<h3 id="conditions">Conditions<a class="anchor" aria-label="anchor" href="#conditions"></a>
-</h3>
-<p>A <code>Condition</code> pairs a filter expression with an optional
-analysis function and manages its own trigger state. It is a separate R6
-object that lives in <code>trial$conditions</code>.</p>
-<p>When <code>Trial$run()</code> reaches each timepoint, it iterates
-over every <code>Condition</code> in <code>trial$conditions</code> and
-calls <code>cond$check_conditions(snapshot, current_time)</code>. Each
-condition applies a three-gate check:</p>
-<ol style="list-style-type: decimal">
-<li>
-<strong>Filter gate</strong> — <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">dplyr::filter()</a></code> is
-applied to the snapshot using the condition’s <code>where</code>
-quosures. If the result is empty (no rows match), the condition does not
-fire.</li>
-<li>
-<strong>Max-triggers gate</strong> — if
-<code>trigger_count &gt;= max_triggers</code>, the condition does not
-fire again.</li>
-<li>
-<strong>Cooldown gate</strong> — if
-<code>current_time - last_trigger_time &lt; cooldown</code>, the
-condition does not fire yet.</li>
-</ol>
-<p>If all three gates pass, the analysis function is called on the
-filtered data and the result is stored. Trigger state
-(<code>trigger_count</code>, <code>last_trigger_time</code>) is updated
-automatically.</p>
-<p>Build a <code>Condition</code> from a validated trigger helper:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># A toy snapshot data frame</span></span>
-<span><span class="va">snapshot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  id          <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>,</span>
-<span>  arm         <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"control"</span>, <span class="st">"treatment"</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  enroll_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">2</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="cn">NA</span><span class="op">)</span>,</span>
-<span>  data        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Fire when at least 4 subjects are enrolled</span></span>
-<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">4</span><span class="op">)</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n_enrolled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>               fired_at   <span class="op">=</span> <span class="va">current_time</span><span class="op">)</span></span>
-<span>  <span class="op">}</span>,</span>
-<span>  name <span class="op">=</span> <span class="st">"interim"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="va">cond_interim</span><span class="op">$</span><span class="fu">check_conditions</span><span class="op">(</span>locked_data <span class="op">=</span> <span class="va">snapshot</span>, current_time <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
-<span><span class="va">res</span><span class="op">[[</span><span class="st">"interim"</span><span class="op">]</span><span class="op">]</span></span>
-<span><span class="co">#&gt;   n_enrolled fired_at</span></span>
-<span><span class="co">#&gt; 1          4        5</span></span></code></pre></div>
-<p>If no analysis function is provided, <code>check_conditions()</code>
-returns the filtered subset as-is with a warning — convenient for
-inspection or debugging.</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="trial">Trial<a class="anchor" aria-label="anchor" href="#trial"></a>
-</h2>
-<p>A <code>Trial</code> wires one or more <code>Population</code>s and a
-<code>Timer</code> together and runs the simulation.</p>
-<div class="section level3">
-<h3 id="constructor">Constructor<a class="anchor" aria-label="anchor" href="#constructor"></a>
-</h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  name       <span class="op">=</span> <span class="st">"my_trial"</span>,</span>
-<span>  seed       <span class="op">=</span> <span class="fl">42</span>,           <span class="co"># optional; set for reproducibility</span></span>
-<span>  timer      <span class="op">=</span> <span class="va">my_timer</span>,</span>
-<span>  population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop_a</span>, <span class="va">pop_b</span><span class="op">)</span>,</span>
-<span>  conditions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond1</span>, <span class="va">cond2</span><span class="op">)</span>  <span class="co"># list of Condition objects</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-<p>The <code>population</code> argument is a list of
-<code>Population</code> objects, one per arm. The arm labels in each
-<code>Population</code>’s <code>name</code> field must match the
-<code>arm</code> identifiers in the <code>Timer</code>’s timelist.</p>
-</div>
-<div class="section level3">
-<h3 id="what-run-does">What run() does<a class="anchor" aria-label="anchor" href="#what-run-does"></a>
-</h3>
-<p>Calling <code>trial$run()</code> executes the following loop:</p>
-<ol style="list-style-type: decimal">
-<li>Iterate over each unique time <code>t</code> in the
-<code>Timer</code>’s timelist, in ascending order.</li>
-<li>For each arm, apply <code>set_enrolled()</code> and
-<code>set_dropped()</code> according to that arm’s timepoint entry.</li>
-<li>Build a combined snapshot by row-binding all arms’ enrolled
-subjects. Four columns are appended by <code>Trial</code>:</li>
-</ol>
-<table class="table">
-<colgroup>
-<col width="47%">
-<col width="52%">
-</colgroup>
-<thead><tr class="header">
-<th>Column</th>
-<th>Meaning</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td><code>enroll_time</code></td>
-<td>Calendar time the subject was enrolled (<code>NA</code> if not yet
-enrolled)</td>
-</tr>
-<tr class="even">
-<td><code>drop_time</code></td>
-<td>Calendar time the subject dropped out (<code>NA</code> if still
-active)</td>
-</tr>
-<tr class="odd">
-<td><code>measurement_time</code></td>
-<td><code>enroll_time + readout_time</code></td>
-</tr>
-<tr class="even">
-<td><code>time</code></td>
-<td>The current clock time <code>t</code>
-</td>
-</tr>
-</tbody>
-</table>
-<ol start="4" style="list-style-type: decimal">
-<li>Evaluate each <code>Condition</code> in
-<code>trial$conditions</code> by calling
-<code>cond$check_conditions(snapshot, t)</code>. Each condition applies
-its filter, cooldown, and max-trigger guards independently.</li>
-<li>If any condition fired, store the snapshot in
-<code>locked_data[["time_t"]]</code> and the analysis outputs in
-<code>results[["time_t"]]</code>.</li>
-</ol>
-</div>
-<div class="section level3">
-<h3 id="locked_data-and-results">locked_data and results<a class="anchor" aria-label="anchor" href="#locked_data-and-results"></a>
-</h3>
-<p><code>locked_data</code> is a named list of snapshots, one per unique
-timepoint at which at least one analysis fired. Each snapshot is the
-full subject-level data frame at that moment — useful for auditing which
-subjects were enrolled, computing post-hoc statistics, or debugging an
-analysis function.</p>
-<p><code>results</code> has the same time-indexed structure, but each
-element is itself a named list — one entry per condition that fired at
-that timepoint. The value is whatever your analysis function
-returned.</p>
-</div>
-<div class="section level3">
-<h3 id="a-minimal-end-to-end-example">A minimal end-to-end example<a class="anchor" aria-label="anchor" href="#a-minimal-end-to-end-example"></a>
-</h3>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">7</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Two small populations</span></span>
-<span><span class="va">pop_a</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"A"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">pop_b</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"B"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span>, mean <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Timer: enroll in two waves, final readout at time 15</span></span>
-<span><span class="va">tm</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"tm"</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>,  arm <span class="op">=</span> <span class="st">"A"</span>, enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>,  arm <span class="op">=</span> <span class="st">"B"</span>, enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">3</span>,  arm <span class="op">=</span> <span class="st">"A"</span>, enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">3</span>,  arm <span class="op">=</span> <span class="st">"B"</span>, enroller <span class="op">=</span> <span class="fl">5L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">15</span>, arm <span class="op">=</span> <span class="st">"A"</span>, enroller <span class="op">=</span> <span class="fl">0L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">tm</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">15</span>, arm <span class="op">=</span> <span class="st">"B"</span>, enroller <span class="op">=</span> <span class="fl">0L</span>, dropper <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Trigger: fire at calendar time 15</span></span>
-<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_calendar.html">trigger_by_calendar</a></span><span class="op">(</span></span>
-<span>  cal_time <span class="op">=</span> <span class="fl">15</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>      n       <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>,</span>
-<span>      mean_A  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"A"</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>      mean_B  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"B"</span><span class="op">]</span><span class="op">)</span></span>
-<span>    <span class="op">)</span></span>
-<span>  <span class="op">}</span>,</span>
-<span>  name <span class="op">=</span> <span class="st">"final"</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"demo"</span>, seed <span class="op">=</span> <span class="fl">7</span>, timer <span class="op">=</span> <span class="va">tm</span>,</span>
-<span>                   population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop_a</span>, <span class="va">pop_b</span><span class="op">)</span>,</span>
-<span>                   conditions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_final</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Inspect results</span></span>
-<span><span class="fu"><a href="../reference/prettify_results.html">prettify_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">results</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   time final.n final.mean_A final.mean_B</span></span>
-<span><span class="co">#&gt; 1   15      20    0.1039757     1.282517</span></span></code></pre></div>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># How many subjects were enrolled at each timepoint?</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">locked_data</span>, <span class="kw">function</span><span class="op">(</span><span class="va">snap</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">snap</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; time_15 </span></span>
-<span><span class="co">#&gt;      20</span></span></code></pre></div>
-</div>
-</div>
-<div class="section level2">
-<h2 id="analysis-triggers-in-depth">Analysis triggers in depth<a class="anchor" aria-label="anchor" href="#analysis-triggers-in-depth"></a>
-</h2>
-<p>Triggers are the mechanism by which rxsim knows when to analyse the
-data and what to compute. Understanding how they are stored and
-evaluated is key to writing correct and flexible simulation code.</p>
-<div class="section level3">
-<h3 id="safe-trigger-helpers">Safe trigger helpers<a class="anchor" aria-label="anchor" href="#safe-trigger-helpers"></a>
-</h3>
-<p>Triggers for <code>analysis_generators</code> are created with
-validated helper constructors rather than quoted expressions. Use
-<code><a href="../reference/trigger_primitives.html">enroll_trigger()</a></code> for enrollment milestones,
-<code><a href="../reference/trigger_primitives.html">calendar_trigger()</a></code> for calendar-time analyses, and
-<code><a href="../reference/trigger_primitives.html">value_trigger()</a></code> / <code><a href="../reference/trigger_primitives.html">count_trigger()</a></code> when you
-want to write a predicate against a specific snapshot column.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">100</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">12</span>, <span class="fl">24</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/trigger_primitives.html">value_trigger</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"&gt;="</span>, <span class="fl">24</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/trigger_primitives.html">count_trigger</a></span><span class="op">(</span><span class="st">"enroll_time"</span>, <span class="st">"&gt;="</span>, <span class="fl">50</span><span class="op">)</span></span></code></pre></div>
-<p>The helpers take plain R values, so there is no need for
-<code><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">rlang::exprs()</a></code> or <code>!!</code> anymore. Invalid
-operators, wrong column names, and type mismatches are rejected
-immediately when the trigger is constructed.</p>
-<p>Compose helper triggers with <code>&amp;</code> (AND) and
-<code>|</code> (OR), then pass the result directly as the
-<code>trigger</code> field in <code>analysis_generators</code>, or
-construct a <code>Condition</code> with
-<code>Condition$new(where = trigger, ...)</code>.</p>
-</div>
-<div class="section level3">
-<h3 id="columns-available-to-trigger-helpers">Columns available to trigger helpers<a class="anchor" aria-label="anchor" href="#columns-available-to-trigger-helpers"></a>
-</h3>
-<p>Trigger helpers are evaluated against the snapshot data frame after
-they are converted to a <code>Condition</code>. The snapshot contains
-all columns from the <code>Population</code>’s <code>data</code> plus
-the four columns appended by <code>Trial</code>:</p>
-<ul>
-<li>
-<code>enroll_time</code> — calendar enrollment time (<code>NA</code>
-if not enrolled)</li>
-<li>
-<code>drop_time</code> — calendar dropout time (<code>NA</code> if
-not dropped)</li>
-<li>
-<code>measurement_time</code> —
-<code>enroll_time + readout_time</code>
-</li>
-<li>
-<code>time</code> — current clock time</li>
-<li>
-<code>arm</code> — arm label</li>
-</ul>
-<p>Any user-defined endpoint column (e.g., <code>data</code>,
-<code>response</code>, <code>tte</code>) is also available.</p>
-</div>
-<div class="section level3">
-<h3 id="trigger_by_calendar-and-trigger_by_fraction">trigger_by_calendar() and trigger_by_fraction()<a class="anchor" aria-label="anchor" href="#trigger_by_calendar-and-trigger_by_fraction"></a>
-</h3>
-<p>For the two most common cases, use the convenience constructors
-directly to create <code>Condition</code> objects:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fire at calendar time 24</span></span>
-<span><span class="va">cond_final</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_calendar.html">trigger_by_calendar</a></span><span class="op">(</span></span>
-<span>  cal_time <span class="op">=</span> <span class="fl">24</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n_enrolled <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="op">}</span>,</span>
-<span>  name <span class="op">=</span> <span class="st">"final_analysis"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_final</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Interim at 50% enrollment (target = 100)</span></span>
-<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_fraction.html">trigger_by_fraction</a></span><span class="op">(</span></span>
-<span>  fraction <span class="op">=</span> <span class="fl">0.5</span>,</span>
-<span>  sample_size <span class="op">=</span> <span class="fl">100</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>, time <span class="op">=</span> <span class="va">current_time</span><span class="op">)</span></span>
-<span>  <span class="op">}</span>,</span>
-<span>  name <span class="op">=</span> <span class="st">"interim_50pct"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_interim</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>When you need more than one predicate, compose helpers before
-building the <code>Condition</code>:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">trig_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">100</span><span class="op">)</span> <span class="op">&amp;</span> <span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">cond_both</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="va">trig_both</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="va">my_analysis</span>,</span>
-<span>  name     <span class="op">=</span> <span class="st">"interim_after_half_enrollment_at_day_24"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_both</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="custom-conditions">Custom conditions<a class="anchor" aria-label="anchor" href="#custom-conditions"></a>
-</h3>
-<p>For trigger logic that cannot yet be expressed with the safe helpers,
-<code>Condition$new(where = rlang::quos(...))</code> remains the
-advanced escape hatch. For time-to-event endpoints this commonly means
-waiting for a target number of events rather than a target enrollment
-count:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fire when 30 events have been observed (event = 1, censored = 0)</span></span>
-<span><span class="va">cond_events</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu">rlang</span><span class="fu">::</span><span class="fu"><a href="https://rlang.r-lib.org/reference/defusing-advanced.html" class="external-link">quos</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">event</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">&amp;</span> <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;=</span> <span class="op">!</span><span class="op">!</span><span class="va">n_events</span><span class="op">)</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="va">my_tte_analysis</span>,</span>
-<span>  name     <span class="op">=</span> <span class="st">"event_driven_interim"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_events</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>When the logic <em>can</em> be expressed with helper predicates,
-prefer composing <code>rxsim_trigger</code> objects with
-<code>&amp;</code> instead of supplying multiple <code>where</code>
-quosures:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Fire once time 12 is reached and at least 15 subjects are enrolled</span></span>
-<span><span class="va">cond_interim</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">value_trigger</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"&gt;="</span>, <span class="fl">12</span><span class="op">)</span> <span class="op">&amp;</span> <span class="fu"><a href="../reference/trigger_primitives.html">count_trigger</a></span><span class="op">(</span><span class="st">"enroll_time"</span>, <span class="st">"&gt;="</span>, <span class="fl">15</span><span class="op">)</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="va">my_analysis</span>,</span>
-<span>  name     <span class="op">=</span> <span class="st">"interim_after_time12"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/append.html" class="external-link">append</a></span><span class="op">(</span><span class="va">trial</span><span class="op">$</span><span class="va">conditions</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond_interim</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="the-analysis-function-signature">The analysis function signature<a class="anchor" aria-label="anchor" href="#the-analysis-function-signature"></a>
-</h3>
-<p>The analysis function always receives the filtered data frame and
-clock time as its first two positional arguments. Scenario-specific
-values can be declared as additional named parameters and injected via
-<code>analysis_args</code>:</p>
-<ul>
-<li>
-<code>df</code>: the <strong>full snapshot</strong> — all arms, all
-currently enrolled subjects. The condition filter determined
-<em>whether</em> to fire; the analysis function decides <em>what to
-compute</em> from the full data.</li>
-<li>
-<code>current_time</code>: the numeric clock time at which the
-condition fired.</li>
-<li>
-<code>...</code>: any extra named values supplied through
-<code>analysis_args</code>.</li>
-</ul>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Basic signature</span></span>
-<span><span class="va">my_analysis</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>    fired_at  <span class="op">=</span> <span class="va">current_time</span>,</span>
-<span>    n_ctrl    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">)</span>,</span>
-<span>    n_trt     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">)</span>,</span>
-<span>    mean_diff <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">]</span><span class="op">)</span> <span class="op">-</span></span>
-<span>                <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">]</span><span class="op">)</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
-<span><span class="co"># With extra scenario-specific arguments</span></span>
-<span><span class="va">my_analysis_ext</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span>, <span class="va">alpha</span>, <span class="va">cov_matrix</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="co"># alpha and cov_matrix are injected from analysis_args at call time</span></span>
-<span>  <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>fired_at <span class="op">=</span> <span class="va">current_time</span>, n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">)</span>, alpha <span class="op">=</span> <span class="va">alpha</span><span class="op">)</span></span>
-<span><span class="op">}</span></span>
-<span></span>
+<span><span class="co"># 3. Condition: fire at full enrollment, run a t-test</span></span>
 <span><span class="va">cond</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
-<span>  where         <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="fl">100</span><span class="op">)</span>,</span>
-<span>  analysis      <span class="op">=</span> <span class="va">my_analysis_ext</span>,</span>
-<span>  analysis_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>alpha <span class="op">=</span> <span class="fl">0.05</span>, cov_matrix <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  name          <span class="op">=</span> <span class="st">"final"</span></span>
-<span><span class="op">)</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="return-values">Return values<a class="anchor" aria-label="anchor" href="#return-values"></a>
-</h3>
-<p>The analysis function’s return value is stored verbatim in
-<code>results</code>. <code><a href="../reference/collect_results.html">collect_results()</a></code> handles three
-cases:</p>
-<ul>
-<li>
-<strong><code>data.frame</code></strong> (recommended) — the
-standard pattern; one row per trigger event is the convention.</li>
-<li>
-<strong>named <code>list</code></strong> — coerced to a single-row
-data frame.</li>
-<li>
-<strong><code>NULL</code></strong> — silently skipped by
-<code><a href="../reference/collect_results.html">collect_results()</a></code>.</li>
-</ul>
-<p>Returning <code>NULL</code> is useful for side-effects-only analyses
-(e.g., writing a log entry) or for marking that a trigger condition was
-not yet satisfied.</p>
-</div>
-</div>
-<div class="section level2">
-<h2 id="putting-it-together-replicate_trial-and-run_trials">Putting it together: replicate_trial() and run_trials()<a class="anchor" aria-label="anchor" href="#putting-it-together-replicate_trial-and-run_trials"></a>
-</h2>
-<p>Building a single <code>Trial</code> by hand is useful for
-exploration, but the purpose of rxsim is operating-characteristic
-simulation across many replicates. <code><a href="../reference/replicate_trial.html">replicate_trial()</a></code> +
-<code><a href="../reference/run_trials.html">run_trials()</a></code> handle this ergonomically.</p>
-<div class="section level3">
-<h3 id="how-replicate_trial-works">How replicate_trial() works<a class="anchor" aria-label="anchor" href="#how-replicate_trial-works"></a>
-</h3>
-<p>For each of the <code>n</code> replicates,
-<code><a href="../reference/replicate_trial.html">replicate_trial()</a></code>:</p>
-<ol style="list-style-type: decimal">
-<li>Calls <code><a href="../reference/gen_plan.html">gen_plan()</a></code> with your <code>enrollment</code> and
-<code>dropout</code> functions to generate a fresh, stochastic
-enrollment/dropout schedule.</li>
-<li>Builds a new <code>Timer</code> and loads the schedule via
-<code><a href="../reference/add_timepoints.html">add_timepoints()</a></code>.</li>
-<li>Creates a <code>Condition</code> object for each entry in
-<code>analysis_generators</code> and attaches them to the trial’s
-<code>conditions</code> list.</li>
-<li>Calls each population generator function to draw fresh subject-level
-endpoint data.</li>
-<li>Constructs a <code>Trial$new()</code> wiring the <code>Timer</code>,
-<code>Population</code> objects, and <code>Condition</code> objects
-together.</li>
-</ol>
-<p>Each replicate therefore has independent endpoint data <em>and</em>
-independent enrollment timing — both sources of variability that
-operating characteristic simulations are designed to characterise.</p>
-</div>
-<div class="section level3">
-<h3 id="a-complete-six-step-example">A complete six-step example<a class="anchor" aria-label="anchor" href="#a-complete-six-step-example"></a>
-</h3>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 1 — design parameters</span></span>
-<span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">30</span></span>
-<span><span class="va">arms</span>        <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"control"</span>, <span class="st">"treatment"</span><span class="op">)</span></span>
-<span><span class="va">allocation</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
-<span><span class="va">true_delta</span>  <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
-<span></span>
-<span><span class="va">scenario</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>sample_size <span class="op">=</span> <span class="va">sample_size</span>, true_delta <span class="op">=</span> <span class="va">true_delta</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 2 — population generators (called fresh per replicate)</span></span>
-<span><span class="va">population_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  control   <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  treatment <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="va">true_delta</span><span class="op">)</span><span class="op">)</span></span>
+<span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="va">n</span><span class="op">)</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">t</span><span class="op">)</span> <span class="op">{</span> <span class="va">...</span> <span class="op">}</span>,</span>
+<span>  name     <span class="op">=</span> <span class="st">"final"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Step 3 — enrollment and dropout (inter-arrival functions)</span></span>
-<span><span class="va">enrollment</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
-<span><span class="va">dropout</span>    <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.02</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 4 — analysis trigger: fire when full enrollment is reached</span></span>
-<span><span class="va">analysis_generators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  final <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    trigger <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="va">sample_size</span><span class="op">)</span>,</span>
-<span>    analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
-<span>      <span class="va">enrolled</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">enroll_time</span><span class="op">)</span><span class="op">)</span></span>
-<span>      <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>        <span class="va">scenario</span>,</span>
-<span>        fired_at  <span class="op">=</span> <span class="va">current_time</span>,</span>
-<span>        n_ctrl    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">)</span>,</span>
-<span>        n_trt     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">)</span>,</span>
-<span>        mean_ctrl <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"control"</span><span class="op">]</span><span class="op">)</span>,</span>
-<span>        mean_trt  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">enrolled</span><span class="op">$</span><span class="va">data</span><span class="op">[</span><span class="va">enrolled</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"treatment"</span><span class="op">]</span><span class="op">)</span></span>
-<span>      <span class="op">)</span></span>
-<span>    <span class="op">}</span></span>
-<span>  <span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># Step 5 — create and run replicates</span></span>
-<span><span class="va">trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/replicate_trial.html">replicate_trial</a></span><span class="op">(</span></span>
-<span>  trial_name            <span class="op">=</span> <span class="st">"concepts_demo"</span>,</span>
-<span>  sample_size           <span class="op">=</span> <span class="va">sample_size</span>,</span>
-<span>  arms                  <span class="op">=</span> <span class="va">arms</span>,</span>
-<span>  allocation            <span class="op">=</span> <span class="va">allocation</span>,</span>
-<span>  enrollment            <span class="op">=</span> <span class="va">enrollment</span>,</span>
-<span>  dropout               <span class="op">=</span> <span class="va">dropout</span>,</span>
-<span>  analysis_generators   <span class="op">=</span> <span class="va">analysis_generators</span>,</span>
-<span>  population_generators <span class="op">=</span> <span class="va">population_generators</span>,</span>
-<span>  n                     <span class="op">=</span> <span class="fl">10</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="../reference/run_trials.html">run_trials</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [[1]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_1</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[2]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_2</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[3]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_3</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[4]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_4</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[5]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_5</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[6]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_6</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[7]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_7</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[8]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_8</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[9]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_9</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[10]]</span></span>
-<span><span class="co">#&gt; &lt;Trial&gt;</span></span>
-<span><span class="co">#&gt;   Public:</span></span>
-<span><span class="co">#&gt;     clone: function (deep = FALSE) </span></span>
-<span><span class="co">#&gt;     conditions: list</span></span>
-<span><span class="co">#&gt;     initialize: function (name, seed = NULL, timer = NULL, population = list(), </span></span>
-<span><span class="co">#&gt;     locked_data: list</span></span>
-<span><span class="co">#&gt;     name: concepts_demo_10</span></span>
-<span><span class="co">#&gt;     population: list</span></span>
-<span><span class="co">#&gt;     results: list</span></span>
-<span><span class="co">#&gt;     run: function () </span></span>
-<span><span class="co">#&gt;     seed: NULL</span></span>
-<span><span class="co">#&gt;     timer: Timer, R6</span></span>
-<span></span>
-<span><span class="co"># Step 6 — collect and inspect</span></span>
-<span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span>
-<span><span class="va">results</span></span>
-<span><span class="co">#&gt;    replicate timepoint analysis sample_size true_delta fired_at n_ctrl n_trt</span></span>
-<span><span class="co">#&gt; 1          1  14.85864    final          30        0.5 14.85864     15    15</span></span>
-<span><span class="co">#&gt; 2          2  13.65704    final          30        0.5 13.65704     15    15</span></span>
-<span><span class="co">#&gt; 3          3  17.64924    final          30        0.5 17.64924     15    15</span></span>
-<span><span class="co">#&gt; 4          4  11.80808    final          30        0.5 11.80808     15    15</span></span>
-<span><span class="co">#&gt; 5          5  12.91792    final          30        0.5 12.91792     15    15</span></span>
-<span><span class="co">#&gt; 6          6  15.97475    final          30        0.5 15.97475     15    15</span></span>
-<span><span class="co">#&gt; 7          7  14.76681    final          30        0.5 14.76681     15    15</span></span>
-<span><span class="co">#&gt; 8          8  13.66482    final          30        0.5 13.66482     15    15</span></span>
-<span><span class="co">#&gt; 9          9  18.81521    final          30        0.5 18.81521     15    15</span></span>
-<span><span class="co">#&gt; 10        10  11.84402    final          30        0.5 11.84402     15    15</span></span>
-<span><span class="co">#&gt;     mean_ctrl    mean_trt</span></span>
-<span><span class="co">#&gt; 1  -0.2426125  0.73924372</span></span>
-<span><span class="co">#&gt; 2   0.1855949  0.77785489</span></span>
-<span><span class="co">#&gt; 3   0.2729714  0.52646154</span></span>
-<span><span class="co">#&gt; 4  -0.2590078  0.50676828</span></span>
-<span><span class="co">#&gt; 5   0.1494857  0.90866496</span></span>
-<span><span class="co">#&gt; 6   0.4779952 -0.03207007</span></span>
-<span><span class="co">#&gt; 7   0.1935956  0.05437164</span></span>
-<span><span class="co">#&gt; 8   0.2760705  0.16748723</span></span>
-<span><span class="co">#&gt; 9  -0.5170736  0.59219044</span></span>
-<span><span class="co">#&gt; 10  0.4187062  0.42788315</span></span></code></pre></div>
-</div>
-<div class="section level3">
-<h3 id="collect_results-and-the-analysis-filter">collect_results() and the analysis= filter<a class="anchor" aria-label="anchor" href="#collect_results-and-the-analysis-filter"></a>
-</h3>
-<p>When a trial has multiple named analyses (e.g., an interim and a
-final), <code><a href="../reference/collect_results.html">collect_results()</a></code> returns rows for all of them. Use
-the <code>analysis</code> argument to restrict to a specific name:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Only the final analysis rows</span></span>
-<span><span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span>, analysis <span class="op">=</span> <span class="st">"final"</span><span class="op">)</span></span></code></pre></div>
-<p>Each row in the output corresponds to one replicate firing one named
-analysis. The <code>replicate</code>, <code>timepoint</code>, and
-<code>analysis</code> columns identify the provenance of every result
-row, making it straightforward to compare interim and final results
-within the same replicate or aggregate across replicates.</p>
-</div>
+<span><span class="co"># 4. Trial: assemble and run</span></span>
+<span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"trial"</span>, timer<span class="op">=</span><span class="va">tmr</span>,</span>
+<span>                   population<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop_pbo</span>, <span class="va">pop_trt</span><span class="op">)</span>,</span>
+<span>                   conditions<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>For a step-by-step walkthrough see <a href="enrollment.html">Enrollment and Dropout</a>. For the generator
+shortcut (<code>replicate_trial</code>) see <a href="api-styles.html">Two API Styles</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
 </h2>
 <ul>
 <li>
-<a href="getting-started.html">Getting Started</a> — end-to-end
-walkthrough of the six-step pattern shown above, with commentary on each
-design choice.</li>
+<a href="enrollment.html">Enrollment and Dropout</a> - stochastic
+and deterministic enrollment</li>
 <li>
-<a href="enrollment-dropout.html">Enrollment &amp; Dropout
-Modeling</a> — choose between stochastic (<code>gen_plan</code>) and
-piecewise-constant (<code>gen_timepoints</code>) schedules.</li>
+<a href="class-population.html">Population</a> - subject data format
+and enrollment tracking</li>
 <li>
-<a href="example-1.html">Example 1</a> through <a href="example-8.html">Example 8</a> — progressively complex designs:
-correlated endpoints, time-to-event, multi-arm dose-finding, subgroup
-analyses, and Bayesian Go/No-Go rules.</li>
+<a href="conditions.html">Conditions and Triggers</a> - triggers and
+analysis functions</li>
+<li>
+<a href="../reference/Trial.html">Trial reference</a> - class
+documentation for run loop and outputs</li>
+<li>
+<a href="api-styles.html">Two API Styles</a> - direct vs. generator
+API</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

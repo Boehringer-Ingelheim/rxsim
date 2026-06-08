@@ -5,7 +5,11 @@ Use set_enrolled() and set_dropped() to assign enrollment and dropout
 times to random subsets of subjects."><meta property="og:description" content="The Population class stores subject-level data and manages enrollment and
 dropout times for each subject.
 Use set_enrolled() and set_dropped() to assign enrollment and dropout
-times to random subsets of subjects."></head><body>
+times to random subsets of subjects."><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
+  document.addEventListener("DOMContentLoaded", function () {
+    mermaid.initialize({ startOnLoad: true });
+  });
+</script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -13,7 +17,7 @@ times to random subsets of subjects."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -23,22 +27,24 @@ times to random subsets of subjects."></head><body>
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Architecture</h6></li>
     <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
-    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Classes</h6></li>
+    <li><a class="dropdown-item" href="../articles/class-population.html">Population: Subject-Level Data and Enrollment Tracking</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment.html">Enrollment and Dropout</a></li>
+    <li><a class="dropdown-item" href="../articles/conditions.html">Conditions and Triggers</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
+    <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
     <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-6.html">Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
+    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
+    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -164,7 +170,7 @@ times to random subsets of subjects.</p>
 </div>
 <div class="section">
 <h4 id="examples">Examples<a class="anchor" aria-label="anchor" href="#examples"></a></h4>
-<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Intervention"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
+<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Intervention"</span>, data <span class="op">=</span> <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
 
@@ -190,7 +196,7 @@ times to random subsets of subjects.</p>
 </div>
 <div class="section">
 <h4 id="examples-1">Examples<a class="anchor" aria-label="anchor" href="#examples-1"></a></h4>
-<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">4</span>, time <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
 
@@ -217,7 +223,7 @@ times to random subsets of subjects.</p>
 </div>
 <div class="section">
 <h4 id="examples-2">Examples<a class="anchor" aria-label="anchor" href="#examples-2"></a></h4>
-<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">5</span>, time <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">pop</span><span class="op">$</span><span class="fu">set_dropped</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">2</span>, time <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div><p></p></div>
 </div>
@@ -241,7 +247,7 @@ times to random subsets of subjects.</p>
 </div>
 <div class="section">
 <h4 id="examples-3">Examples<a class="anchor" aria-label="anchor" href="#examples-3"></a></h4>
-<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"ResetDemo"</span>, <span class="fu"><a href="../reference/vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<p></p><div class="r example copy"><div class="sourceCode"><pre><code><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"ResetDemo"</span>, <span class="fu"><a href="../reference/as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">pop</span><span class="op">$</span><span class="fu">set_data</span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>    id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>,</span>
@@ -276,7 +282,7 @@ times to random subsets of subjects.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Basic example: vector input</span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Control"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Control"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="va">n</span> <span class="co"># number of subjects</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 10</span>
@@ -296,14 +302,14 @@ times to random subsets of subjects.</p>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_dropped</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">2</span>, time <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Reset underlying data</span></span></span>
-<span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_data</span><span class="op">(</span><span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_data</span><span class="op">(</span><span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">8</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span><span class="co">## Method `Population$new`</span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Intervention"</span>, data <span class="op">=</span> <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"Intervention"</span>, data <span class="op">=</span> <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Population&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   Public:</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     clone: function (deep = FALSE) </span>
@@ -322,14 +328,14 @@ times to random subsets of subjects.</p>
 <span class="r-in"><span><span class="co">## Method `Population$set_enrolled`</span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">4</span>, time <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span><span class="co">## Method `Population$set_dropped`</span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"Test"</span>, <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_enrolled</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">5</span>, time <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_dropped</span><span class="op">(</span>n <span class="op">=</span> <span class="fl">2</span>, time <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
@@ -337,7 +343,7 @@ times to random subsets of subjects.</p>
 <span class="r-in"><span><span class="co">## Method `Population$set_data`</span></span></span>
 <span class="r-in"><span><span class="co">## ------------------------------------------------</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"ResetDemo"</span>, <span class="fu"><a href="vector_to_dataframe.html">vector_to_dataframe</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">pop</span> <span class="op">&lt;-</span> <span class="va">Population</span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"ResetDemo"</span>, <span class="fu"><a href="as_population_data.html">as_population_data</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">pop</span><span class="op">$</span><span class="fu">set_data</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>    id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>,</span></span>

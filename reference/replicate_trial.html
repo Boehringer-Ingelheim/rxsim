@@ -3,7 +3,11 @@
 timer, and population generators. Arms must match between plan and
 population specifications."><meta property="og:description" content="Generates n independent Trial objects from a template,
 timer, and population generators. Arms must match between plan and
-population specifications."></head><body>
+population specifications."><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
+  document.addEventListener("DOMContentLoaded", function () {
+    mermaid.initialize({ startOnLoad: true });
+  });
+</script></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -11,7 +15,7 @@ population specifications."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -21,22 +25,24 @@ population specifications."></head><body>
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Concepts</h6></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Architecture</h6></li>
     <li><a class="dropdown-item" href="../articles/concepts.html">Core Concepts</a></li>
-    <li><a class="dropdown-item" href="../articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Classes</h6></li>
+    <li><a class="dropdown-item" href="../articles/class-population.html">Population: Subject-Level Data and Enrollment Tracking</a></li>
+    <li><a class="dropdown-item" href="../articles/enrollment.html">Enrollment and Dropout</a></li>
+    <li><a class="dropdown-item" href="../articles/conditions.html">Conditions and Triggers</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
+    <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
     <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Interim | Continuous | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two arm | Fixed design | Correlated continuous &amp; time-to-event endpoints | t-test + survival analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-6.html">Example 6: Two-arm | Fixed design | Single continuous endpoint | Overall + exploratory subgroup analysis</a></li>
-    <li><a class="dropdown-item" href="../articles/example-7.html">Example 7: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-8.html">Example 8: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-multi-run.html">Example Multi Run: Two arm | Interim | Continuous | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
+    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
+    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
+    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -106,7 +112,7 @@ Defaults to <code>"name"</code>.</p></dd>
 
 <dt id="arg-analysis-generators">analysis_generators<a class="anchor" aria-label="anchor" href="#arg-analysis-generators"></a></dt>
 <dd><p><code>list</code> (named) of analysis specifications. Each
-<code>$trigger</code> must be an <code>rxsim_trigger</code> object created by
+<code>$trigger</code> must be a <code>trigger</code> object created by
 <code><a href="trigger_primitives.html">value_trigger()</a></code>, <code><a href="trigger_primitives.html">count_trigger()</a></code>, <code><a href="trigger_primitives.html">enroll_trigger()</a></code>, or
 <code><a href="trigger_primitives.html">calendar_trigger()</a></code>.</p></dd>
 
@@ -126,7 +132,7 @@ cloned timers, and generated populations.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="gen_plan.html">gen_plan()</a></code>, <code><a href="gen_population.html">gen_population()</a></code>, <code><a href="clone_trial.html">clone_trial()</a></code>, <code><a href="run_trials.html">run_trials()</a></code>.</p></div>
+    <div class="dont-index"><p><code><a href="stochastic_schedule.html">stochastic_schedule()</a></code>, <code><a href="gen_population.html">gen_population()</a></code>, <code><a href="clone_trial.html">clone_trial()</a></code>, <code><a href="run_trials.html">run_trials()</a></code>.</p></div>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
