@@ -300,10 +300,10 @@ test_that("replicate_trial: accepts trigger and builds Condition", {
 
 # ── notna_trigger ─────────────────────────────────────────────────────────────
 
-test_that("notna_trigger: returns rxsim_trigger with correct fields", {
+test_that("notna_trigger: returns trigger with correct fields", {
   t <- notna_trigger("enroll_time")
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "notna")
   expect_equal(t$col, "enroll_time")
 })
@@ -325,10 +325,10 @@ test_that("notna_trigger quosure evaluates correctly in filter", {
 
 # ── col_trigger ───────────────────────────────────────────────────────────────
 
-test_that("col_trigger: returns rxsim_trigger with correct fields", {
+test_that("col_trigger: returns trigger with correct fields", {
   t <- col_trigger("enroll_time", "<=", "time")
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "col_compare")
   expect_equal(t$col, "enroll_time")
   expect_equal(t$op, "<=")
@@ -353,10 +353,10 @@ test_that("col_trigger quosure evaluates correctly in filter", {
 
 # ── timed_count_trigger ───────────────────────────────────────────────────────
 
-test_that("timed_count_trigger: returns rxsim_trigger with correct fields", {
+test_that("timed_count_trigger: returns trigger with correct fields", {
   t <- timed_count_trigger("pfs_event_time", "time", ">=", 100)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "timed_count")
   expect_equal(t$col, "pfs_event_time")
   expect_equal(t$time_col, "time")

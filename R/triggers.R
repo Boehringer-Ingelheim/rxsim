@@ -47,7 +47,7 @@ count_trigger <- function(col, op, rhs) {
 #' @export
 notna_trigger <- function(col) {
   if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  structure(list(type = "notna", col = col), class = "rxsim_trigger")
+  structure(list(type = "notna", col = col), class = "trigger")
 }
 
 #' @rdname trigger_primitives
@@ -58,7 +58,7 @@ col_trigger <- function(col, op, ref_col) {
   if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
   if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
   if (!is.character(ref_col) || length(ref_col) != 1L || is.na(ref_col)) stop("`ref_col` must be a single character string.")
-  structure(list(type = "col_compare", col = col, op = op, ref_col = ref_col), class = "rxsim_trigger")
+  structure(list(type = "col_compare", col = col, op = op, ref_col = ref_col), class = "trigger")
 }
 
 #' @rdname trigger_primitives
@@ -71,7 +71,7 @@ timed_count_trigger <- function(col, time_col, op, threshold) {
   if (!is.character(time_col) || length(time_col) != 1L || is.na(time_col)) stop("`time_col` must be a single character string.")
   if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
   if (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold)) stop("`threshold` must be a single numeric value.")
-  structure(list(type = "timed_count", col = col, time_col = time_col, op = op, threshold = threshold), class = "rxsim_trigger")
+  structure(list(type = "timed_count", col = col, time_col = time_col, op = op, threshold = threshold), class = "trigger")
 }
 
 #' @rdname trigger_primitives
