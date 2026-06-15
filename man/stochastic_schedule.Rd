@@ -14,7 +14,7 @@ stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
 \item{allocation}{\code{numeric} vector of allocation ratios.}
 
 \item{enrollment}{\code{function} that takes \code{n} and returns \code{n} inter-arrival
-times (e.g. \code{function(n) rexp(n, rate = 1)}).}
+times (e.g. \code{function(n) rexp(n, rate = 0.5)}).}
 
 \item{dropout}{\code{function} that takes \code{n} and returns \code{n} inter-dropout
 times.}

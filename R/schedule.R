@@ -1,46 +1,3 @@
-#' Generate a Stochastic Enrollment and Dropout Schedule
-#'
-#' Creates a time-indexed schedule of enrollment and dropout events across
-#' arms by sampling inter-event times from user-supplied distribution
-#' functions. Each call produces a different realization, capturing
-#' natural variability in study timelines.
-#'
-#' Use this when trial-duration variability is substantively important.
-#' For a fixed, reproducible schedule see [deterministic_schedule()].
-#'
-#' @param sample_size `integer` Trial sample size.
-#' @param arms `character` vector of arm identifiers.
-#' @param allocation `numeric` vector of allocation ratios.
-#' @param enrollment `function` that takes `n` and returns `n` inter-arrival
-#'   times (e.g. `function(n) rexp(n, rate = 1)`).
-#' @param dropout `function` that takes `n` and returns `n` inter-dropout
-#'   times.
-#'
-#' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
-#'   `drop` (always 0 or 1). One row per subject event, sorted by `time`.
-#'
-#' @seealso [deterministic_schedule()] for piecewise-constant rates,
-#'   [add_timepoints()] to attach to a `Timer`.
-#'
-#' @export
-#'
-#' @examples
-#' stochastic_schedule(
-#'   sample_size = 100,
-#'   arms = c("A", "B"),
-#'   allocation = c(2, 1),
-#'   enrollment = function(n) rexp(n, rate = 0.5),
-#'   dropout    = function(n) rexp(n, rate = 0.1)
-#' )
-#'
-#' @importFrom rlang :=
-#' @importFrom dplyr .data
-#' @importFrom dplyr mutate
-#' @importFrom dplyr group_by
-#' @importFrom dplyr ungroup
-#' @importFrom dplyr filter
-#' @importFrom dplyr select
-#' @importFrom dplyr arrange
 .validate_schedule_common_args <- function(sample_size, arms, allocation) {
   if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
     stop("`sample_size` must be a single positive number.")
@@ -73,6 +30,49 @@
   target
 }
 
+#' Generate a Stochastic Enrollment and Dropout Schedule
+#'
+#' Creates a time-indexed schedule of enrollment and dropout events across
+#' arms by sampling inter-event times from user-supplied distribution
+#' functions. Each call produces a different realization, capturing
+#' natural variability in study timelines.
+#'
+#' Use this when trial-duration variability is substantively important.
+#' For a fixed, reproducible schedule see [deterministic_schedule()].
+#'
+#' @param sample_size `integer` Trial sample size.
+#' @param arms `character` vector of arm identifiers.
+#' @param allocation `numeric` vector of allocation ratios.
+#' @param enrollment `function` that takes `n` and returns `n` inter-arrival
+#'   times (e.g. `function(n) rexp(n, rate = 0.5)`).
+#' @param dropout `function` that takes `n` and returns `n` inter-dropout
+#'   times.
+#'
+#' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
+#'   `drop` (always 0 or 1). One row per subject event, sorted by `time`.
+#'
+#' @seealso [deterministic_schedule()] for piecewise-constant rates,
+#'   [add_timepoints()] to attach to a `Timer`.
+#'
+#' @export
+#'
+#' @examples
+#' stochastic_schedule(
+#'   sample_size = 100,
+#'   arms = c("A", "B"),
+#'   allocation = c(2, 1),
+#'   enrollment = function(n) rexp(n, rate = 0.5),
+#'   dropout    = function(n) rexp(n, rate = 0.1)
+#' )
+#'
+#' @importFrom rlang :=
+#' @importFrom dplyr .data
+#' @importFrom dplyr mutate
+#' @importFrom dplyr group_by
+#' @importFrom dplyr ungroup
+#' @importFrom dplyr filter
+#' @importFrom dplyr select
+#' @importFrom dplyr arrange
 stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
 
   # Input validation

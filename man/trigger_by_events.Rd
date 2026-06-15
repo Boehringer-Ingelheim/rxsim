@@ -56,6 +56,6 @@ cond <- trigger_by_events(
 )
 }
 \seealso{
-\link{Condition}, \code{\link[=trigger_by_calendar]{trigger_by_calendar()}}, \code{\link[=trigger_by_fraction]{trigger_by_fraction()}},
+\link{Condition}, \code{\link[=condition_calendar_time]{condition_calendar_time()}}, \code{\link[=condition_enrollment_fraction]{condition_enrollment_fraction()}},
 \code{\link[=timed_count_trigger]{timed_count_trigger()}}, \code{\link[=notna_trigger]{notna_trigger()}}, \code{\link[=col_trigger]{col_trigger()}}.
 }

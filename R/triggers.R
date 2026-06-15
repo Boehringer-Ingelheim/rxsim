@@ -218,7 +218,7 @@ condition_enrollment_fraction <- function(fraction, sample_size, analysis = NULL
 #'
 #' @return A [`Condition`] object.
 #'
-#' @seealso [Condition], [trigger_by_calendar()], [trigger_by_fraction()],
+#' @seealso [Condition], [condition_calendar_time()], [condition_enrollment_fraction()],
 #'   [timed_count_trigger()], [notna_trigger()], [col_trigger()].
 #'
 #' @export
