@@ -70,6 +70,7 @@ reference:
       - trigger_primitives
       - condition_calendar_time
       - condition_enrollment_fraction
+      - trigger_by_events
 
   - title: "Population helpers"
     desc: "Helpers for building Population generators"
