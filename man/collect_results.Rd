@@ -40,8 +40,8 @@ When \code{trials} is a single \code{Trial} object (e.g., from a one-off
 \examples{
 # --- replicated trial ---
 pop_gens <- list(
-  control   = function(n) vector_to_dataframe(rnorm(n)),
-  treatment = function(n) vector_to_dataframe(rnorm(n, 0.5))
+  control   = function(n) as_population_data(rnorm(n)),
+  treatment = function(n) as_population_data(rnorm(n, 0.5))
 )
 an_gens <- list(
   final = list(

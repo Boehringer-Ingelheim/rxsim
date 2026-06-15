@@ -3,13 +3,18 @@
 
 # rxsim
 
+> \[!WARNING\]\
+> This package is in early development. The API is not yet stable and
+> may change without deprecation. Use with caution and please share
+> feedback!
+
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 > **Reduce friction in randomized controlled trial simulation.** rxsim
-> lets you prototype Phase II/III trial designs at high speed — without
+> lets you prototype Phase II/III trial designs at high speed - without
 > writing hundreds of lines of low-level plumbing code.
 
 ------------------------------------------------------------------------
@@ -18,7 +23,7 @@
 
 Simulating a randomized controlled trial from scratch means manually
 wiring together enrollment schedules, randomization, data snapshots,
-analyses, and result collection — across potentially thousands of
+analyses, and result collection - across potentially thousands of
 replicates. Done in base R or even with the tidyverse, that
 orchestration routinely reaches **1,000+ lines of fragile,
 hard-to-reuse, -maintain, and -review code**.
@@ -29,21 +34,21 @@ matter: endpoints, allocation, analysis rules, and adaptive strategies.
 
 ## Key Features
 
-- 👌 **Very easy to use** — Add/remove arms, and interims as list
+- 👌 **Very easy to use** - Add/remove arms, and interims as list
   elements
-- 🏗️ **Declarative trial design** — define arms, populations, and
+- 🏗️ **Declarative trial design** - define arms, populations, and
   analyses as plain R functions; let rxsim handle the orchestration
-- 📅 **Flexible enrollment & dropout** — stochastic or deterministic
+- 📅 **Flexible enrollment & dropout** - stochastic or deterministic
   schedules
-- ⚡ **Trigger-based analyses** — fire any analysis at a calendar time,
+- ⚡ **Trigger-based analyses** - fire any analysis at a calendar time,
   an enrollment fraction, or any custom data condition
-- 🔁 **Scalable replication** — generate and run thousands of
+- 🔁 **Scalable replication** - generate and run thousands of
   independent trial replicates
-- 🧩 **Any endpoint type** — continuous, time-to-event, binary,
+- 🧩 **Any endpoint type** - continuous, time-to-event, binary,
   correlated multi-endpoint; supply any analysis function
-- 🔬 **Adaptive designs** — interims, Go/No-Go rules, Bayesian
+- 🔬 **Adaptive designs** - interims, Go/No-Go rules, Bayesian
   borrowing; all composable from the same building blocks
-- 📦 **Integrates cleanly** — works with `survival`, `RBesT`,
+- 📦 **Integrates cleanly** - works with `survival`, `RBesT`,
   `DoseFinding`, `multcomp`, `dplyr`, and more
 
 ## Core Concepts
@@ -53,8 +58,8 @@ rxsim is built on three composable classes:
 | Class | Role |
 |----|----|
 | **`Population`** | Holds subject-level data (endpoints, covariates) and tracks each subject’s enrollment and dropout times |
-| **`Timer`** | Drives the trial clock — stores discrete timepoints per arm and evaluates condition-triggered analyses |
-| **`Trial`** | Orchestrates the simulation — iterates over timepoints, updates populations, snapshots data, and collects results |
+| **`Timer`** | Drives the trial clock - stores discrete timepoints per arm and evaluates condition-triggered analyses |
+| **`Trial`** | Orchestrates the simulation - iterates over timepoints, updates populations, snapshots data, and collects results |
 
 The high-level helpers `replicate_trial()` and `run_trials()` wrap these
 three classes into an ergonomic one-call workflow for the common case.
@@ -67,7 +72,7 @@ lines:
 ``` r
 library(rxsim)
 
-# 1. Define populations — one generator function per arm
+# 1. Define populations  -  one generator function per arm
 population_generators <- list(
   placebo   = function(n) data.frame(id = 1:n, y = rnorm(n, 0.0), readout_time = 1),
   treatment = function(n) data.frame(id = 1:n, y = rnorm(n, 0.3), readout_time = 1)
@@ -77,8 +82,8 @@ population_generators <- list(
 sample_size <- 100L
 analysis_generators <- list(
   final = list(
-    trigger  = rlang::exprs(sum(!is.na(enroll_time)) >= !!sample_size),
-    analysis = function(df, timer) {
+    trigger  = enroll_trigger(1.0, sample_size),
+    analysis = function(df, current_time) {
       enrolled <- subset(df, !is.na(enroll_time))
       data.frame(n = nrow(enrolled), p_value = t.test(y ~ arm, data = enrolled)$p.value)
     }
@@ -101,9 +106,9 @@ trials <- replicate_trial(
 run_trials(trials)
 ```
 
-Collect results across all replicates in one pass — see the [Getting
-Started
-vignette](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html)
+Collect results across all replicates in one pass - see the [Two API
+Styles
+vignette](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)
 for the full walkthrough.
 
 ## Documentation
@@ -113,16 +118,17 @@ website](https://boehringer-ingelheim.github.io/rxsim)**.
 
 | Vignette | What it covers |
 |----|----|
-| [Getting Started](https://boehringer-ingelheim.github.io/rxsim/articles/getting-started.html) | End-to-end walkthrough of a complete trial simulation |
-| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html) | Population, Timer, and Trial in depth; trigger expressions explained |
-| [Enrollment & Dropout Modeling](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html) | `gen_plan()` vs `gen_timepoints()` — stochastic vs piecewise-constant |
+| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html) | Architecture overview: Population, Timer, Condition, Trial |
+| [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.html) | Subject data, enrollment/dropout mechanics, endpoint types |
+| [Enrollment & Dropout](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html) | `stochastic_schedule()` vs `deterministic_schedule()` |
+| [Conditions & Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.html) | Trigger API, combining triggers, interim analyses |
+| [Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html) | Trial class reference, run loop, seed reproducibility |
+| [Two API Styles](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html) | Direct instantiation vs generator + replicate_trial |
 | [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html) | Two-arm fixed design, t-test |
-| [Example 2: Interim analysis, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html) | Interim + final analyses |
-| [Example 3: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html) | Two correlated continuous endpoints, Holm correction |
-| [Example 4: Continuous + time-to-event](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html) | Mixed endpoint — continuous + TTE, Cox PH |
-| [Example 5: Multi-arm, Dunnett + MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html) | Dose-finding with Dunnett test and MCP-Mod |
-| [Example 6: Subgroup analysis](https://boehringer-ingelheim.github.io/rxsim/articles/example-6.html) | Overall + exploratory subgroup treatment effects |
-| [Example 7: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-7.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
+| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html) | Two correlated continuous endpoints, Holm correction |
+| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html) | Multi-arm dose-finding with Dunnett + MCP-Mod |
+| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
+| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html) | Multi-stage adaptive design with BayesianMCPMod |
 
 ## Installation
 
@@ -192,7 +198,7 @@ analyses?</strong>
 <br>
 
 Yes. Trigger conditions fire whenever a boolean expression on the
-accumulating data is satisfied — at a calendar time, an enrollment
+accumulating data is satisfied - at a calendar time, an enrollment
 fraction, or any custom condition. Multiple triggers can be registered
 on the same trial, allowing interim and final analyses to coexist
 naturally. Adaptive rules (e.g., stopping early, adjusting sample size)
@@ -215,7 +221,7 @@ for a detailed explanation of the trigger system.
 <br>
 
 rxsim is designed for **rapid trial design prototyping and operating
-characteristic evaluation** — estimating power, type I error, and
+characteristic evaluation** - estimating power, type I error, and
 decision probabilities under a range of scenarios. It is not a validated
 submission package, yet. Simulation outputs it produces can feed into
 submission-supporting analyses when the user applies appropriate
@@ -235,7 +241,7 @@ validation and documentation.
 `replicate_trial(n = N)` creates `N` fully independent `Trial` objects
 (each with its own population data and timer state). `run_trials()` then
 executes them sequentially. For very large `N`, parallelization is
-straightforward — replace `run_trials()` with any R parallel back-end:
+straightforward - replace `run_trials()` with any R parallel back-end:
 
 ``` r
 # Example using parallel::mclapply (Unix/macOS)

@@ -12,27 +12,27 @@
 #' - stores both the snapshot (`locked_data`) and the analysis outputs (`results`)
 #'
 #' Use `run()` to execute the simulation. Trigger conditions are built with
-#' [`Condition`]`$new()` (or helpers [`trigger_by_calendar()`] /
-#' [`trigger_by_fraction()`]) and stored in `trial$conditions`.
+#' [`Condition`]`$new()` (or helpers [`condition_calendar_time()`] /
+#' [`condition_enrollment_fraction()`]) and stored in `trial$conditions`.
 #'
-#' @seealso [Population], [Timer], [Condition], [prettify_results()],
+#' @seealso [Population], [Timer], [Condition], [collect_results()],
 #'   [replicate_trial()], [clone_trial()].
 #'
 #' @examples
 #' # Create two populations
-#' popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-#' popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+#' popA <- Population$new("A", data = as_population_data(rnorm(10)))
+#' popB <- Population$new("B", data = as_population_data(rnorm(12)))
 #'
 #' # Create a timer and add timepoints
 #' t <- Timer$new("Timer")
-#' t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-#' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-#' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-#' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+#' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+#' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
 #'
-#' # Build a condition: fire at time 2 and count enrolled rows
+#' # Build a condition: fire at time >= 2 and count enrolled rows
 #' cond <- Condition$new(
-#'   where    = rlang::quos(.data$time %in% 2),
+#'   where    = calendar_trigger(2),
 #'   analysis = function(df, current_time) nrow(df),
 #'   name     = "final"
 #' )
@@ -49,7 +49,7 @@
 #' # Run the simulation
 #' trial$run()
 #'
-#' prettify_results(trial$results)
+#' collect_results(trial)
 #'
 #' @export
 
@@ -97,7 +97,7 @@ Trial <- R6::R6Class(
     #' t <- Timer$new(name="simple_timer")
     #' pop <- Population$new(
     #'   name = "simple_pop",
-    #'   data = vector_to_dataframe(rnorm(5))
+    #'   data = as_population_data(rnorm(5))
     #' )
     #' pop$set_enrolled(5, 1)
     #' Trial$new(name = "simple_trial", timer=t, population = list(pop))
@@ -136,8 +136,8 @@ Trial <- R6::R6Class(
           timepoints <- data.frame(
             time = unlist(lapply(population, function(x) x$enrolled), recursive = FALSE),
             arm = rep(sapply(population, function(x) x$name), sapply(population, function(x) x$n)),
-            enroller = 1L,
-            dropper = 0L
+            enroll = 1L,
+            drop = 0L
           )
           add_timepoints(timer, timepoints)
           self$timer <- timer
@@ -168,19 +168,19 @@ Trial <- R6::R6Class(
     #'
     #' @return Updates `locked_data` and `results` fields.
     #'
-    #' @seealso [Timer], [Condition], [prettify_results()].
+    #' @seealso [Timer], [Condition], [collect_results()].
     #'
     #' @examples
     #' # Create two populations
-    #' popA <- Population$new("A", data = vector_to_dataframe(rnorm(10)))
-    #' popB <- Population$new("B", data = vector_to_dataframe(rnorm(12)))
+    #' popA <- Population$new("A", data = as_population_data(rnorm(10)))
+    #' popB <- Population$new("B", data = as_population_data(rnorm(12)))
     #'
     #' # Create a timer and add timepoints
     #' t <- Timer$new("Timer")
-    #' t$add_timepoint(time = 1, arm = "A", dropper = 0L, enroller = 4L)
-    #' t$add_timepoint(time = 1, arm = "B", dropper = 0L, enroller = 5L)
-    #' t$add_timepoint(time = 2, arm = "A", dropper = 1L, enroller = 2L)
-    #' t$add_timepoint(time = 2, arm = "B", dropper = 2L, enroller = 3L)
+    #' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
+    #' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
+    #' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
+    #' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
     #'
     #' # Create a trial
     #' trial <- Trial$new(
@@ -193,7 +193,7 @@ Trial <- R6::R6Class(
     #' # Run the simulation
     #' trial$run()
     #'
-    #' prettify_results(trial$results)
+    #' collect_results(trial)
     run = function() {
       if (is.null(self$timer) || length(self$population) == 0) {
         stop("Timer and population list must be set before running run()")
@@ -210,15 +210,15 @@ Trial <- R6::R6Class(
         for (p in self$population) {
           idx <- which(plan_df$arm == p$name & plan_df$time == i)
           if (length(idx) > 0L) {
-            enroller_n <- as.integer(sum(plan_df$enroller[idx], na.rm = TRUE))
-            dropper_n <- as.integer(sum(plan_df$dropper[idx], na.rm = TRUE))
+            enroll_n <- as.integer(sum(plan_df$enroll[idx], na.rm = TRUE))
+            drop_n <- as.integer(sum(plan_df$drop[idx], na.rm = TRUE))
 
-            if (enroller_n > 0L && sum(is.na(p$enrolled)) > 0L) {
-              p$set_enrolled(enroller_n, time = i)
+            if (enroll_n > 0L && sum(is.na(p$enrolled)) > 0L) {
+              p$set_enrolled(enroll_n, time = i)
             }
 
-            if (dropper_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
-              p$set_dropped(dropper_n, time = i)
+            if (drop_n > 0L && sum(is.na(p$dropped) & !is.na(p$enrolled)) > 0L) {
+              p$set_dropped(drop_n, time = i)
             }
           }
         }

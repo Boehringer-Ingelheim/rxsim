@@ -1,0 +1,307 @@
+---
+title: "Population: Subject-Level Data and Enrollment Tracking"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Population: Subject-Level Data and Enrollment Tracking}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+library(rxsim)
+```
+
+## What is a Population?
+
+A `Population` is the subject-level state for one trial arm. It owns the arm's
+endpoint data and two tracking vectors: one for enrollment times and one for
+dropout times. In practice, it is the object that answers three questions at
+once: who belongs to this arm, what data does each subject contribute, and what
+has happened to each subject so far?
+
+The example below starts with a single-readout arm. No subject has enrolled or
+dropped yet, so both state vectors start as `NA`.
+
+```{r mental-model}
+set.seed(1001)
+
+subject_data <- data.frame(
+  id = 1:4,
+  readout_time = 0,
+  response = c(11.2, 9.8, 10.5, 12.1)
+)
+
+pop <- Population$new(name = "active", data = subject_data)
+
+list(
+  arm = pop$name,
+  subjects = pop$n,
+  readouts_per_subject = pop$n_readouts,
+  enrolled = pop$enrolled,
+  dropped = pop$dropped
+)
+```
+
+## Data frame format
+
+`Population$data` must be a data frame with three structural columns plus at
+least one endpoint column.
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| `id` | integer | Unique subject identifier within the arm |
+| `arm` | character | Arm label; auto-filled from `name` if absent |
+| `readout_time` | numeric | Time from enrollment to the readout |
+| endpoint | any | At least one endpoint column such as `response` |
+
+`readout_time` is relative to enrollment, not calendar time. A subject can have
+one row or several rows, depending on how many scheduled readouts you need to
+store.
+
+Here `subject_data` omitted `arm`, so `Population$new()` filled it in from the
+object name.
+
+```{r data-format}
+pop$data
+```
+
+## Creating a Population
+
+You can construct a `Population` directly from a data frame when you already
+have subject-level rows. For quick single-endpoint examples,
+`as_population_data()` is a compact shortcut that creates `id`, `data`, and
+`readout_time` so that `Population$new()` can fill the arm label.
+
+The first object reuses the explicit data frame from above. The second shows the
+vector shortcut for a placebo arm.
+
+```{r creating}
+pop_df <- Population$new(name = "active", data = subject_data)
+
+pop_vector <- Population$new(
+  name = "placebo",
+  data = as_population_data(c(8.7, 9.1, 8.9, 9.4))
+)
+
+pop_df$data
+pop_vector$data
+```
+
+## Enrollment and dropout tracking
+
+The `enrolled` and `dropped` fields are numeric vectors with one entry per
+subject. `NA` means the event has not happened yet. `set_enrolled(n, time)`
+randomly chooses `n` currently unenrolled subjects and stamps them with an
+enrollment time. `set_dropped(n, time)` randomly chooses from subjects who are
+enrolled and not yet dropped.
+
+A step-by-step example makes the bookkeeping visible.
+
+```{r enrollment-dropout}
+set.seed(2024)
+
+state_0 <- data.frame(
+  id = seq_len(pop$n),
+  enrolled = pop$enrolled,
+  dropped = pop$dropped
+)
+
+pop$set_enrolled(n = 2, time = 1)
+state_1 <- data.frame(
+  id = seq_len(pop$n),
+  enrolled = pop$enrolled,
+  dropped = pop$dropped
+)
+
+pop$set_enrolled(n = 1, time = 3)
+state_2 <- data.frame(
+  id = seq_len(pop$n),
+  enrolled = pop$enrolled,
+  dropped = pop$dropped
+)
+
+pop$set_dropped(n = 1, time = 5)
+state_3 <- data.frame(
+  id = seq_len(pop$n),
+  enrolled = pop$enrolled,
+  dropped = pop$dropped
+)
+
+state_0
+state_1
+state_2
+state_3
+```
+
+## Multiple readout times
+
+When a subject contributes more than one scheduled measurement, store multiple
+rows for the same `id`. `Population$n` still counts unique subjects, while
+`Population$n_readouts` records how many rows belong to each subject.
+
+The data below uses two readouts per subject: one at enrollment and one eight
+units later.
+
+```{r multiple-readouts}
+multi_readout_data <- data.frame(
+  id = rep(1:4, each = 2),
+  readout_time = rep(c(0, 8), times = 4),
+  response = c(11.2, 10.8, 9.8, 9.4, 10.5, 10.0, 12.1, 11.6)
+)
+
+multi_pop <- Population$new(name = "active", data = multi_readout_data)
+
+multi_pop$n
+multi_pop$n_readouts
+multi_pop$data
+```
+
+## Endpoint types
+
+`Population` itself is endpoint-agnostic: it stores rows and metadata, not a
+special endpoint class. Endpoint type is determined by which endpoint columns
+you include in the data frame.
+
+| Endpoint type | Typical data construction | Example column |
+|---|---|---|
+| Continuous | `rnorm()` draws in a numeric column | `response` |
+| Binary | `rbinom(..., size = 1, prob = p)` as 0/1 | `response_bin` |
+| Time-to-event | `rexp()` / Weibull draws for event times | `tte` |
+
+This matters because the analysis function in each `Condition` must match the
+endpoint scale: t-test or linear model for continuous endpoints, proportion or
+logistic methods for binary endpoints, and survival methods for time-to-event
+outcomes.
+
+```{r endpoint-types}
+set.seed(4040)
+
+pop_cont <- Population$new(
+  name = "cont",
+  data = data.frame(
+    id = 1:5,
+    response = rnorm(5, mean = 0, sd = 1),
+    readout_time = 1
+  )
+)
+
+pop_bin <- Population$new(
+  name = "bin",
+  data = data.frame(
+    id = 1:5,
+    response_bin = rbinom(5, size = 1, prob = 0.35),
+    readout_time = 1
+  )
+)
+
+pop_tte <- Population$new(
+  name = "tte",
+  data = data.frame(
+    id = 1:5,
+    tte = rexp(5, rate = 0.2),
+    readout_time = 1
+  )
+)
+
+names(pop_cont$data)
+names(pop_bin$data)
+names(pop_tte$data)
+```
+
+## Role in Trial
+
+`Population` is one arm-level building block inside `Trial`. At each timer
+update, `Trial$run()` calls `set_enrolled()` and `set_dropped()` for each arm,
+then builds a locked snapshot from the currently enrolled subjects. That
+snapshot carries forward the original population columns and adds
+`enroll_time`, `drop_time`, `measurement_time`, and the current trial `time`.
+
+This example defines one simple analysis so that the trial stores a
+`locked_data` snapshot at calendar time 5.
+
+```{r role-in-trial}
+set.seed(303)
+
+trial_pop <- Population$new(name = "active", data = subject_data)
+
+timer <- Timer$new(name = "population_timer")
+timer$add_timepoint(time = 1, arm = "active", enroll = 2L, drop = 0L)
+timer$add_timepoint(time = 3, arm = "active", enroll = 1L, drop = 0L)
+timer$add_timepoint(time = 5, arm = "active", enroll = 0L, drop = 1L)
+
+snapshot_condition <- Condition$new(
+  where = calendar_trigger(5),
+  analysis = function(df, current_time) {
+    data.frame(
+      current_time = current_time,
+      n_subjects = length(unique(df$id))
+    )
+  },
+  name = "snapshot"
+)
+
+trial <- Trial$new(
+  name = "population_trial",
+  seed = 303,
+  timer = timer,
+  population = list(trial_pop),
+  conditions = list(snapshot_condition)
+)
+
+trial$run()
+
+trial$locked_data$time_5[
+  , c(
+    "id",
+    "arm",
+    "readout_time",
+    "response",
+    "enroll_time",
+    "drop_time",
+    "measurement_time",
+    "time"
+  )
+]
+
+trial$results$time_5$snapshot
+```
+
+## Tips and gotchas
+
+A few rules matter when you build populations by hand. `id` should identify the
+subject, not the row, so repeated readouts reuse the same `id`. Omitting `arm`
+is fine because `Population$new()` fills it from `name`. Finally, the data frame
+must have at least four columns after `arm` is added: the three structural
+columns and at least one endpoint column.
+
+The checks below summarise those rules on the objects already created above.
+
+```{r tips-gotchas}
+data.frame(
+  check = c(
+    "Unique subjects in multi_pop",
+    "Rows per subject in multi_pop",
+    "Arm auto-filled in pop",
+    "Minimum column count met"
+  ),
+  value = c(
+    multi_pop$n,
+    paste(unique(as.integer(table(multi_pop$data$id))), collapse = ", "),
+    all(pop$data$arm == pop$name),
+    ncol(pop$data) >= 4
+  )
+)
+```
+
+## Next steps
+
+To see how `Population` fits into the broader workflow, continue with:
+
+- [Enrollment and Dropout](enrollment.html): stochastic and deterministic enrollment, Timer reference
+- [Trial reference](../reference/Trial.html): orchestration across population,
+  timer, and conditions

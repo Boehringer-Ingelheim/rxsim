@@ -3,7 +3,7 @@
 test_that("value_trigger: returns rxsim_trigger with correct fields", {
   t <- value_trigger("time", ">=", 52)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "value")
   expect_equal(t$col, "time")
   expect_equal(t$op, ">=")
@@ -13,7 +13,7 @@ test_that("value_trigger: returns rxsim_trigger with correct fields", {
 test_that("value_trigger: accepts vector rhs", {
   t <- value_trigger("time", "%in%", c(26, 52))
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$rhs, c(26, 52))
 })
 
@@ -37,7 +37,7 @@ test_that("value_trigger: errors on non-atomic rhs", {
 test_that("count_trigger: returns rxsim_trigger with correct fields", {
   t <- count_trigger("enroll_time", ">=", 100)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "count")
   expect_equal(t$col, "enroll_time")
   expect_equal(t$op, ">=")
@@ -59,7 +59,7 @@ test_that("count_trigger: errors on invalid col and op", {
 test_that("enroll_trigger: wraps count_trigger with enroll_time", {
   t <- enroll_trigger(0.5, 200)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "count")
   expect_equal(t$col, "enroll_time")
   expect_equal(t$op, ">=")
@@ -87,16 +87,15 @@ test_that("enroll_trigger: errors when arguments missing", {
 test_that("calendar_trigger: wraps value_trigger with time column", {
   t <- calendar_trigger(52)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$type, "value")
   expect_equal(t$col, "time")
-  expect_equal(t$op, "%in%")
+  expect_equal(t$op, ">=")
   expect_equal(t$rhs, 52)
 })
 
-test_that("calendar_trigger: accepts vector of times", {
-  t <- calendar_trigger(c(26, 52))
-  expect_equal(t$rhs, c(26, 52))
+test_that("calendar_trigger: errors on vector of times", {
+  expect_error(calendar_trigger(c(26, 52)), "`cal_time` must be a single numeric value")
 })
 
 test_that("calendar_trigger: errors on non-numeric", {
@@ -106,38 +105,38 @@ test_that("calendar_trigger: errors on non-numeric", {
 
 # ── &.rxsim_trigger / |.rxsim_trigger ────────────────────────────────────────
 
-test_that("& produces rxsim_trigger with AND combinator", {
+test_that("& produces trigger with AND combinator", {
   t <- enroll_trigger(0.5, 200) & calendar_trigger(52)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$combinator, "&")
   expect_length(t$predicates, 2L)
 })
 
-test_that("| produces rxsim_trigger with OR combinator", {
+test_that("| produces trigger with OR combinator", {
   t <- enroll_trigger(0.5, 200) | calendar_trigger(26)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$combinator, "|")
-  expect_s3_class(t$left,  "rxsim_trigger")
-  expect_s3_class(t$right, "rxsim_trigger")
+  expect_s3_class(t$left,  "trigger")
+  expect_s3_class(t$right, "trigger")
 })
 
-test_that("& and | error when operand is not rxsim_trigger", {
+test_that("& and | error when operand is not trigger", {
   t <- enroll_trigger(0.5, 200)
-  expect_error(t & "not a trigger", "rxsim_trigger")
-  expect_error(t | 42,              "rxsim_trigger")
+  expect_error(t & "not a trigger", "trigger")
+  expect_error(t | 42,              "trigger")
 })
 
 test_that("triggers compose nested: (A & B) | C", {
   t <- (enroll_trigger(0.5, 200) & calendar_trigger(52)) | value_trigger("time", ">=", 100)
 
-  expect_s3_class(t, "rxsim_trigger")
+  expect_s3_class(t, "trigger")
   expect_equal(t$combinator, "|")
   expect_equal(t$left$combinator, "&")
 })
 
-# ── Condition$new with rxsim_trigger ─────────────────────────────────────────
+# ── Condition$new with trigger ───────────────────────────────────────────────
 
 test_that("Condition$new: rxsim_trigger value_trigger produces correct quosure", {
   trig <- value_trigger("time", ">=", 52)
@@ -220,36 +219,36 @@ test_that("Condition$new OR quosure: either condition fires", {
   expect_equal(result$time, c(1L, 2L, 4L, 5L))
 })
 
-# ── trigger_by_calendar ───────────────────────────────────────────────────────
+# ── condition_calendar_time ───────────────────────────────────────────────────────
 
-test_that("trigger_by_calendar: returns Condition firing at correct time", {
-  cond <- trigger_by_calendar(cal_time = 3, analysis = function(df, t) nrow(df))
+test_that("condition_calendar_time: returns Condition firing at correct time", {
+  cond <- condition_calendar_time(cal_time = 3, analysis = function(df, t) nrow(df))
 
   df <- data.frame(time = 1:5, enroll_time = rep(1, 5))
   expect_length(cond$check_conditions(df, 3L), 1L)
   expect_length(cond$check_conditions(df, 4L), 0L)
 })
 
-test_that("trigger_by_calendar: default name contains cal_time", {
-  cond <- trigger_by_calendar(52)
+test_that("condition_calendar_time: default name contains cal_time", {
+  cond <- condition_calendar_time(52)
   expect_match(cond$name, "52")
 })
 
-test_that("trigger_by_calendar: custom name is used", {
-  cond <- trigger_by_calendar(52, name = "final")
+test_that("condition_calendar_time: custom name is used", {
+  cond <- condition_calendar_time(52, name = "final")
   expect_equal(cond$name, "final")
 })
 
-test_that("trigger_by_calendar: analysis function is stored", {
+test_that("condition_calendar_time: analysis function is stored", {
   fn   <- function(df, t) nrow(df)
-  cond <- trigger_by_calendar(52, analysis = fn)
+  cond <- condition_calendar_time(52, analysis = fn)
   expect_identical(cond$analysis, fn)
 })
 
-# ── trigger_by_fraction ───────────────────────────────────────────────────────
+# ── condition_enrollment_fraction ───────────────────────────────────────────────────────
 
-test_that("trigger_by_fraction: returns Condition firing at correct enrollment", {
-  cond <- trigger_by_fraction(fraction = 0.5, sample_size = 4, analysis = function(df, t) nrow(df))
+test_that("condition_enrollment_fraction: returns Condition firing at correct enrollment", {
+  cond <- condition_enrollment_fraction(fraction = 0.5, sample_size = 4, analysis = function(df, t) nrow(df))
 
   df_below <- data.frame(enroll_time = c(1, NA, NA, NA))   # 1/4 enrolled
   df_above <- data.frame(enroll_time = c(1,  2, NA, NA))   # 2/4 enrolled
@@ -258,14 +257,14 @@ test_that("trigger_by_fraction: returns Condition firing at correct enrollment",
   expect_length(cond$check_conditions(df_above, 2), 1L)
 })
 
-test_that("trigger_by_fraction: default name contains fraction", {
-  cond <- trigger_by_fraction(0.5, 100)
+test_that("condition_enrollment_fraction: default name contains fraction", {
+  cond <- condition_enrollment_fraction(0.5, 100)
   expect_match(cond$name, "0.5")
 })
 
-test_that("trigger_by_fraction: errors on missing arguments", {
-  expect_error(trigger_by_fraction(0.5),       "`fraction` and `sample_size`")
-  expect_error(trigger_by_fraction(sample_size = 100), "`fraction` and `sample_size`")
+test_that("condition_enrollment_fraction: errors on missing arguments", {
+  expect_error(condition_enrollment_fraction(0.5),       "`fraction` and `sample_size`")
+  expect_error(condition_enrollment_fraction(sample_size = 100), "`fraction` and `sample_size`")
 })
 
 # ── replicate_trial: security gate ───────────────────────────────────────────
@@ -281,11 +280,11 @@ test_that("replicate_trial: rejects raw quosures as trigger", {
   ))
   expect_error(
     replicate_trial("t", 10L, "A", 1, function(n) rexp(n, 1), function(n) rep(Inf, n), ag, make_pop_gen(), 1L),
-    "rxsim_trigger"
+    "trigger"
   )
 })
 
-test_that("replicate_trial: accepts rxsim_trigger and builds Condition", {
+test_that("replicate_trial: accepts trigger and builds Condition", {
   set.seed(1)
   ag <- list(final = list(
     trigger  = enroll_trigger(1.0, 10L),

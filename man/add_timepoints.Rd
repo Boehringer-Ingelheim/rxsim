@@ -10,7 +10,7 @@ add_timepoints(timer, df)
 \item{timer}{\code{\link{Timer}} instance.}
 
 \item{df}{\code{data.frame} with columns: \code{time} (numeric), \code{arm} (character),
-\code{enroller} (integer), \code{dropper} (integer).}
+\code{enroll} (integer), \code{drop} (integer).}
 }
 \description{
 Adds multiple enrollment and dropout events from a data frame.
@@ -21,12 +21,12 @@ t <- Timer$new(name = "Timer")
 timepoints <- data.frame(
   time = c(1, 2, 3.1, 4, 5, 6),
   arm = rep("Arm A", 6),
-  dropper = c(2L, rep(1L, 5)),
-  enroller = rep(3L, 6)
+  drop = c(2L, rep(1L, 5)),
+  enroll = rep(3L, 6)
 )
 
 add_timepoints(t, timepoints)
 }
 \seealso{
-\link{Timer}, \code{\link[=gen_plan]{gen_plan()}}, \code{\link[=gen_timepoints]{gen_timepoints()}}.
+\link{Timer}, \code{\link[=stochastic_schedule]{stochastic_schedule()}}, \code{\link[=deterministic_schedule]{deterministic_schedule()}}.
 }

@@ -11,7 +11,7 @@
 #'
 #' @examples
 #' # Basic example: vector input
-#' pop <- Population$new(name = "Control", data = vector_to_dataframe(rnorm(10)))
+#' pop <- Population$new(name = "Control", data = as_population_data(rnorm(10)))
 #'
 #' pop$n # number of subjects
 #' head(pop$data) # generated subject-level data
@@ -23,8 +23,28 @@
 #' pop$set_dropped(n = 2, time = 3)
 #'
 #' # Reset underlying data
-#' pop$set_data(vector_to_dataframe(rnorm(8)))
+#' pop$set_data(as_population_data(rnorm(8)))
 #'
+.validate_population_data <- function(data, arm_name) {
+  if (!("arm" %in% names(data))) {
+    data$arm <- arm_name
+  }
+
+  required_cols <- c("id", "arm", "readout_time")
+  missing_cols <- setdiff(required_cols, names(data))
+  if (length(missing_cols) > 0L) {
+    stop(sprintf(
+      "Data frame is missing required columns: %s",
+      paste(missing_cols, collapse = ", ")
+    ))
+  }
+  if (length(names(data)) < 4L) {
+    stop("Data frame is missing endpoint data.")
+  }
+
+  data
+}
+
 #' @export
 Population <- R6::R6Class(
   classname = "Population",
@@ -68,7 +88,7 @@ Population <- R6::R6Class(
     #' @return A new `Population` instance.
     #'
     #' @examples
-    #' Population$new(name = "Intervention", data = vector_to_dataframe(rnorm(5)))
+    #' Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
     initialize = function(
       name,
       data = NULL,
@@ -79,35 +99,15 @@ Population <- R6::R6Class(
     ) {
       stopifnot(is.character(name))
       self$name <- name
-      if (!("arm" %in% names(data))) {
-        data$arm <- name
-      }
-
-      # Check required data frame columns
-      col_names <- c("id", "arm", "readout_time")
-      missing_cols <- setdiff(col_names, names(data))
-      if (length(missing_cols) > 0) {
-        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
-      }
-      if (length(names(data)) < 4) {
-        stop(sprintf("Data frame is missing endpoint data."))
-      }
+      data <- .validate_population_data(data, arm_name = name)
 
       self$data <- data
       self$n <- length(unique(self$data$id))
       self$n_readouts <- as.integer((nrow(self$data) / self$n))
 
       # Initialize enrollment/dropout status if not provided
-      ifelse(
-        is.null(enrolled),
-        self$enrolled <- rep(NA_real_, self$n),
-        self$enrolled <- enrolled
-      )
-      ifelse(
-        is.null(dropped),
-        self$dropped <- rep(NA_real_, self$n),
-        self$dropped <- dropped
-      )
+      self$enrolled <- if (is.null(enrolled)) rep(NA_real_, self$n) else enrolled
+      self$dropped <- if (is.null(dropped)) rep(NA_real_, self$n) else dropped
     },
 
     # --- methods ---
@@ -122,7 +122,7 @@ Population <- R6::R6Class(
     #' @seealso [Population], [Trial].
     #'
     #' @examples
-    #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+    #' pop <- Population$new("Test", as_population_data(rnorm(10)))
     #' pop$set_enrolled(n = 4, time = 2)
     set_enrolled = function(n, time) {
       # input validation
@@ -152,7 +152,7 @@ Population <- R6::R6Class(
     #' @seealso [Population], [Trial].
     #'
     #' @examples
-    #' pop <- Population$new("Test", vector_to_dataframe(rnorm(10)))
+    #' pop <- Population$new("Test", as_population_data(rnorm(10)))
     #' pop$set_enrolled(n = 5, time = 1)
     #' pop$set_dropped(n = 2, time = 3)
     set_dropped = function(n, time) {
@@ -164,6 +164,12 @@ Population <- R6::R6Class(
 
       # Don't drop more subjects than eligible (enrolled and not yet dropped)
       idx <- which(is.na(self$dropped) & !is.na(self$enrolled))
+      if (n > length(idx)) {
+        warning(sprintf(
+          "Requested %d dropouts but only %d enrolled; dropping %d subject(s).",
+          n, length(idx), length(idx)
+        ))
+      }
       n_use <- min(n, length(idx))
       if (n_use == 0L) return(invisible(self))
 
@@ -181,7 +187,7 @@ Population <- R6::R6Class(
     #' @seealso [Population].
     #'
     #' @examples
-    #' pop <- Population$new("ResetDemo", vector_to_dataframe(rnorm(5)))
+    #' pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
     #' pop$set_data(
     #'   data.frame(
     #'     id = 1:8,
@@ -191,19 +197,7 @@ Population <- R6::R6Class(
     #'   )
     #' )
     set_data = function(data) {
-      if (!("arm" %in% names(data))) {
-        data$arm <- self$name
-      }
-
-      # Check required data frame columns
-      col_names <- c("id", "arm", "readout_time")
-      missing_cols <- setdiff(col_names, names(data))
-      if (length(missing_cols) > 0) {
-        stop(sprintf("Data frame is missing required columns: %s", paste(missing_cols, sep = ", ")))
-      }
-      if (length(names(data)) < 4) {
-        stop(sprintf("Data frame is missing endpoint data."))
-      }
+      data <- .validate_population_data(data, arm_name = self$name)
 
       self$data <- data
       self$n <- length(unique(self$data$id))
