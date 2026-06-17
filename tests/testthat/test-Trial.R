@@ -70,7 +70,7 @@ test_that("Trial initialize: auto-builds timer from pre-enrolled population", {
   trial <- Trial$new(name = "auto_timer", timer = NULL, population = list(pop))
 
   testthat::expect_false(is.null(trial$timer))
-  testthat::expect_true(length(trial$timer$timelist) > 0)
+  testthat::expect_true(nrow(trial$timer$timelist) > 0L)
 })
 
 ### run() ###
@@ -102,6 +102,28 @@ test_that("Trial run: measurement_time equals readout_time + enroll_time", {
 
   snap <- trial$locked_data[["time_1"]]
   testthat::expect_equal(snap$measurement_time, snap$readout_time + snap$enroll_time)
+})
+
+test_that("Trial run: empty snapshot timepoints are skipped and later snapshots still store", {
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 0, arm = "A", enroll = 0L, drop = 0L)
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  pop <- Population$new("A", as_population_data(rnorm(5)))
+  cal_cond_0 <- condition_calendar_time(0, analysis = function(df, ct) df)
+  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+  trial <- Trial$new(
+    name = "empty_snapshot_guard",
+    timer = timer,
+    population = list(pop),
+    conditions = list(cal_cond_0, cal_cond_1)
+  )
+
+  testthat::expect_no_error(trial$run())
+  testthat::expect_false("time_0" %in% names(trial$locked_data))
+  testthat::expect_false("time_0" %in% names(trial$results))
+  testthat::expect_true("time_1" %in% names(trial$locked_data))
+  testthat::expect_true("time_1" %in% names(trial$results))
+  testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
 })
 
 test_that("Trial run: only enrolled subjects appear in snapshot", {

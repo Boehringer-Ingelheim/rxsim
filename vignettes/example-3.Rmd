@@ -233,7 +233,7 @@ and compare the Dunnett and MCP-Mod rejection rates.
 
 ```{r power_dose, cache=TRUE}
 set.seed(55)
-n_reps_pw <- 100
+n_reps_pw <- 10
 emax_vals <- c(0.5, 1.0, 1.5, 2.0)
 
 pw_df5 <- do.call(rbind, lapply(emax_vals, function(em) {

@@ -1,8 +1,8 @@
 #' Timer: Track timed events across arms
 #'
 #' @description
-#' A class to collect and query _timepoints_  -  time-based enrollment and
-#' dropout events  -  across trial arms.
+#' A class to collect and query _timepoints_ - time-based enrollment and
+#' dropout events - across trial arms.
 #'
 #' Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
 #' `get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
@@ -34,8 +34,7 @@
 #' t$get_end_timepoint() # max time => 2
 #' t$get_n_arms()        # unique arms => 2
 #' t$get_unique_times()  # unique times => c(1, 2)
-#' t$get_timepoint("A", 1) # returns a single timepoint
-
+#' t$get_timepoint("A", 1) # returns a single-row data.frame
 #'
 #' @importFrom rlang enquos
 #' @importFrom dplyr filter
@@ -43,40 +42,46 @@
 Timer <- R6::R6Class(
   classname = "Timer",
   public = list(
-    # --- fields ---
     #' @field name `character` Unique identifier for the `Timer` instance.
     name = NULL,
 
-    #' @field timelist `list` A list of timepoints. Each timepoint is a list with keys:
+    #' @field timelist `data.frame` A data.frame of timepoints with columns:
     #' - `time` `numeric` Calendar time
     #' - `arm` `character` Unique identifier of the arm
     #' - `drop` `integer` # of subjects dropped at `time`
     #' - `enroll` `integer` # of subjects enrolled at `time`
     timelist = NULL,
 
-    # --- constructor ---
     #' @description
     #' Create a new `Timer` instance.
     #'
     #' @param name `character` Unique identifier.
-    #' @param timelist `list` Optional list of timepoints.
+    #' @param timelist `data.frame` Optional data.frame of timepoints with columns
+    #'   `time`, `arm`, `drop`, `enroll`. If `NULL`, an empty frame is created.
     #'
     #' @return A new `Timer` instance.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    initialize = function(
-      name,
-      timelist = NULL
-    ) {
+    initialize = function(name, timelist = NULL) {
       stopifnot(is.character(name))
       self$name <- name
-      self$timelist <- if (is.null(timelist)) list() else timelist
+      if (is.null(timelist)) {
+        self$timelist <- data.frame(
+          time   = numeric(0),
+          arm    = character(0),
+          drop   = integer(0),
+          enroll = integer(0),
+          stringsAsFactors = FALSE
+        )
+      } else {
+        stopifnot(is.data.frame(timelist))
+        self$timelist <- timelist
+      }
     },
 
-    # --- methods ---
     #' @description
-    #' Add a timepoint to a timer.
+    #' Add a timepoint to the timer.
     #'
     #' @param time `numeric` Calendar time.
     #' @param arm `character` Arm identifier.
@@ -85,16 +90,19 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(
-    #'   time = 1,
-    #'   arm = "A",
-    #'   drop = 1L,
-    #'   enroll = 3L
-    #' )
+    #' t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 3L)
     add_timepoint = function(time, arm, drop, enroll) {
       stopifnot(is.integer(drop), is.integer(enroll))
-      tp <- list(time = time, arm = arm, drop = drop, enroll = enroll)
-      self$timelist <- append(self$timelist, list(tp))
+      self$timelist <- rbind(
+        self$timelist,
+        data.frame(
+          time = time,
+          arm = arm,
+          drop = drop,
+          enroll = enroll,
+          stringsAsFactors = FALSE
+        )
+      )
       invisible(self)
     },
 
@@ -106,9 +114,8 @@ Timer <- R6::R6Class(
     #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     #' t$get_end_timepoint()
     get_end_timepoint = function() {
-      max(sapply(self$timelist, function(x) {
-        x$time
-      }))
+      if (nrow(self$timelist) == 0L) stop("`timelist` is empty.")
+      max(self$timelist$time)
     },
 
     #' @description
@@ -117,11 +124,11 @@ Timer <- R6::R6Class(
     #' @return `integer` Number of unique arms.
     #'
     #' @examples
-     #' t <- Timer$new(name = "Timer")
+    #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     #' t$get_n_arms()
-    get_n_arms = function() length(unique(sapply(self$timelist, function(x) x$arm))),
+    get_n_arms = function() length(unique(self$timelist$arm)),
 
     #' @description
     #' Get unique timepoints.
@@ -129,48 +136,37 @@ Timer <- R6::R6Class(
     #' @return `numeric` vector of unique times.
     #'
     #' @examples
-     #' t <- Timer$new(name = "Timer")
+    #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
     #' t$get_unique_times()
-    get_unique_times = function() unique(sapply(self$timelist, function(x) x$time)),
+    get_unique_times = function() unique(self$timelist$time),
 
     #' @description
-    #' Get a timepoint by arm and index.
+    #' Get a timepoint by arm and time value.
     #'
     #' @param arm `character` Arm identifier.
-    #' @param i `integer` Timepoint index.
+    #' @param i `numeric` Time value to look up.
     #'
-     #' @return `list` timepoint or `NULL` if not found.
+    #' @return Single-row `data.frame` or `NULL` if not found.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
     #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-    #'
-    #' t$get_timepoint("A", 1)
+    #' t$get_timepoint("A", 3.14)
     get_timepoint = function(arm, i) {
-      # Basic validation
       if (missing(arm)) stop("`arm` is required.")
       if (missing(i)) stop("`i` is required.")
 
-      # Extract columns from list with type safety
-      times <- vapply(self$timelist, function(x) x$time, FUN.VALUE = numeric(1))
-      arms <- vapply(self$timelist, function(x) x$arm, FUN.VALUE = character(1))
+      idx <- which(self$timelist$time == i & self$timelist$arm == arm)
 
-      # Find matching indices
-      idx <- which(times == i & arms == arm)
-
-      # Handle match outcomes
-      if (length(idx) == 0L) {
-        return(NULL)
-      }
+      if (length(idx) == 0L) return(NULL)
       if (length(idx) > 1L) {
         stop(sprintf("Multiple timepoints found for arm = %s and time = %s.", arm, as.character(i)))
       }
 
-      self$timelist[[idx]]
+      self$timelist[idx, , drop = FALSE]
     }
-
-  ) # end public
-) # end class
+  )
+)

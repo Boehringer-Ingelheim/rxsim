@@ -1,3 +1,6 @@
+# ponytail: single source of truth for columns Trial$run augments onto a snapshot
+.SNAPSHOT_AUGMENTED_COLS <- c("subject_id", "enroll_time", "drop_time", "measurement_time", "time")
+
 #' Trial: Simulate a multi‑arm clinical trial
 #'
 #' @description
@@ -52,7 +55,6 @@
 #' collect_results(trial)
 #'
 #' @export
-
 Trial <- R6::R6Class(
   classname = "Trial",
   public = list(
@@ -127,7 +129,7 @@ Trial <- R6::R6Class(
         }
       }
 
-      if (is.null(timer) || length(timer$timelist) == 0) {
+      if (is.null(timer) || nrow(timer$timelist) == 0L) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
@@ -199,7 +201,12 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
-      plan_df <- dplyr::bind_rows(self$timer$timelist)
+      # ponytail: current model — stateful incremental sampling: at each timepoint,
+      # randomly pick n unenrolled subjects to enroll. Alternative: precompute
+      # per-subject enroll_time/drop_time at construction; snapshots become a
+      # vectorized filter (enroll_time <= t), no per-step sampling needed.
+
+      plan_df <- self$timer$timelist
       if (nrow(plan_df) == 0L) {
         return(invisible(self))
       }
@@ -234,13 +241,14 @@ Trial <- R6::R6Class(
         })
 
         combined <- do.call(rbind, locked_snapshot_list)
-        nr     <- self$population[[1]]$n_readouts
-        n_subj <- as.integer(nrow(combined) / nr)
-        combined$subject_id <- rep(seq_len(n_subj), each = nr)
-
         if (is.null(combined) || nrow(combined) == 0L) {
           next
         }
+
+        nr     <- self$population[[1]]$n_readouts
+        n_subj <- as.integer(nrow(combined) / nr)
+        # ponytail: columns added here are catalogued in .SNAPSHOT_AUGMENTED_COLS
+        combined$subject_id <- rep(seq_len(n_subj), each = nr)
 
         # Add measurement and current time column
         combined$measurement_time <- combined$readout_time + combined$enroll_time

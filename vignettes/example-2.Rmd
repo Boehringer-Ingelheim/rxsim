@@ -215,7 +215,7 @@ The following sweep quantifies marginal and joint power across four `rho` values
 
 ```{r power_corr, cache=TRUE}
 set.seed(43)
-n_reps_pw <- 200
+n_reps_pw <- 10
 rho_vals <- c(0.0, 0.3, 0.6, 0.9)
 
 pw_df3 <- do.call(rbind, lapply(rho_vals, function(r) {

@@ -1,5 +1,14 @@
 .trigger_ops <- c(">=", "<=", ">", "<", "==", "!=", "%in%")
 
+.check_col_op <- function(col, op) {
+  if (!is.character(col) || length(col) != 1L || is.na(col)) {
+    stop("`col` must be a single character string.")
+  }
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) {
+    stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  }
+}
+
 #' @name trigger_primitives
 #' @title Build Trial Triggers
 #' @description Create trigger specifications that can be passed to
@@ -22,8 +31,7 @@
 #' t2 <- count_trigger("enroll_time", ">=", 100)
 #' t3 <- enroll_trigger(0.5, 200) & calendar_trigger(52)
 value_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_col_op(col, op)
   if (!is.atomic(rhs)) {
     stop("`rhs` must be atomic for `value_trigger()`.")
   }
@@ -34,8 +42,7 @@ value_trigger <- function(col, op, rhs) {
 #' @rdname trigger_primitives
 #' @export
 count_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_col_op(col, op)
   if (!is.atomic(rhs) || !is.numeric(rhs)) {
     stop("`rhs` must be numeric for `count_trigger()`.")
   }

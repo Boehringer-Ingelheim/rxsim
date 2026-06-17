@@ -4,17 +4,25 @@ testthat::test_that("Timer initialize: creates instance with correct defaults", 
   t <- Timer$new(name = "test_timer")
 
   testthat::expect_equal(t$name, "test_timer")
-  testthat::expect_true(is.list(t$timelist))
-  testthat::expect_equal(length(t$timelist), 0L)
+  testthat::expect_true(is.data.frame(t$timelist))
+  testthat::expect_equal(nrow(t$timelist), 0L)
   testthat::expect_r6_class(t, "Timer")
 })
 
 testthat::test_that("Timer initialize: accepts custom timelist", {
-  tp <- list(list(time = 1, arm = "A", drop = 1L, enroll = 5L))
+  tp <- data.frame(
+    time = 1,
+    arm = "A",
+    drop = 1L,
+    enroll = 5L,
+    stringsAsFactors = FALSE
+  )
 
   t <- Timer$new(name = "t", timelist = tp)
 
-  testthat::expect_equal(length(t$timelist), 1L)
+  testthat::expect_true(is.data.frame(t$timelist))
+  testthat::expect_equal(nrow(t$timelist), 1L)
+  testthat::expect_equal(t$timelist$arm, "A")
 })
 
 testthat::test_that("Timer initialize: errors on non-character name", {
@@ -29,11 +37,11 @@ testthat::test_that("add_timepoint: appends a single timepoint", {
   t <- Timer$new(name = "t")
   t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
 
-  testthat::expect_equal(length(t$timelist), 1L)
-  testthat::expect_equal(t$timelist[[1]]$time, 1)
-  testthat::expect_equal(t$timelist[[1]]$arm, "A")
-  testthat::expect_equal(t$timelist[[1]]$drop, 2L)
-  testthat::expect_equal(t$timelist[[1]]$enroll, 10L)
+  testthat::expect_equal(nrow(t$timelist), 1L)
+  testthat::expect_equal(t$timelist$time[[1]], 1)
+  testthat::expect_equal(t$timelist$arm[[1]], "A")
+  testthat::expect_equal(t$timelist$drop[[1]], 2L)
+  testthat::expect_equal(t$timelist$enroll[[1]], 10L)
 })
 
 testthat::test_that("add_timepoint: appends multiple timepoints preserving order", {
@@ -42,9 +50,9 @@ testthat::test_that("add_timepoint: appends multiple timepoints preserving order
   t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 8L)
   t$add_timepoint(time = 3, arm = "A", drop = 0L, enroll = 3L)
 
-  testthat::expect_equal(length(t$timelist), 3L)
-  testthat::expect_equal(t$timelist[[2]]$arm, "B")
-  testthat::expect_equal(t$timelist[[3]]$time, 3)
+  testthat::expect_equal(nrow(t$timelist), 3L)
+  testthat::expect_equal(t$timelist$arm[[2]], "B")
+  testthat::expect_equal(t$timelist$time[[3]], 3)
 })
 
 testthat::test_that("add_timepoint: errors when drop is not integer", {
@@ -81,7 +89,7 @@ testthat::test_that("get_end_timepoint: works with a single timepoint", {
 
 testthat::test_that("get_end_timepoint: errors on empty timelist", {
   t <- Timer$new(name = "t")
-  testthat::expect_error(t$get_end_timepoint())
+  testthat::expect_error(t$get_end_timepoint(), "`timelist` is empty")
 })
 
 # Timer: get_n_arms
@@ -123,7 +131,8 @@ testthat::test_that("get_timepoint: returns matching timepoint", {
   t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
 
   tp <- t$get_timepoint("A", 1)
-  testthat::expect_true(is.list(tp))
+  testthat::expect_true(is.data.frame(tp))
+  testthat::expect_equal(nrow(tp), 1L)
   testthat::expect_equal(tp$time, 1)
   testthat::expect_equal(tp$arm, "A")
   testthat::expect_equal(tp$drop, 2L)
@@ -155,4 +164,3 @@ testthat::test_that("get_timepoint: errors when i is missing", {
   t <- Timer$new(name = "t")
   testthat::expect_error(t$get_timepoint(arm = "A"), "`i` is required")
 })
-

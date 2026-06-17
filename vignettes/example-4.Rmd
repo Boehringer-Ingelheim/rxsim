@@ -268,7 +268,7 @@ effects (false Go = type I error analog) and approaching 1 for large effects.
 
 ```{r go_curve, cache=TRUE}
 set.seed(77)
-n_reps_pw   <- 200
+n_reps_pw   <- 10
 delta_sweep <- c(0.0, 0.1, 0.2, 0.3, 0.4, 0.5)
 
 go_df <- do.call(rbind, lapply(delta_sweep, function(dt) {

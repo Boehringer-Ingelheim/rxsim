@@ -1,3 +1,35 @@
+.validate_schedule_common_args <- function(sample_size, arms, allocation) {
+  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
+    stop("`sample_size` must be a single positive number.")
+  }
+  if (!is.character(arms) || length(arms) == 0L) {
+    stop("`arms` must be a non-empty character vector.")
+  }
+  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
+    stop("`allocation` must be a numeric vector with same length as `arms`.")
+  }
+}
+
+.allocate_targets <- function(sample_size, arms, ratio) {
+  n_arms <- length(arms)
+  target <- as.integer(round(ratio * sample_size))
+  names(target) <- arms
+
+  diff <- sample_size - sum(target)
+  if (diff > 0L) {
+    add_idx <- sample(seq_len(n_arms), diff, replace = TRUE, prob = ratio)
+    target <- target + stats::setNames(tabulate(add_idx, nbins = n_arms), arms)
+  } else if (diff < 0L) {
+    remove_idx <- sample(seq_len(n_arms), -diff, replace = TRUE, prob = ratio)
+    target <- target - stats::setNames(tabulate(remove_idx, nbins = n_arms), arms)
+  }
+
+  if (any(target < 0L) || sum(target) != sample_size) {
+    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
+  }
+  target
+}
+
 #' Generate a Stochastic Enrollment and Dropout Schedule
 #'
 #' Creates a time-indexed schedule of enrollment and dropout events across
@@ -41,38 +73,6 @@
 #' @importFrom dplyr filter
 #' @importFrom dplyr select
 #' @importFrom dplyr arrange
-.validate_schedule_common_args <- function(sample_size, arms, allocation) {
-  if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
-    stop("`sample_size` must be a single positive number.")
-  }
-  if (!is.character(arms) || length(arms) == 0L) {
-    stop("`arms` must be a non-empty character vector.")
-  }
-  if (!is.numeric(allocation) || length(allocation) != length(arms)) {
-    stop("`allocation` must be a numeric vector with same length as `arms`.")
-  }
-}
-
-.allocate_targets <- function(sample_size, arms, ratio) {
-  n_arms <- length(arms)
-  target <- as.integer(round(ratio * sample_size))
-  names(target) <- arms
-
-  diff <- sample_size - sum(target)
-  if (diff > 0L) {
-    add_idx <- sample(seq_len(n_arms), diff, replace = TRUE, prob = ratio)
-    target <- target + stats::setNames(tabulate(add_idx, nbins = n_arms), arms)
-  } else if (diff < 0L) {
-    remove_idx <- sample(seq_len(n_arms), -diff, replace = TRUE, prob = ratio)
-    target <- target - stats::setNames(tabulate(remove_idx, nbins = n_arms), arms)
-  }
-
-  if (any(target < 0L) || sum(target) != sample_size) {
-    stop("Enrollment target generation failed: arm targets do not sum to sample_size.")
-  }
-  target
-}
-
 stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
 
   # Input validation

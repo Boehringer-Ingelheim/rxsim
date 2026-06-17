@@ -121,7 +121,7 @@ scales with effect size for n = 100 at alpha = 0.05.
 ```{r power_curve, cache=TRUE}
 set.seed(42)
 deltas     <- seq(0, 0.6, by = 0.15)
-n_reps_pw  <- 200
+n_reps_pw  <- 10
 
 power_df <- do.call(rbind, lapply(deltas, function(d) {
   sc <- tidyr::expand_grid(sample_size = sample_size, delta = d)
