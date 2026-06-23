@@ -32,15 +32,6 @@ articles:
     contents:
       - api-styles
 
-  - title: "Examples"
-    navbar: Examples
-    contents:
-      - example-1
-      - example-2
-      - example-3
-      - example-4
-      - example-5
-
 reference:
   - title: "Core classes"
     desc: "R6 classes that form the simulation building blocks"
