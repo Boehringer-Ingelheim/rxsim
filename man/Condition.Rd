@@ -79,19 +79,19 @@ On a successful trigger, \code{trigger_count} is incremented and
 }
 
 \examples{
-# Build a snapshot data frame
+# Build a snapshot data frame of enrolled subjects
 snapshot <- data.frame(
-  arm    = c("A", "A", "A", "B"),
-  status = c("active", "active", "active", "active"),
+  arm         = c("A", "A", "B"),
+  enroll_time = c(1, 2, 3),
   stringsAsFactors = FALSE
 )
 
-# Analysis function: count active subjects per arm
+# Analysis function: count enrolled subjects
 count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when 3+ subjects are active (max_triggers = 1)
+# Condition fires once when 3+ subjects are enrolled (max_triggers = 1)
 cond <- Condition$new(
   where        = count_trigger("enroll_time", ">=", 3L),
   analysis     = count_fn,
