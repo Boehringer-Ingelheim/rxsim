@@ -39,15 +39,6 @@ Depends:
 Suggests: 
     knitr,
     rmarkdown,
-    tibble,
-    tidyr,
-    MASS,
-    multcomp,
-    DoseFinding,
-    RBesT,
-    BayesianMCPMod,
-    survival,
-    ggplot2,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3
