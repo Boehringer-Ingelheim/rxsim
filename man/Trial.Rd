@@ -115,6 +115,12 @@ collect_results(trial)
 \item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
 
 \item{\code{results}}{\code{list} Analysis outputs per condition.}
+
+\item{\code{adaptive}}{\code{logical} When \code{FALSE} (default), uses the fixed fast path:
+enroll/drop times are precomputed deterministically before iteration,
+and snapshots are cheap prefix slices. When \code{TRUE}, uses the adaptive
+loop: enrollment and dropout are sampled incrementally at each
+timepoint, supporting designs where the schedule may change mid-trial.}
 }
 \if{html}{\out{</div>}}
 }
@@ -139,7 +145,8 @@ Create a new \code{Trial} instance.
   population = list(),
   locked_data = list(),
   conditions = list(),
-  results = list()
+  results = list(),
+  adaptive = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -159,6 +166,10 @@ Create a new \code{Trial} instance.
 \item{\code{conditions}}{\code{list} of \link{Condition} objects to evaluate at each timepoint.}
 
 \item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
+
+\item{\code{adaptive}}{\code{logical} When \code{FALSE} (default), uses the fixed fast path
+(deterministic precompute, prefix snapshots). When \code{TRUE}, uses the
+adaptive loop (incremental random sampling at each timepoint).}
 }
 \if{html}{\out{</div>}}
 }
@@ -186,20 +197,25 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 \subsection{Method \code{run()}}{
 Execute a trial simulation.
 
-At each unique time defined by the trial's \code{Timer}:
-\itemize{
-\item Apply enrollment and dropout actions to each \code{Population}
-\item Build a combined snapshot of all currently enrolled subjects
-\item Attach a \code{time} column to the snapshot
-\item Evaluate each \code{\link{Condition}} in \code{self$conditions} against the snapshot
-\item Store snapshots and condition outputs under time‑indexed list keys
-}
+Dispatches to the fixed fast path (\code{adaptive = FALSE}, default) or the
+adaptive loop (\code{adaptive = TRUE}). Both paths update \code{locked_data} and
+\code{results} fields with the same structure.
+
+\strong{Fixed path} (\code{adaptive = FALSE}): enroll/drop times are precomputed
+deterministically before iteration. Snapshots are cheap prefix slices of
+a single combined data frame. Conditions are evaluated with per-condition
+exhausted-skip.
+
+\strong{Adaptive loop} (\code{adaptive = TRUE}): enrollment and dropout are sampled
+randomly at each timepoint, supporting designs where the schedule may
+change mid-trial based on interim results.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Trial$run()}\if{html}{\out{</div>}}
 }
 
 \subsection{Returns}{
-Updates \code{locked_data} and \code{results} fields.
+Updates \code{locked_data} and \code{results} fields; returns \code{self}
+invisibly.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}

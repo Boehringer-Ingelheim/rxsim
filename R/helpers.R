@@ -25,12 +25,14 @@
 add_timepoints <- function(timer, df) {
   if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
   if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroll, drop")
-  required_cols <- c("time", "arm", "enroll", "drop")
+  required_cols <- c("time", "arm", "enroll")
   missing_cols <- setdiff(required_cols, names(df))
   if (length(missing_cols) > 0L) {
     stop(sprintf("Missing required columns in df: %s", paste(missing_cols, collapse = ", ")))
   }
-  timer$timelist <- rbind(timer$timelist, df[, required_cols])
+  if (!"drop" %in% names(df)) df$drop <- 0L
+  df$drop[is.na(df$drop)] <- 0L
+  timer$timelist <- rbind(timer$timelist, df[, c("time", "arm", "enroll", "drop")])
   invisible(timer)
 }
 
