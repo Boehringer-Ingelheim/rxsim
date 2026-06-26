@@ -299,20 +299,26 @@ test_that("Trial run: drop_time >= enroll_time for all dropped subjects", {
   testthat::expect_true(all(dropped$drop_time >= dropped$enroll_time))
 })
 
-test_that("Trial run: timepoints processed in sorted order regardless of insertion order", {
-  pop <- make_pop("A", 6, 1)
+test_that("Trial run: output is invariant to timepoint insertion order", {
+  # The engine sorts timepoints internally, so scrambled insertion must yield
+  # the same snapshots as ascending insertion. Compare the two directly: a
+  # snapshot keyed by insertion index instead of time would diverge here.
+  build <- function(times) {
+    pop <- make_pop("A", 6, 1)
+    timer <- Timer$new("t")
+    for (tm in times) timer$add_timepoint(time = tm, arm = "A", enroll = 3L, drop = 0L)
+    cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+    cal_cond_2 <- condition_calendar_time(3, analysis = function(df, ct) df)
+    trial <- Trial$new("order", seed = 123, timer = timer,
+                       population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
+    trial$run()
+    trial$locked_data
+  }
+  scrambled <- build(c(3, 1))
+  ascending <- build(c(1, 3))
 
-  timer_rev <- Timer$new("t_rev")
-  timer_rev$add_timepoint(time = 3, arm = "A", enroll = 3L, drop = 0L)
-  timer_rev$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
-  cal_cond_2 <- condition_calendar_time(3, analysis = function(df, ct) df)
-
-  trial <- Trial$new("sort_check", seed = 123, timer = timer_rev, population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
-  trial$run()
-
-  testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
-  testthat::expect_equal(nrow(trial$locked_data[["time_3"]]), 6L)
+  testthat::expect_equal(scrambled[["time_1"]], ascending[["time_1"]])
+  testthat::expect_equal(scrambled[["time_3"]], ascending[["time_3"]])
 })
 
 test_that("Trial run: duplicate time/arm timepoint rows are aggregated", {
@@ -476,6 +482,28 @@ test_that(".trigger_fire_time: count beyond n never fires (Inf)", {
   testthat::expect_equal(
     rxsim:::.trigger_fire_time(NULL, subj_enroll = 1:10), -Inf
   )
+})
+
+test_that(".trigger_fire_time: combinators and strict ops", {
+  e <- 1:10  # subj_enroll: k-th subject enrolls at time k
+
+  # & = max of children (both must hold): calendar>=3, count>=5 -> max(3, 5)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(
+      calendar_trigger(3) & count_trigger("enroll_time", ">=", 5L), e), 5)
+
+  # | = min of children (either fires): calendar>=8, count>=2 -> min(8, 2)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(
+      calendar_trigger(8) | count_trigger("enroll_time", ">=", 2L), e), 2)
+
+  # strict count `>` k uses the (k+1)-th enrollment: >5 -> subj_enroll[6]
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(count_trigger("enroll_time", ">", 5L), e), 6)
+
+  # strict calendar `>` rhs is treated conservatively as rhs (evaluate from rhs)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(value_trigger("time", ">", 4), e), 4)
 })
 
 test_that("fixed path: leading timepoints are actually skipped (not just correct)", {

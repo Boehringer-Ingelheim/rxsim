@@ -300,7 +300,7 @@ testthat::test_that("analysis_args: works end-to-end through Condition$new", {
   testthat::expect_equal(res$scaled, 30)
 })
 
-testthat::test_that("analysis_args: works end-to-end through replicate_trial", {
+testthat::test_that("analysis_args: flows through replicate_trial execution into analysis", {
   set.seed(1)
   ag <- list(final = list(
     trigger       = enroll_trigger(1.0, 6L),
@@ -316,8 +316,11 @@ testthat::test_that("analysis_args: works end-to-end through replicate_trial", {
     function(n) rexp(n, 1), function(n) rep(Inf, n),
     ag, pop_gen, 1L
   )
-  testthat::expect_r6_class(trials[[1L]]$conditions[[1L]], "Condition")
-  testthat::expect_equal(trials[[1L]]$conditions[[1L]]$analysis_args, list(multiplier = 3L))
+  trials[[1L]]$run()
+  # 6 subjects at the final look * multiplier 3 = 18; without analysis_args the
+  # analysis would error on the missing `multiplier` arg, so 18 proves the arg
+  # reached the executing analysis (not just that it was stored).
+  testthat::expect_true(18L %in% unlist(trials[[1L]]$results))
 })
 
 testthat::test_that("collect_results: combines analyses with different columns", {
