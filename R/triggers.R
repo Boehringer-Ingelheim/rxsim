@@ -95,6 +95,37 @@ count_trigger <- function(col, op, rhs) {
 }
 
 #' @rdname trigger_primitives
+#' @export
+notna_trigger <- function(col) {
+  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
+  structure(list(type = "notna", col = col), class = "trigger")
+}
+
+#' @rdname trigger_primitives
+#' @param ref_col `character` Column name on the right-hand side of the
+#'   comparison.
+#' @export
+col_trigger <- function(col, op, ref_col) {
+  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  if (!is.character(ref_col) || length(ref_col) != 1L || is.na(ref_col)) stop("`ref_col` must be a single character string.")
+  structure(list(type = "col_compare", col = col, op = op, ref_col = ref_col), class = "trigger")
+}
+
+#' @rdname trigger_primitives
+#' @param time_col `character` Column name of the current-time column (e.g.
+#'   `"time"`).
+#' @param threshold `numeric` Event count threshold used with `op`.
+#' @export
+timed_count_trigger <- function(col, time_col, op, threshold) {
+  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
+  if (!is.character(time_col) || length(time_col) != 1L || is.na(time_col)) stop("`time_col` must be a single character string.")
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  if (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold)) stop("`threshold` must be a single numeric value.")
+  structure(list(type = "timed_count", col = col, time_col = time_col, op = op, threshold = threshold), class = "trigger")
+}
+
+#' @rdname trigger_primitives
 #' @param fraction `numeric` Sample fraction (0 < fraction <= 1).
 #' @param sample_size `numeric` Target sample size.
 #' @export
@@ -211,4 +242,64 @@ condition_enrollment_fraction <- function(fraction, sample_size, analysis = NULL
   if (is.null(name)) name <- paste0("frac_", fraction)
 
   Condition$new(where = enroll_trigger(fraction, sample_size), analysis = analysis, name = name)
+}
+
+#' Trigger Analysis When Enough TTE Events Have Occurred
+#'
+#' Builds a [`Condition`] that fires once a target number of time-to-event
+#' (TTE) endpoint events have been observed by the current trial time.
+#' Enrollment guards are always included: only subjects who are enrolled
+#' before the current time are eligible.
+#'
+#' @param event_col `character` Column holding each subject's event calendar
+#'   time. `NA` indicates no event has occurred yet.
+#' @param n_events `numeric` Number of events required to fire.
+#' @param time_col `character` Column holding the current trial time.
+#'   Defaults to `"time"` (the column added by `Trial$run()`).
+#' @param enroll_col `character` Column holding each subject's enrollment
+#'   time. Defaults to `"enroll_time"`.
+#' @param analysis `function` or `NULL` Optional analysis function called as
+#'   `analysis(df, current_time, ...)`. If `NULL`, the filtered snapshot is
+#'   returned as-is with a warning.
+#' @param name `character` or `NULL` Result key. Defaults to
+#'   `"events_<n_events>"`.
+#' @param op `character` Comparison operator for the event-count threshold.
+#'   Must be one of `c(">=", "<=", ">", "<", "==", "!=", "%in%")`.
+#'   Defaults to `">="`.
+#'
+#' @return A [`Condition`] object.
+#'
+#' @seealso [Condition], [condition_calendar_time()], [condition_enrollment_fraction()],
+#'   [timed_count_trigger()], [notna_trigger()], [col_trigger()].
+#'
+#' @export
+#'
+#' @examples
+#' cond <- trigger_by_events(
+#'   event_col = "pfs_event_time",
+#'   n_events  = 100,
+#'   analysis  = function(df, current_time) {
+#'     data.frame(n_events = sum(!is.na(df$pfs_event_time)), fired_at = current_time)
+#'   }
+#' )
+trigger_by_events <- function(
+    event_col,
+    n_events,
+    time_col   = "time",
+    enroll_col = "enroll_time",
+    analysis   = NULL,
+    name       = NULL,
+    op         = ">="
+) {
+  if (missing(event_col) || missing(n_events)) stop("`event_col` and `n_events` are required.")
+  if (!is.character(event_col) || length(event_col) != 1L || is.na(event_col)) stop("`event_col` must be a single character string.")
+  if (!is.numeric(n_events) || length(n_events) != 1L || is.na(n_events)) stop("`n_events` must be a single numeric value.")
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  if (is.null(name)) name <- paste0("events_", n_events)
+
+  trig <- timed_count_trigger(event_col, time_col, op, n_events) &
+    notna_trigger(enroll_col) &
+    col_trigger(enroll_col, "<=", time_col)
+
+  Condition$new(where = trig, analysis = analysis, name = name)
 }

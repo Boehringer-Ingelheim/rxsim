@@ -124,11 +124,11 @@ website](https://boehringer-ingelheim.github.io/rxsim)**.
 | [Conditions & Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.html) | Trigger API, combining triggers, interim analyses |
 | [Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html) | Trial class reference, run loop, seed reproducibility |
 | [Two API Styles](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html) | Direct instantiation vs generator + replicate_trial |
-| [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html) | Two-arm fixed design, t-test |
-| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html) | Two correlated continuous endpoints, Holm correction |
-| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html) | Multi-arm dose-finding with Dunnett + MCP-Mod |
-| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
-| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html) | Multi-stage adaptive design with BayesianMCPMod |
+| [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-1.html) | Two-arm fixed design, t-test |
+| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-2.html) | Two correlated continuous endpoints, Holm correction |
+| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-3.html) | Multi-arm dose-finding with Dunnett + MCP-Mod |
+| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-4.html) | Bayesian decision rule with historical placebo borrowing (RBesT) |
+| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html) | Multi-stage adaptive design with BayesianMCPMod |
 
 ## Installation
 
