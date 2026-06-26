@@ -140,7 +140,9 @@ Population <- R6::R6Class(
       n_use <- min(n, length(idx))
       if (n_use == 0L) return(invisible(self))
 
-      pick <- idx[sample.int(length(idx), n_use, replace = FALSE)]
+      # Subjects are exchangeable, so enrol the first available slots in order
+      # instead of a random sample — same distribution, no RNG cost.
+      pick <- idx[seq_len(n_use)]
       self$enrolled[pick] <- time
       invisible(self)
     },

@@ -435,6 +435,35 @@ test_that("fixed path: parity with adaptive — same nrow and enrolled count", {
   testthat::expect_true("time_2" %in% names(t_adaptive$results))
 })
 
+test_that("fixed path: adaptive=FALSE and adaptive=TRUE give identical results", {
+  # Single-arm design with drops: enrollment is deterministic in both paths and
+  # the drop-assignment RNG stream (one sample.int per drop timepoint, in time
+  # order) aligns, so the two paths must produce bit-identical output. Reuse one
+  # Population data frame so both trials see the same subject data.
+  # Construct-and-run each trial in isolation: the seed is set in Trial$new(), so
+  # each run() must start immediately after its own construction (building both
+  # first would leave the second run() starting from a polluted RNG state).
+  run_eq_trial <- function(mode) {
+    pop <- make_pop("A", 10, 1)
+    timer <- Timer$new("t")
+    for (k in 1:5) timer$add_timepoint(time = k, arm = "A", enroll = 2L, drop = 0L)
+    timer$add_timepoint(time = 3, arm = "A", enroll = 0L, drop = 2L)
+    timer$add_timepoint(time = 5, arm = "A", enroll = 0L, drop = 3L)
+    interim <- condition_enrollment_fraction(
+      0.5, 10, analysis = function(df, t) c(n = nrow(df), m = mean(df$data)))
+    final <- condition_enrollment_fraction(
+      1.0, 10, analysis = function(df, t) c(n = nrow(df), drops = sum(!is.na(df$drop_time))))
+    tr <- Trial$new("eq", seed = 42, timer = timer, population = list(pop),
+                    conditions = list(interim, final), adaptive = mode)
+    tr$run()
+    tr
+  }
+  t_fixed <- run_eq_trial(FALSE)
+  t_adaptive <- run_eq_trial(TRUE)
+  testthat::expect_equal(t_fixed$results, t_adaptive$results)
+  testthat::expect_equal(t_fixed$locked_data, t_adaptive$locked_data)
+})
+
 test_that("fixed path: clone_trial carries adaptive flag", {
   trial <- make_trial("src")
   clones <- clone_trial(trial, n = 2)
