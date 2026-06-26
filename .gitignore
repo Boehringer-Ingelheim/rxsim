@@ -11,9 +11,8 @@ renv/profile
 .copilot-tracking/
 .github/agents/
 vignettes/.build.timestamp
-/vignettes/*_cache/
-vignettes/*_cache/
-vignettes/*_files/
+*_cache/
+*_files/
 
 # Created by https://www.toptal.com/developers/gitignore/api/r,windows,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=r,windows,macos,linux

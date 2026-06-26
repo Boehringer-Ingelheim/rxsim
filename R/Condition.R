@@ -109,6 +109,12 @@ Condition <- R6::R6Class(
     #'   empty list passes the full snapshot.
     where = NULL,
 
+    #' @field trigger_spec The original `trigger` object passed to `where`
+    #'   (before quosure conversion), or `NULL`. Used by the fixed fast path to
+    #'   compute the earliest possible firing time and skip non-firing
+    #'   timepoints. `NULL` means "evaluate at every timepoint" (safe fallback).
+    trigger_spec = NULL,
+
     #' @field analysis `function` or `NULL`. Called as
     #'   `analysis(df, current_time, ...)` on a successful trigger, where `...`
     #'   are any values from `analysis_args`.
@@ -164,7 +170,10 @@ Condition <- R6::R6Class(
       cooldown      = 0,
       max_triggers  = 1L
     ) {
-      if (inherits(where, "trigger")) where <- .trigger_to_quosures(where)
+      if (inherits(where, "trigger")) {
+        self$trigger_spec <- where
+        where <- .trigger_to_quosures(where)
+      }
       self$where         <- where
       self$analysis      <- analysis
       self$analysis_args <- analysis_args

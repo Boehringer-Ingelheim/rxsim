@@ -86,6 +86,11 @@ for convenient \code{Condition} constructors
 predicates, or a \code{trigger} object (converted automatically). \code{NULL} or
 empty list passes the full snapshot.}
 
+\item{\code{trigger_spec}}{The original \code{trigger} object passed to \code{where}
+(before quosure conversion), or \code{NULL}. Used by the fixed fast path to
+compute the earliest possible firing time and skip non-firing
+timepoints. \code{NULL} means "evaluate at every timepoint" (safe fallback).}
+
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
 are any values from \code{analysis_args}.}

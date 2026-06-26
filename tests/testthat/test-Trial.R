@@ -435,3 +435,71 @@ test_that("fixed path: clone_trial carries adaptive flag", {
   testthat::expect_false(clones[[1]]$adaptive)
   testthat::expect_false(clones[[2]]$adaptive)
 })
+
+test_that("fixed path: interim + final both fire (mid-gap skip is correct)", {
+  pop <- make_pop("A", 10, 1)
+  timer <- Timer$new("t")
+  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  interim <- Condition$new(where = count_trigger("enroll_time", ">=", 5L),
+                           analysis = function(df, ct) nrow(df), name = "interim")
+  final   <- Condition$new(where = count_trigger("enroll_time", ">=", 10L),
+                           analysis = function(df, ct) nrow(df), name = "final")
+  trial <- Trial$new("skip_midgap", timer = timer, population = list(pop),
+                     conditions = list(interim, final), adaptive = FALSE)
+  trial$run()
+  testthat::expect_equal(trial$results[["time_5"]][["interim"]], 5L)
+  testthat::expect_equal(trial$results[["time_10"]][["final"]], 10L)
+})
+
+test_that("fixed path: unknown (non-monotone) trigger still fires via fallback", {
+  pop <- make_pop("A", 6, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  # value_trigger on a data column with `>` is not reasoned about (fire_time=-Inf)
+  cond <- Condition$new(where = value_trigger("subject_id", "==", 1),
+                        analysis = function(df, ct) nrow(df), name = "any")
+  trial <- Trial$new("skip_fallback", timer = timer, population = list(pop),
+                     conditions = list(cond), adaptive = FALSE)
+  trial$run()
+  testthat::expect_true(any(grepl("^time_", names(trial$results))))
+})
+
+test_that(".trigger_fire_time: count beyond n never fires (Inf)", {
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(count_trigger("enroll_time", ">=", 99L), subj_enroll = 1:10),
+    Inf
+  )
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(calendar_trigger(7), subj_enroll = 1:10), 7
+  )
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(NULL, subj_enroll = 1:10), -Inf
+  )
+})
+
+test_that("fixed path: leading timepoints are actually skipped (not just correct)", {
+  SpyCond <- R6::R6Class("SpyCond", inherit = Condition, public = list(
+    calls = 0L,
+    check_conditions = function(locked_data, current_time) {
+      self$calls <- self$calls + 1L
+      super$check_conditions(locked_data, current_time)
+    }))
+
+  pop <- make_pop("A", 10, 1)
+  timer <- Timer$new("t")
+  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  # 1 enrollment/timepoint => 5th subject enrolls at time 5 => fire_time = 5
+  # max_triggers high so it keeps evaluating after the first fire, proving the
+  # skip is leading-only (times 1-4 never reached, 5..10 all evaluated).
+  spy <- SpyCond$new(where = count_trigger("enroll_time", ">=", 5L),
+                     analysis = function(df, ct) nrow(df), name = "spy",
+                     max_triggers = 100L)
+  trial <- Trial$new("skip_spy", timer = timer, population = list(pop),
+                     conditions = list(spy), adaptive = FALSE)
+  trial$run()
+
+  # Evaluated only at times 5..10 (6 calls); == 10 would mean no skip happened.
+  testthat::expect_equal(spy$calls, 6L)
+  testthat::expect_equal(spy$trigger_count, 6L)
+})

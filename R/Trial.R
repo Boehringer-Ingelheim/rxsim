@@ -308,9 +308,21 @@ Trial <- R6::R6Class(
 
       unique_times <- sort(unique(plan_df$time))
 
-      # Evaluate conditions at each timepoint via a prefix slice.
-      # Per-condition exhausted-skip: skip once trigger_count >= max_triggers.
+      # Per-subject enrollment times (sorted) for computing condition fire times.
+      subj_enroll <- sort(full_snap$enroll_time[!duplicated(full_snap$subject_id)])
+
+      conds <- self$conditions
+      # Earliest time each condition could fire; -Inf = evaluate always (unknown
+      # trigger), Inf = never fires. Lets us skip non-firing timepoints cheaply
+      # (integer comparison) without building a prefix or calling dplyr::filter.
+      fire_time <- vapply(conds, function(cn)
+        .trigger_fire_time(cn$trigger_spec, subj_enroll), numeric(1))
+      keep_active <- rep(TRUE, length(conds))
+
       for (i in unique_times) {
+        act <- which(keep_active & fire_time <= i)
+        if (length(act) == 0L) next  # cheap skip: nothing can fire yet
+
         # Prefix slice: enrolled subjects visible at time i
         prefix <- full_snap[full_snap$enroll_time <= i, , drop = FALSE]
         if (nrow(prefix) == 0L) next
@@ -320,10 +332,8 @@ Trial <- R6::R6Class(
         prefix$time <- i
 
         results <- list()
-        for (cond in self$conditions) {
-          # Skip exhausted conditions
-          if (is.finite(cond$max_triggers) && cond$trigger_count >= cond$max_triggers) next
-          results <- c(results, cond$check_conditions(
+        for (j in act) {
+          results <- c(results, conds[[j]]$check_conditions(
             locked_data  = prefix,
             current_time = i
           ))
@@ -332,14 +342,15 @@ Trial <- R6::R6Class(
         if (length(results) > 0L) {
           self$locked_data[[paste0("time_", i)]] <- prefix
           self$results[[paste0("time_", i)]] <- results
+          # Retire conditions that have exhausted their trigger budget.
+          for (j in act) {
+            cn <- conds[[j]]
+            if (is.finite(cn$max_triggers) && cn$trigger_count >= cn$max_triggers) {
+              keep_active[j] <- FALSE
+            }
+          }
+          if (!any(keep_active)) break
         }
-
-        # Break once all conditions are exhausted
-        all_done <- all(vapply(self$conditions, function(cond)
-          is.finite(cond$max_triggers) && cond$trigger_count >= cond$max_triggers,
-          logical(1)
-        ))
-        if (all_done) break
       }
       invisible(NULL)
     },
@@ -419,7 +430,6 @@ Trial <- R6::R6Class(
       # ponytail: columns added here are catalogued in .SNAPSHOT_AUGMENTED_COLS
       combined$subject_id      <- rep(seq_len(n_subj), each = nr)
       combined$measurement_time <- combined$readout_time + combined$enroll_time
-      combined$time             <- NA_real_  # filled per-slice in run_fixed
       combined
     }
 
