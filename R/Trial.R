@@ -357,10 +357,13 @@ Trial <- R6::R6Class(
 
     # Deterministically assign enroll_time and drop_time for one population.
     # Enroll: expand per-timepoint counts into a sorted per-subject vector
-    #   (subject 1 gets earliest enroll_time, subject n gets latest).
-    # Drop: assign to earliest-enrolled eligible subjects at each timepoint,
-    #   so drop_time >= enroll_time is guaranteed.
-    # NULL / zero drop column → all drop_time stay NA.
+    #   (subjects are exchangeable, so subject 1 gets earliest enroll_time).
+    # Drop: among subjects eligible at each drop timepoint (enrolled by then and
+    #   not yet dropped), pick uniformly at random — same as the adaptive path's
+    #   set_dropped(). Random (not earliest-enrolled) assignment is required so
+    #   the joint (enroll_time, drop_time) distribution — and thus follow-up
+    #   time — matches the adaptive/main behaviour; eligibility still guarantees
+    #   drop_time >= enroll_time. NULL / zero drop column → all drop_time stay NA.
     precompute_population = function(p, plan_df) {
       arm_rows <- plan_df[plan_df$arm == p$name, , drop = FALSE]
 
@@ -403,8 +406,8 @@ Trial <- R6::R6Class(
             n_drop, t_drop, p$name, length(eligible), n_use
           ), call. = FALSE)
         }
-        # Assign to the earliest-enrolled eligible subjects (deterministic)
-        pick <- eligible[order(p$enrolled[eligible])][seq_len(n_use)]
+        # Pick eligible subjects uniformly at random (matches set_dropped()).
+        pick <- eligible[sample.int(length(eligible), n_use)]
         p$dropped[pick] <- t_drop
       }
       invisible(NULL)

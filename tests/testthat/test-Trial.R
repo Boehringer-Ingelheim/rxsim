@@ -531,3 +531,23 @@ test_that("fixed path: leading timepoints are actually skipped (not just correct
   testthat::expect_equal(spy$calls, 6L)
   testthat::expect_equal(spy$trigger_count, 6L)
 })
+
+test_that("fixed path: drops are assigned randomly among eligible, not earliest-enrolled", {
+  # 20 subjects enrolled at distinct times 1..20; drop 5 at time 20 when all are
+  # eligible. Earliest-enrolled assignment would always drop enroll_times 1..5;
+  # random assignment (matching the adaptive path) does not. Guards the joint
+  # (enroll, drop) distribution against the deterministic-correlation regression.
+  pop <- make_pop("A", 20, 1)
+  timer <- Timer$new("t")
+  for (k in 1:20) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  timer$add_timepoint(time = 20, arm = "A", enroll = 0L, drop = 5L)
+  reveal <- condition_calendar_time(20, analysis = function(df, ct) df)
+  trial <- Trial$new("rand_drop", seed = 1, timer = timer, population = list(pop),
+                     conditions = list(reveal), adaptive = FALSE)
+  trial$run()
+  snap <- trial$locked_data[["time_20"]]
+  dropped_enroll <- snap$enroll_time[!is.na(snap$drop_time)]
+  testthat::expect_equal(length(dropped_enroll), 5L)
+  testthat::expect_true(all(dropped_enroll <= 20))            # eligibility holds
+  testthat::expect_false(setequal(dropped_enroll, 1:5))       # not the 5 earliest
+})
