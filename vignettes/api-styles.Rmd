@@ -53,7 +53,7 @@ sample_size <- 40L
 arms <- c("pbo", "trt")
 allocation <- c(1, 1)
 delta <- 0.5
-n_reps <- 100L
+n_reps <- 10L
 
 enrollment <- function(n) rexp(n, rate = 1)
 dropout <- function(n) rexp(n, rate = 0.05)

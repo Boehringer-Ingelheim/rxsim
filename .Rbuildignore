@@ -13,3 +13,4 @@
 ^\.nojekyll$
 ^\.copilot-tracking$
 ^vignettes/.*_cache$
+^vignettes/.*_files$
