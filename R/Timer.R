@@ -91,8 +91,13 @@ Timer <- R6::R6Class(
     #' @examples
     #' t <- Timer$new(name = "Timer")
     #' t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 3L)
-    add_timepoint = function(time, arm, drop, enroll) {
-      stopifnot(is.integer(drop), is.integer(enroll))
+    add_timepoint = function(time, arm, drop = 0L, enroll) {
+      stopifnot(is.integer(enroll))
+      if (is.null(drop)) {
+        drop <- 0L
+      } else {
+        stopifnot(is.integer(drop))
+      }
       self$timelist <- rbind(
         self$timelist,
         data.frame(

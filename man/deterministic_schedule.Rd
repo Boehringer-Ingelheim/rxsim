@@ -4,7 +4,13 @@
 \alias{deterministic_schedule}
 \title{Generate a Deterministic Enrollment and Dropout Schedule}
 \usage{
-deterministic_schedule(sample_size, arms, allocation, enrollment, dropout)
+deterministic_schedule(
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout = NULL
+)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}

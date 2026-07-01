@@ -334,3 +334,165 @@ test_that("Trial run: duplicate time/arm timepoint rows are aggregated", {
   snap <- trial$locked_data[["time_1"]]
   testthat::expect_equal(nrow(snap), 4L)
 })
+
+### adaptive = FALSE (fixed fast path) ###
+
+test_that("fixed path: adaptive flag defaults to FALSE", {
+  trial <- make_trial("default_adaptive")
+  testthat::expect_false(trial$adaptive)
+})
+
+test_that("fixed path: enroll_times sorted ascending (deterministic)", {
+  pop <- make_pop("A", 6, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_enroll_order", timer = timer, population = list(pop),
+                     conditions = list(cal_cond), adaptive = FALSE)
+  trial$run()
+  snap <- trial$locked_data[["time_2"]]
+  testthat::expect_equal(sum(snap$enroll_time == 1), 3L)
+  testthat::expect_equal(sum(snap$enroll_time == 2), 3L)
+})
+
+test_that("fixed path: drop_time >= enroll_time for all dropped subjects", {
+  pop <- make_pop("A", 4, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 2L)
+  cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_drop_order", timer = timer, population = list(pop),
+                     conditions = list(cal_cond), adaptive = FALSE)
+  trial$run()
+  snap <- trial$locked_data[["time_2"]]
+  dropped <- snap[!is.na(snap$drop_time), ]
+  testthat::expect_equal(nrow(dropped), 2L)
+  testthat::expect_true(all(dropped$drop_time >= dropped$enroll_time))
+})
+
+test_that("fixed path: drop_time masked to NA for future drops in earlier snapshots", {
+  pop <- make_pop("A", 4, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 2L)
+  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+  cal_cond_2 <- condition_calendar_time(2, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_mask", timer = timer, population = list(pop),
+                     conditions = list(cal_cond_1, cal_cond_2), adaptive = FALSE)
+  trial$run()
+  snap_t1 <- trial$locked_data[["time_1"]]
+  snap_t2 <- trial$locked_data[["time_2"]]
+  testthat::expect_true(all(is.na(snap_t1$drop_time)))
+  testthat::expect_equal(sum(!is.na(snap_t2$drop_time)), 2L)
+  testthat::expect_true(all(snap_t2$drop_time[!is.na(snap_t2$drop_time)] == 2))
+})
+
+test_that("fixed path: prefix snapshots grow cumulatively across timepoints", {
+  pop <- make_pop("A", 6, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+  cal_cond_2 <- condition_calendar_time(2, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_cumulative", timer = timer, population = list(pop),
+                     conditions = list(cal_cond_1, cal_cond_2), adaptive = FALSE)
+  trial$run()
+  testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
+  testthat::expect_equal(nrow(trial$locked_data[["time_2"]]), 6L)
+})
+
+test_that("fixed path: NULL drops produce all-NA drop_time", {
+  pop <- make_pop("A", 4, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = NULL)
+  cal_cond <- condition_calendar_time(1, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_null_drop", timer = timer, population = list(pop),
+                     conditions = list(cal_cond), adaptive = FALSE)
+  trial$run()
+  snap <- trial$locked_data[["time_1"]]
+  testthat::expect_true(all(is.na(snap$drop_time)))
+})
+
+test_that("fixed path: parity with adaptive — same nrow and enrolled count", {
+  make_parity_trial <- function(mode) {
+    pop <- make_pop("A", 6, 1)
+    timer <- Timer$new("t")
+    timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+    timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 1L)
+    cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+    Trial$new("parity", seed = 42, timer = timer, population = list(pop),
+              conditions = list(cal_cond), adaptive = mode)
+  }
+  t_fixed    <- make_parity_trial(FALSE)
+  t_adaptive <- make_parity_trial(TRUE)
+  t_fixed$run()
+  t_adaptive$run()
+  snap_f <- t_fixed$locked_data[["time_2"]]
+  snap_a <- t_adaptive$locked_data[["time_2"]]
+  testthat::expect_equal(nrow(snap_f), nrow(snap_a))
+  testthat::expect_equal(sum(!is.na(snap_f$enroll_time)), sum(!is.na(snap_a$enroll_time)))
+  testthat::expect_true("time_2" %in% names(t_fixed$results))
+  testthat::expect_true("time_2" %in% names(t_adaptive$results))
+})
+
+test_that("fixed path: clone_trial carries adaptive flag", {
+  trial <- make_trial("src")
+  clones <- clone_trial(trial, n = 2)
+  testthat::expect_false(clones[[1]]$adaptive)
+  testthat::expect_false(clones[[2]]$adaptive)
+})
+
+test_that("fixed path: adaptive=FALSE and adaptive=TRUE give identical results", {
+  run_eq_trial <- function(mode) {
+    pop <- make_pop("A", 10, 1)
+    timer <- Timer$new("t")
+    for (k in 1:5) timer$add_timepoint(time = k, arm = "A", enroll = 2L, drop = 0L)
+    timer$add_timepoint(time = 3, arm = "A", enroll = 0L, drop = 2L)
+    timer$add_timepoint(time = 5, arm = "A", enroll = 0L, drop = 3L)
+    interim <- condition_enrollment_fraction(
+      0.5, 10, analysis = function(df, t) c(n = nrow(df), m = mean(df$data)))
+    final <- condition_enrollment_fraction(
+      1.0, 10, analysis = function(df, t) c(n = nrow(df), drops = sum(!is.na(df$drop_time))))
+    tr <- Trial$new("eq", seed = 42, timer = timer, population = list(pop),
+                    conditions = list(interim, final), adaptive = mode)
+    tr$run()
+    tr
+  }
+  t_fixed <- run_eq_trial(FALSE)
+  t_adaptive <- run_eq_trial(TRUE)
+  testthat::expect_equal(t_fixed$results, t_adaptive$results)
+  testthat::expect_equal(t_fixed$locked_data, t_adaptive$locked_data)
+})
+
+test_that("fixed path: drops are assigned randomly among eligible, not earliest-enrolled", {
+  pop <- make_pop("A", 20, 1)
+  timer <- Timer$new("t")
+  for (k in 1:20) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  timer$add_timepoint(time = 20, arm = "A", enroll = 0L, drop = 5L)
+  reveal <- condition_calendar_time(20, analysis = function(df, ct) df)
+  trial <- Trial$new("rand_drop", seed = 1, timer = timer, population = list(pop),
+                     conditions = list(reveal), adaptive = FALSE)
+  trial$run()
+  snap <- trial$locked_data[["time_20"]]
+  dropped_enroll <- snap$enroll_time[!is.na(snap$drop_time)]
+  testthat::expect_equal(length(dropped_enroll), 5L)
+  testthat::expect_true(all(dropped_enroll <= 20))           # eligibility holds
+  # Negative: not exactly the 5 earliest-enrolled. Under correct uniform choice of
+  # 5 of 20 eligible, P(this fails) = 1 / choose(20, 5) = 1/15504 = 6.45e-5; seed
+  # fixes it deterministically.
+  testthat::expect_false(setequal(dropped_enroll, 1:5))
+  # Positive: at least one dropped subject enrolled after the 5th position.
+  testthat::expect_true(any(dropped_enroll > 5))
+})
+
+test_that("fixed path: warns when requested drops exceed eligible subjects", {
+  pop <- make_pop("A", 3, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 5L)  # only 3 eligible
+  cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+  trial <- Trial$new("fixed_shortfall", timer = timer, population = list(pop),
+                     conditions = list(cal_cond), adaptive = FALSE)
+  testthat::expect_warning(trial$run(), "only .* eligible")
+})

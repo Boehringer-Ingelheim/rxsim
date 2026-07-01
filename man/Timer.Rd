@@ -153,7 +153,7 @@ A new \code{Timer} instance.
 \subsection{Method \code{add_timepoint()}}{
 Add a timepoint to the timer.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop, enroll)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop = 0L, enroll)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{

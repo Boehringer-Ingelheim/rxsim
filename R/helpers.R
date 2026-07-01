@@ -25,12 +25,14 @@
 add_timepoints <- function(timer, df) {
   if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
   if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroll, drop")
-  required_cols <- c("time", "arm", "enroll", "drop")
+  required_cols <- c("time", "arm", "enroll")
   missing_cols <- setdiff(required_cols, names(df))
   if (length(missing_cols) > 0L) {
     stop(sprintf("Missing required columns in df: %s", paste(missing_cols, collapse = ", ")))
   }
-  timer$timelist <- rbind(timer$timelist, df[, required_cols])
+  if (!"drop" %in% names(df)) df$drop <- 0L
+  df$drop[is.na(df$drop)] <- 0L
+  timer$timelist <- rbind(timer$timelist, df[, c("time", "arm", "enroll", "drop")])
   invisible(timer)
 }
 
@@ -138,9 +140,9 @@ collect_results <- function(trials, analysis = NULL) {
     }
   }
 
-  result <- dplyr::bind_rows(rows)
-  if (!is.null(result)) rownames(result) <- NULL
-  result
+  out <- dplyr::bind_rows(rows)
+  rownames(out) <- NULL
+  out
 }
 
 #' Create a Population-Compatible Data Frame from a Vector
@@ -171,7 +173,8 @@ as_population_data <- function(data) data.frame(
 #'
 #' @param populations [`Population`] object or `list` of [`Population`] objects.
 #'
-#' @return `character` vector of unique column names.
+#' @return `character` vector of unique population column names augmented with
+#'   `subject_id`, `enroll_time`, `drop_time`, `measurement_time`, and `time`.
 #'
 #' @seealso [Population].
 #'
