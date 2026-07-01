@@ -66,43 +66,6 @@
 #' appended as additional named arguments. If no analysis function is
 #' provided, the filtered data frame is returned as-is with a warning.
 #'
-#' @section Fields:
-#' \describe{
-#'   \item{\code{where}}{`list` of quosures (from `rlang::quos()`) used as
-#'     `dplyr::filter()` predicates, or a `trigger` object (converted
-#'     automatically). `NULL` or an empty list passes the full snapshot.}
-#'   \item{\code{analysis}}{`function` or `NULL`. Called as
-#'     `analysis(df, current_time, ...)` on a successful trigger, where `...`
-#'     are any values from `analysis_args`. Should return a `data.frame` or
-#'     named list. If `NULL`, the filtered data frame is returned with a warning.}
-#'   \item{\code{analysis_args}}{`list` or `NULL`. Named list of extra arguments
-#'     injected into every call to `analysis`.}
-#'   \item{\code{name}}{`character` or `NULL`. Key used to label the result
-#'     in the returned list. Falls back to `1L` when `NULL`.}
-#'   \item{\code{cooldown}}{`numeric`. Minimum time units that must elapse
-#'     between consecutive triggers. Default `0` (no cooldown).}
-#'   \item{\code{max_triggers}}{`integer`. Maximum number of times this
-#'     condition may fire. Use `Inf` for unlimited. Default `1L`.}
-#'   \item{\code{trigger_count}}{`integer`. Number of successful triggers so
-#'     far. Initialised to `0L`.}
-#'   \item{\code{last_trigger_time}}{`numeric`. Calendar time of the most
-#'     recent successful trigger. Initialised to `NA_real_`.}
-#' }
-#'
-#' @section Methods:
-#' \describe{
-#'   \item{\code{$new(where, analysis, name, cooldown, max_triggers)}}{
-#'     Construct a new `Condition`. All arguments except `where` are
-#'     optional. `cooldown` must be a single non-negative number;
-#'     `max_triggers` must be a single non-negative integer or `Inf`.}
-#'   \item{\code{$check_conditions(locked_data, current_time)}}{
-#'     Evaluate the condition against `locked_data` at `current_time`.
-#'     Returns a named `list` containing the analysis result (or filtered
-#'     data frame) if the condition fires, or an empty `list` otherwise.
-#'     On a successful trigger, `trigger_count` is incremented and
-#'     `last_trigger_time` is updated.}
-#' }
-#'
 #' @seealso
 #' \itemize{
 #'   \item [`Timer`] for managing trial timepoints
@@ -114,10 +77,11 @@
 #' }
 #'
 #' @examples
-#' # Build a snapshot data frame of enrolled subjects
+#' # Build a snapshot data frame (enroll_time = NA means not yet enrolled)
 #' snapshot <- data.frame(
-#'   arm         = c("A", "A", "B"),
-#'   enroll_time = c(1, 2, 3),
+#'   arm         = c("A", "A", "A", "B"),
+#'   status      = c("active", "active", "active", "active"),
+#'   enroll_time = c(1, 2, 3, NA_real_),
 #'   stringsAsFactors = FALSE
 #' )
 #'
