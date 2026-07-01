@@ -46,7 +46,7 @@ snapshot <- data.frame(
   stringsAsFactors = FALSE
 )
 
-# Analysis function: count enrolled subjects
+# Analysis function: count enrolled subjects and record fire time
 count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
@@ -62,7 +62,7 @@ cond <- Condition$new(
 
 # First call: fires and returns analysis result
 res <- cond$check_conditions(snapshot, current_time = 5)
-res[["interim_A"]]  # data.frame(n_active = 3, fired_at = 5)
+res[["interim_A"]]  # data.frame(n_active = 4, fired_at = 5)
 
 # Second call: does not fire (max_triggers already reached)
 res2 <- cond$check_conditions(snapshot, current_time = 6)
@@ -85,6 +85,11 @@ for convenient \code{Condition} constructors
 \item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
 predicates, or a \code{trigger} object (converted automatically). \code{NULL} or
 empty list passes the full snapshot.}
+
+\item{\code{trigger_spec}}{The original \code{trigger} object passed to \code{where}
+(before quosure conversion), or \code{NULL}. Used by the fixed fast path to
+compute the earliest possible firing time and skip non-firing
+timepoints. \code{NULL} means "evaluate at every timepoint" (safe fallback).}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}

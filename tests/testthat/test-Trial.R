@@ -343,17 +343,18 @@ test_that("fixed path: adaptive flag defaults to FALSE", {
 })
 
 test_that("fixed path: enroll_times sorted ascending (deterministic)", {
+  enroll_per_time <- 3L
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 1, arm = "A", enroll = enroll_per_time, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = enroll_per_time, drop = 0L)
   cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_enroll_order", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
   trial$run()
   snap <- trial$locked_data[["time_2"]]
-  testthat::expect_equal(sum(snap$enroll_time == 1), 3L)
-  testthat::expect_equal(sum(snap$enroll_time == 2), 3L)
+  testthat::expect_equal(sum(snap$enroll_time == 1), enroll_per_time)
+  testthat::expect_equal(sum(snap$enroll_time == 2), enroll_per_time)
 })
 
 test_that("fixed path: drop_time >= enroll_time for all dropped subjects", {
@@ -495,4 +496,96 @@ test_that("fixed path: warns when requested drops exceed eligible subjects", {
   trial <- Trial$new("fixed_shortfall", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
   testthat::expect_warning(trial$run(), "only .* eligible")
+})
+
+### Leading-skip optimisation ###
+
+test_that("fixed path: interim + final both fire (mid-gap skip is correct)", {
+  pop <- make_pop("A", 10, 1)
+  timer <- Timer$new("t")
+  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  # 10 subjects enrolled 1/timepoint: interim (0.5 => 5 enrolled) fires at t=5,
+  # final (1.0 => 10 enrolled) fires at t=10. Uses the public helper so the
+  # fraction -> trigger pipeline (condition_enrollment_fraction -> enroll_trigger)
+  # is exercised end to end, not just the low-level trigger.
+  interim <- condition_enrollment_fraction(0.5, 10, analysis = function(df, ct) nrow(df))
+  final   <- condition_enrollment_fraction(1.0, 10, analysis = function(df, ct) nrow(df))
+  trial <- Trial$new("skip_midgap", timer = timer, population = list(pop),
+                     conditions = list(interim, final), adaptive = FALSE)
+  trial$run()
+  testthat::expect_equal(trial$results[["time_5"]][["frac_0.5"]], 5L)
+  testthat::expect_equal(trial$results[["time_10"]][["frac_1"]], 10L)
+})
+
+test_that("fixed path: unknown (non-monotone) trigger still fires via fallback", {
+  pop <- make_pop("A", 6, 1)
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  cond <- Condition$new(where = value_trigger("subject_id", "==", 1),
+                        analysis = function(df, ct) nrow(df), name = "any")
+  trial <- Trial$new("skip_fallback", timer = timer, population = list(pop),
+                     conditions = list(cond), adaptive = FALSE)
+  trial$run()
+  testthat::expect_true("time_1" %in% names(trial$results))
+  testthat::expect_false("time_2" %in% names(trial$results))
+})
+
+test_that(".trigger_fire_time: count beyond n never fires (Inf)", {
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(count_trigger("enroll_time", ">=", 99L), subj_enroll = 1:10),
+    Inf
+  )
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(calendar_trigger(7), subj_enroll = 1:10), 7
+  )
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(NULL, subj_enroll = 1:10), -Inf
+  )
+})
+
+test_that(".trigger_fire_time: combinators and strict ops", {
+  e <- 1:10  # subj_enroll: k-th subject enrolls at time k
+
+  # & = max of children (both must hold): calendar>=3, count>=5 -> max(3, 5)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(
+      calendar_trigger(3) & count_trigger("enroll_time", ">=", 5L), e), 5)
+
+  # | = min of children (either fires): calendar>=8, count>=2 -> min(8, 2)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(
+      calendar_trigger(8) | count_trigger("enroll_time", ">=", 2L), e), 2)
+
+  # strict count `>` k uses the (k+1)-th enrollment: >5 -> subj_enroll[6]
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(count_trigger("enroll_time", ">", 5L), e), 6)
+
+  # strict calendar `>` rhs is treated conservatively as rhs (evaluate from rhs)
+  testthat::expect_equal(
+    rxsim:::.trigger_fire_time(value_trigger("time", ">", 4), e), 4)
+})
+
+test_that("fixed path: leading timepoints are actually skipped (not just correct)", {
+  SpyCond <- R6::R6Class("SpyCond", inherit = Condition, public = list(
+    calls = 0L,
+    check_conditions = function(locked_data, current_time) {
+      self$calls <- self$calls + 1L
+      super$check_conditions(locked_data, current_time)
+    }))
+
+  pop <- make_pop("A", 10, 1)
+  timer <- Timer$new("t")
+  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  spy <- SpyCond$new(where = count_trigger("enroll_time", ">=", 5L),
+                     analysis = function(df, ct) nrow(df), name = "spy",
+                     max_triggers = 100L)
+  trial <- Trial$new("skip_spy", timer = timer, population = list(pop),
+                     conditions = list(spy), adaptive = FALSE)
+  trial$run()
+
+  # Fires at the 5th enrollment (of 10, 1/timepoint) => evaluated at times 5..10.
+  n_evaluated <- length(5:10)
+  testthat::expect_equal(spy$calls, n_evaluated)
+  testthat::expect_equal(spy$trigger_count, n_evaluated)
 })

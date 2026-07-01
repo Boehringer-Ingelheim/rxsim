@@ -85,7 +85,7 @@
 #'   stringsAsFactors = FALSE
 #' )
 #'
-#' # Analysis function: count enrolled subjects
+#' # Analysis function: count enrolled subjects and record fire time
 #' count_fn <- function(df, current_time) {
 #'   data.frame(n_active = nrow(df), fired_at = current_time)
 #' }
@@ -101,7 +101,7 @@
 #'
 #' # First call: fires and returns analysis result
 #' res <- cond$check_conditions(snapshot, current_time = 5)
-#' res[["interim_A"]]  # data.frame(n_active = 3, fired_at = 5)
+#' res[["interim_A"]]  # data.frame(n_active = 4, fired_at = 5)
 #'
 #' # Second call: does not fire (max_triggers already reached)
 #' res2 <- cond$check_conditions(snapshot, current_time = 6)
@@ -118,6 +118,12 @@ Condition <- R6::R6Class(
     #'   predicates, or a `trigger` object (converted automatically). `NULL` or
     #'   empty list passes the full snapshot.
     where = NULL,
+
+    #' @field trigger_spec The original `trigger` object passed to `where`
+    #'   (before quosure conversion), or `NULL`. Used by the fixed fast path to
+    #'   compute the earliest possible firing time and skip non-firing
+    #'   timepoints. `NULL` means "evaluate at every timepoint" (safe fallback).
+    trigger_spec = NULL,
 
     #' @field analysis `function` or `NULL`. Called as
     #'   `analysis(df, current_time, ...)` on a successful trigger, where `...`
@@ -174,7 +180,10 @@ Condition <- R6::R6Class(
       cooldown      = 0,
       max_triggers  = 1L
     ) {
-      if (inherits(where, "trigger")) where <- .trigger_to_quosures(where)
+      if (inherits(where, "trigger")) {
+        self$trigger_spec <- where
+        where <- .trigger_to_quosures(where)
+      }
       self$where         <- where
       self$analysis      <- analysis
       self$analysis_args <- analysis_args
