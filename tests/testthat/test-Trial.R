@@ -589,3 +589,109 @@ test_that("fixed path: leading timepoints are actually skipped (not just correct
   testthat::expect_equal(spy$calls, n_evaluated)
   testthat::expect_equal(spy$trigger_count, n_evaluated)
 })
+
+### Statistical ground-truth tests for Trial paths ###
+
+# Pull per-subject follow-up time (drop_time - enroll_time) from a full reveal.
+.followups <- function(adaptive, reps, ss, enroll_rate, drop_rate) {
+  do.call(c, lapply(seq_len(reps), function(s) {
+    set.seed(s)
+    sch <- stochastic_schedule(ss, "A", 1,
+             enrollment = function(n) rexp(n, enroll_rate),
+             dropout    = function(n) rexp(n, drop_rate))
+    timer <- Timer$new("t"); add_timepoints(timer, sch)
+    pop <- Population$new("A", as_population_data(rnorm(ss)))
+    reveal <- condition_calendar_time(max(timer$get_unique_times()),
+                                      analysis = function(df, t) df)
+    tr <- Trial$new("e", seed = s, timer = timer, population = list(pop),
+                    conditions = list(reveal), adaptive = adaptive)
+    tr$run()
+    if (length(tr$locked_data) == 0L) return(numeric(0))
+    sn <- tr$locked_data[[length(tr$locked_data)]]
+    sn <- sn[!duplicated(sn$subject_id), c("enroll_time", "drop_time")]
+    sn <- sn[!is.na(sn$drop_time), , drop = FALSE]
+    sn$drop_time - sn$enroll_time
+  }))
+}
+
+test_that("single-arm: fixed and adaptive follow-ups are identical (RNG-aligned)", {
+  # One arm => drop assignment consumes the RNG in the same order in both paths,
+  # so the per-subject follow-up vectors are bit-identical. Deterministic.
+  f <- .followups(adaptive = FALSE, reps = 25, ss = 80L, enroll_rate = 0.05, drop_rate = 0.03)
+  a <- .followups(adaptive = TRUE,  reps = 25, ss = 80L, enroll_rate = 0.05, drop_rate = 0.03)
+  cat(sprintf("single-arm follow-up: n=%d, identical=%s\n", length(f),
+              isTRUE(all.equal(f, a))))
+  testthat::expect_equal(f, a)
+})
+
+test_that("multi-arm: fixed and adaptive follow-up distributions match (KS)", {
+  # >=2 arms: drop-arm assignment consumes the RNG in a different order between
+  # paths, so draws differ but the follow-up LAW is the same. Under H0 (same law)
+  # the KS p-value ~ Uniform(0,1); P(reject at alpha) = alpha. alpha = 0.01 gives a
+  # nominal 1% false-reject; the seed fixes the result (observed p ~ 0.99, D ~ 0.014).
+  fu2 <- function(adaptive, reps, ss) do.call(c, lapply(seq_len(reps), function(s) {
+    set.seed(s)
+    sch <- stochastic_schedule(ss, c("A", "B"), c(1, 1),
+             enrollment = function(n) rexp(n, 0.05), dropout = function(n) rexp(n, 0.03))
+    timer <- Timer$new("t"); add_timepoints(timer, sch)
+    pops <- lapply(c("A", "B"), function(a) Population$new(a, as_population_data(rnorm(ss))))
+    reveal <- condition_calendar_time(max(timer$get_unique_times()),
+                                      analysis = function(df, t) df)
+    tr <- Trial$new("e", seed = s, timer = timer, population = pops,
+                    conditions = list(reveal), adaptive = adaptive)
+    tr$run()
+    if (length(tr$locked_data) == 0L) return(numeric(0))
+    sn <- tr$locked_data[[length(tr$locked_data)]]
+    sn <- sn[!duplicated(sn$subject_id), c("enroll_time", "drop_time")]
+    sn <- sn[!is.na(sn$drop_time), , drop = FALSE]
+    sn$drop_time - sn$enroll_time
+  }))
+  f <- fu2(FALSE, 25, 80L); a <- fu2(TRUE, 25, 80L)
+  # Fixed/adaptive paths share seeds 1..25, so a handful of subjects produce
+  # numerically identical follow-up draws across f/a -> ks.test's exact-p
+  # algorithm cannot apply and it deterministically warns "ties". Expected,
+  # not suppressed (per stochastic-test policy: assert it, don't hide it).
+  testthat::expect_warning(ks.test(f, a), "ties")
+  ks <- suppressWarnings(ks.test(f, a))
+  cat(sprintf("multi-arm KS: p %.4f D %.4f\n", ks$p.value, unname(ks$statistic)))
+  testthat::expect_gt(ks$p.value, 0.01)
+})
+
+test_that("fixed-path enroll/drop correlation tracks eligibility binding", {
+  # cor(enroll_time, drop_time) over per-seed reveals. NO-overlap (fast enroll,
+  # very slow drop): all subjects drop-eligible => random assignment => cor ~ 0.
+  # OVERLAP (slower drop): eligibility binds => positive correlation, but well below
+  # the earliest-enrolled artefact ceiling (n-1)/(n+5) = 0.943.
+  # Measured (60 seeds, SE = sd/sqrt(60)): no-overlap mean 0.028 (SE 0.011);
+  # overlap mean 0.343 (SE 0.012). Bounds below are >=6.7 sigma from the boundary;
+  # the regimes separate by ~19 sigma.
+  mean_cor <- function(drop_rate) {
+    cors <- unlist(lapply(1:60, function(s) {
+      set.seed(s)
+      sch <- stochastic_schedule(100L, "A", 1,
+               enrollment = function(n) rexp(n, 1), dropout = function(n) rexp(n, drop_rate))
+      timer <- Timer$new("t"); add_timepoints(timer, sch)
+      pop <- Population$new("A", as_population_data(rnorm(100L)))
+      reveal <- condition_calendar_time(max(timer$get_unique_times()),
+                                        analysis = function(df, t) df)
+      tr <- Trial$new("e", seed = s, timer = timer, population = list(pop),
+                      conditions = list(reveal))
+      tr$run()
+      sn <- tr$locked_data[[length(tr$locked_data)]]
+      sn <- sn[!duplicated(sn$subject_id), ]
+      sn <- sn[!is.na(sn$drop_time), ]
+      if (nrow(sn) < 3L) return(NA_real_)
+      cor(sn$enroll_time, sn$drop_time)
+    }))
+    mean(cors, na.rm = TRUE)
+  }
+  ceiling_cor <- (100 - 1) / (100 + 5)
+  m_no <- mean_cor(0.01)   # no overlap
+  m_ov <- mean_cor(0.25)   # overlap
+  cat(sprintf("corr means: no-overlap %.4f overlap %.4f ceiling %.4f\n",
+              m_no, m_ov, ceiling_cor))
+  testthat::expect_lt(abs(m_no), 0.1)             # ~ 6.7 sigma from boundary
+  testthat::expect_gt(m_ov, 0.2)                  # ~11.6 sigma; eligibility binds
+  testthat::expect_lt(m_ov, ceiling_cor)          # still random, not earliest-enrolled
+  testthat::expect_gt(m_ov - m_no, 0.15)          # regimes clearly separated
+})
