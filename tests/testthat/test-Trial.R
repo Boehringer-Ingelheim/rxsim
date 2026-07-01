@@ -70,7 +70,7 @@ test_that("Trial initialize: auto-builds timer from pre-enrolled population", {
   trial <- Trial$new(name = "auto_timer", timer = NULL, population = list(pop))
 
   testthat::expect_false(is.null(trial$timer))
-  testthat::expect_true(length(trial$timer$timelist) > 0)
+  testthat::expect_true(nrow(trial$timer$timelist) > 0L)
 })
 
 ### run() ###
@@ -102,6 +102,28 @@ test_that("Trial run: measurement_time equals readout_time + enroll_time", {
 
   snap <- trial$locked_data[["time_1"]]
   testthat::expect_equal(snap$measurement_time, snap$readout_time + snap$enroll_time)
+})
+
+test_that("Trial run: empty snapshot timepoints are skipped and later snapshots still store", {
+  timer <- Timer$new("t")
+  timer$add_timepoint(time = 0, arm = "A", enroll = 0L, drop = 0L)
+  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  pop <- Population$new("A", as_population_data(rnorm(5)))
+  cal_cond_0 <- condition_calendar_time(0, analysis = function(df, ct) df)
+  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+  trial <- Trial$new(
+    name = "empty_snapshot_guard",
+    timer = timer,
+    population = list(pop),
+    conditions = list(cal_cond_0, cal_cond_1)
+  )
+
+  testthat::expect_no_error(trial$run())
+  testthat::expect_false("time_0" %in% names(trial$locked_data))
+  testthat::expect_false("time_0" %in% names(trial$results))
+  testthat::expect_true("time_1" %in% names(trial$locked_data))
+  testthat::expect_true("time_1" %in% names(trial$results))
+  testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
 })
 
 test_that("Trial run: only enrolled subjects appear in snapshot", {
@@ -277,20 +299,26 @@ test_that("Trial run: drop_time >= enroll_time for all dropped subjects", {
   testthat::expect_true(all(dropped$drop_time >= dropped$enroll_time))
 })
 
-test_that("Trial run: timepoints processed in sorted order regardless of insertion order", {
-  pop <- make_pop("A", 6, 1)
+test_that("Trial run: output is invariant to timepoint insertion order", {
+  # The engine sorts timepoints internally, so scrambled insertion must yield
+  # the same snapshots as ascending insertion. Compare the two directly: a
+  # snapshot keyed by insertion index instead of time would diverge here.
+  build <- function(times) {
+    pop <- make_pop("A", 6, 1)
+    timer <- Timer$new("t")
+    for (tm in times) timer$add_timepoint(time = tm, arm = "A", enroll = 3L, drop = 0L)
+    cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
+    cal_cond_2 <- condition_calendar_time(3, analysis = function(df, ct) df)
+    trial <- Trial$new("order", seed = 123, timer = timer,
+                       population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
+    trial$run()
+    trial$locked_data
+  }
+  scrambled <- build(c(3, 1))
+  ascending <- build(c(1, 3))
 
-  timer_rev <- Timer$new("t_rev")
-  timer_rev$add_timepoint(time = 3, arm = "A", enroll = 3L, drop = 0L)
-  timer_rev$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
-  cal_cond_2 <- condition_calendar_time(3, analysis = function(df, ct) df)
-
-  trial <- Trial$new("sort_check", seed = 123, timer = timer_rev, population = list(pop), conditions = list(cal_cond_1, cal_cond_2))
-  trial$run()
-
-  testthat::expect_equal(nrow(trial$locked_data[["time_1"]]), 3L)
-  testthat::expect_equal(nrow(trial$locked_data[["time_3"]]), 6L)
+  # Compare the entire locked_data (names, order, and every snapshot), not slices.
+  testthat::expect_equal(scrambled, ascending)
 })
 
 test_that("Trial run: duplicate time/arm timepoint rows are aggregated", {

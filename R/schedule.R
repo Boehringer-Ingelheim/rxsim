@@ -44,7 +44,7 @@
 #' @param arms `character` vector of arm identifiers.
 #' @param allocation `numeric` vector of allocation ratios.
 #' @param enrollment `function` that takes `n` and returns `n` inter-arrival
-#'   times (e.g. `function(n) rexp(n, rate = 0.5)`).
+#'   times (e.g. `function(n) rexp(n, rate = 1)`).
 #' @param dropout `function` that takes `n` and returns `n` inter-dropout
 #'   times.
 #'

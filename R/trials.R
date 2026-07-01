@@ -109,7 +109,7 @@ replicate_trial <- function(
   }
 
   n_target <- lapply(timers, function(t) {
-    plan_df <- dplyr::bind_rows(t$timelist)
+    plan_df <- t$timelist
     planned_arms <- unique(plan_df$arm)
     plan_missing_arms <- setdiff(pop_names, planned_arms)
     pop_missing_arms <- setdiff(planned_arms, pop_names)
