@@ -56,14 +56,17 @@ test_that("count_trigger: errors on invalid col and op", {
 
 # ── enroll_trigger ───────────────────────────────────────────────────────────
 
-test_that("enroll_trigger: wraps count_trigger with enroll_time", {
+test_that("enroll_trigger: wraps count_trigger with enroll_time, filters to enrolled", {
   t <- enroll_trigger(0.5, 200)
 
   expect_s3_class(t, "trigger")
-  expect_equal(t$type, "count")
-  expect_equal(t$col, "enroll_time")
-  expect_equal(t$op, ">=")
-  expect_equal(t$rhs, 100)  # 0.5 * 200
+  expect_equal(t$combinator, "&")
+  expect_equal(t$predicates[[1L]]$type, "count")
+  expect_equal(t$predicates[[1L]]$col, "enroll_time")
+  expect_equal(t$predicates[[1L]]$op, ">=")
+  expect_equal(t$predicates[[1L]]$rhs, 100)  # 0.5 * 200
+  expect_equal(t$predicates[[2L]]$type, "notna")
+  expect_equal(t$predicates[[2L]]$col, "enroll_time")
 })
 
 test_that("enroll_trigger: errors on fraction out of range", {
@@ -161,7 +164,9 @@ test_that("Condition$new: AND trigger produces two quosures (dplyr ANDs them)", 
   cond <- Condition$new(where = trig, name = "and_test")
 
   expect_r6_class(cond, "Condition")
-  expect_length(cond$where, 2L)  # dplyr::filter(..., pred1, pred2) ANDs them
+  # enroll_trigger itself expands to 2 quosures (count & notna); ANDed with
+  # calendar_trigger's 1 quosure gives 3 total.
+  expect_length(cond$where, 3L)  # dplyr::filter(..., pred1, pred2, pred3) ANDs them
 })
 
 test_that("Condition$new: OR trigger produces one quosure with | expression", {

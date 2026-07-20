@@ -19,11 +19,11 @@
 }
 
 .check_count <- function(n) {
-  n <- as.integer(n)
-  if (length(n) != 1L || is.na(n) || n < 0L) {
+  if (length(n) != 1L || !is.numeric(n) || is.na(n) ||
+      n < 0L || n != as.integer(n)) {
     stop("`n` must be a single non-negative integer.")
   }
-  n
+  as.integer(n)
 }
 
 #' Population: Manage a patient population
