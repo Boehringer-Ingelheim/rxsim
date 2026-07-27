@@ -18,6 +18,14 @@
   data
 }
 
+.check_count <- function(n) {
+  if (length(n) != 1L || !is.numeric(n) || is.na(n) ||
+      n < 0L || n != as.integer(n)) {
+    stop("`n` must be a single non-negative integer.")
+  }
+  as.integer(n)
+}
+
 #' Population: Manage a patient population
 #'
 #' @description
@@ -125,11 +133,7 @@ Population <- R6::R6Class(
     #' pop <- Population$new("Test", as_population_data(rnorm(10)))
     #' pop$set_enrolled(n = 4, time = 2)
     set_enrolled = function(n, time) {
-      # input validation
-      n <- as.integer(n)
-      if (length(n) != 1L || is.na(n) || n < 0L) {
-        stop("`n` must be a single non-negative integer.")
-      }
+      n <- .check_count(n)
 
       # Don't enroll more subjects than available
       idx <- which(is.na(self$enrolled))
@@ -156,11 +160,7 @@ Population <- R6::R6Class(
     #' pop$set_enrolled(n = 5, time = 1)
     #' pop$set_dropped(n = 2, time = 3)
     set_dropped = function(n, time) {
-      # input validation
-      n <- as.integer(n)
-      if (length(n) != 1L || is.na(n) || n < 0L) {
-        stop("`n` must be a single non-negative integer.")
-      }
+      n <- .check_count(n)
 
       # Don't drop more subjects than eligible (enrolled and not yet dropped)
       idx <- which(is.na(self$dropped) & !is.na(self$enrolled))

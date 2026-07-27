@@ -87,7 +87,11 @@ enroll_trigger <- function(fraction, sample_size) {
     stop("`fraction` must be a single number in (0, 1].")
   }
 
-  count_trigger("enroll_time", ">=", fraction * sample_size)
+  # count_trigger's aggregate predicate decides *whether* to fire but, on its
+  # own, doesn't drop unenrolled rows (dplyr::filter recycles a length-1
+  # logical across all rows). AND it with notna_trigger so the analysis only
+  # ever sees enrolled subjects.
+  count_trigger("enroll_time", ">=", fraction * sample_size) & notna_trigger("enroll_time")
 }
 
 #' @rdname trigger_primitives
