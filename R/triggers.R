@@ -1,5 +1,58 @@
 .trigger_ops <- c(">=", "<=", ">", "<", "==", "!=", "%in%")
 
+# Earliest calendar time at which a trigger spec *could* fire, given the sorted
+# per-subject enrollment times. Used by the fixed path (Trial$run, adaptive =
+# FALSE) to skip leading timepoints where no condition can fire.
+#
+# Returns:
+#   -Inf  : cannot reason about this trigger -> evaluate at every timepoint (safe)
+#   Inf   : threshold can never be reached -> the condition never fires
+#   t     : earliest time the trigger's gate-1 (non-empty filter) can hold
+#
+# Monotone helper triggers only (`>=`/`>` on calendar time or counts, and their
+# `&`/`|` combinations). Anything else falls back to -Inf.
+.trigger_fire_time <- function(spec, subj_enroll) {
+  if (is.null(spec)) return(-Inf)
+
+  if (!is.null(spec$combinator)) {
+    if (identical(spec$combinator, "&")) {
+      parts <- if (!is.null(spec$predicates)) spec$predicates else list(spec$left, spec$right)
+      return(max(vapply(parts, .trigger_fire_time, numeric(1), subj_enroll)))
+    }
+    return(min(
+      .trigger_fire_time(spec$left, subj_enroll),
+      .trigger_fire_time(spec$right, subj_enroll)
+    ))
+  }
+
+  op <- spec$op
+  rhs <- spec$rhs
+
+  # calendar time: prefix$time == i is constant, so fires at first i >= rhs
+  if (identical(spec$type, "value") && identical(spec$col, "time") && op %in% c(">=", ">")) {
+    return(rhs)
+  }
+
+  # count threshold: fires when the rhs-th subject has enrolled
+  if (identical(spec$type, "count") && op %in% c(">=", ">")) {
+    k <- if (identical(op, ">=")) ceiling(rhs) else floor(rhs) + 1
+    if (k < 1) return(-Inf)
+    if (k > length(subj_enroll)) return(Inf)
+    return(subj_enroll[k])
+  }
+
+  -Inf
+}
+
+.check_col_op <- function(col, op) {
+  if (!is.character(col) || length(col) != 1L || is.na(col)) {
+    stop("`col` must be a single character string.")
+  }
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) {
+    stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  }
+}
+
 #' @name trigger_primitives
 #' @title Build Trial Triggers
 #' @description Create trigger specifications that can be passed to
@@ -22,8 +75,7 @@
 #' t2 <- count_trigger("enroll_time", ">=", 100)
 #' t3 <- enroll_trigger(0.5, 200) & calendar_trigger(52)
 value_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_col_op(col, op)
   if (!is.atomic(rhs)) {
     stop("`rhs` must be atomic for `value_trigger()`.")
   }
@@ -34,8 +86,7 @@ value_trigger <- function(col, op, rhs) {
 #' @rdname trigger_primitives
 #' @export
 count_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_col_op(col, op)
   if (!is.atomic(rhs) || !is.numeric(rhs)) {
     stop("`rhs` must be numeric for `count_trigger()`.")
   }

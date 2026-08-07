@@ -381,9 +381,8 @@ stochastic_timer$get_end_timepoint()
 
 ### The `timelist` structure
 
-`timer$timelist` is a named list of individual timepoint records. Each element
-corresponds to one call to `add_timepoint()` and contains the four fields
-`time`, `arm`, `enroll`, and `drop`.
+`timer$timelist` is a `data.frame` with columns `time`, `arm`, `enroll`, and
+`drop`. Each row corresponds to one call to `add_timepoint()`.
 
 ```{r timelist_structure}
 trial_clock <- Timer$new(name = "trial_clock")
@@ -392,7 +391,7 @@ trial_clock$add_timepoint(time = 1, arm = "trt", drop = 0L, enroll = 3L)
 trial_clock$add_timepoint(time = 4, arm = "pbo", drop = 1L, enroll = 0L)
 
 trial_clock$timelist
-sort(unique(vapply(trial_clock$timelist, function(x) x$time, numeric(1))))
+sort(unique(trial_clock$timelist$time))
 ```
 
 ## Putting it together: full example

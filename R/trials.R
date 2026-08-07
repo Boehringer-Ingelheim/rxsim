@@ -25,7 +25,8 @@ clone_trial <- function(trial, n = 1) {
       name       = paste(trial$name, i, sep="_"),
       timer      = trial$timer$clone(),
       population = lapply(trial$population, function(x) x$clone()),
-      conditions = lapply(trial$conditions, function(x) x$clone())
+      conditions = lapply(trial$conditions, function(x) x$clone()),
+      adaptive   = trial$adaptive
     )
   })
 }
@@ -70,12 +71,15 @@ gen_population <- function(name, generator, sample_size = 1) {
 #' @param arms `character` vector of arm identifiers.
 #' @param allocation `numeric` vector of arm allocation ratios.
 #' @param enrollment `function` that generates inter-enrollment times.
-#' @param dropout `function` that generates inter-dropout times.
+#' @param dropout `function` that generates inter-dropout times, or `NULL` for
+#'   no dropout.
 #' @param analysis_generators `list` (named) of analysis specifications. Each
 #'   `$trigger` must be a `trigger` object created by
 #'   `value_trigger()`, `count_trigger()`, `enroll_trigger()`, or
 #'   `calendar_trigger()`.
 #' @param population_generators `list` (named) of population generator functions.
+#' @param adaptive `logical` Passed to each `Trial$new()`. When `FALSE`
+#'   (default), uses the fixed fast path. When `TRUE`, uses the adaptive loop.
 #' @param n `integer` Number of trials to create.
 #'
 #' @return `list` of `n` `Trial` objects with indexed names,
@@ -90,10 +94,11 @@ replicate_trial <- function(
   arms,
   allocation,
   enrollment,
-  dropout,
+  dropout = NULL,
   analysis_generators,
   population_generators,
-  n
+  n,
+  adaptive = FALSE
 ) {
 
   timers <- lapply(seq_len(n), function(i) {
@@ -109,7 +114,7 @@ replicate_trial <- function(
   }
 
   n_target <- lapply(timers, function(t) {
-    plan_df <- dplyr::bind_rows(t$timelist)
+    plan_df <- t$timelist
     planned_arms <- unique(plan_df$arm)
     plan_missing_arms <- setdiff(pop_names, planned_arms)
     pop_missing_arms <- setdiff(planned_arms, pop_names)
@@ -163,7 +168,8 @@ replicate_trial <- function(
       conditions = conditions,
       population = lapply(names(population_generators), function(name) {
         gen_population(name, population_generators[[name]], n_target[[i]][[name]])
-      })
+      }),
+      adaptive   = adaptive
     )
   })
 

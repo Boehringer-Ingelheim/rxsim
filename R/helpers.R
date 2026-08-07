@@ -25,12 +25,14 @@
 add_timepoints <- function(timer, df) {
   if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
   if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroll, drop")
-  invisible(
-    sapply(
-      split(df, seq_len(nrow(df))),
-      function(x) do.call(timer$add_timepoint, x)
-    )
-  )
+  required_cols <- c("time", "arm", "enroll")
+  missing_cols <- setdiff(required_cols, names(df))
+  if (length(missing_cols) > 0L) {
+    stop(sprintf("Missing required columns in df: %s", paste(missing_cols, collapse = ", ")))
+  }
+  if (!"drop" %in% names(df)) df$drop <- 0L
+  df$drop[is.na(df$drop)] <- 0L
+  timer$timelist <- rbind(timer$timelist, df[, c("time", "arm", "enroll", "drop")])
   invisible(timer)
 }
 
@@ -102,21 +104,21 @@ collect_results <- function(trials, analysis = NULL) {
     ))
   }
 
-  rows <- lapply(seq_along(trials), function(i) {
+  rows <- list()
+  for (i in seq_along(trials)) {
     results <- trials[[i]]$results
-    if (length(results) == 0L) return(NULL)
+    if (length(results) == 0L) next
 
-    tp_rows <- lapply(names(results), function(tp_name) {
+    for (tp_name in names(results)) {
       analyses <- results[[tp_name]]
-
       if (!is.null(analysis)) {
         analyses <- analyses[names(analyses) %in% analysis]
       }
-      if (length(analyses) == 0L) return(NULL)
+      if (length(analyses) == 0L) next
 
-      an_rows <- lapply(names(analyses), function(an_name) {
+      for (an_name in names(analyses)) {
         val <- analyses[[an_name]]
-        if (is.null(val) || (length(val) == 1L && is.na(val))) return(NULL)
+        if (is.null(val) || (length(val) == 1L && is.na(val))) next
 
         df <- if (is.data.frame(val)) {
           val
@@ -124,7 +126,7 @@ collect_results <- function(trials, analysis = NULL) {
           as.data.frame(as.list(val), stringsAsFactors = FALSE)
         }
 
-        cbind(
+        rows[[length(rows) + 1L]] <- cbind(
           data.frame(
             replicate = i,
             timepoint = as.numeric(sub("time_", "", tp_name)),
@@ -134,17 +136,13 @@ collect_results <- function(trials, analysis = NULL) {
           ),
           df
         )
-      })
+      }
+    }
+  }
 
-      dplyr::bind_rows(an_rows)
-    })
-
-    dplyr::bind_rows(tp_rows)
-  })
-
-  result <- dplyr::bind_rows(rows)
-  if (!is.null(result)) rownames(result) <- NULL
-  result
+  out <- dplyr::bind_rows(rows)
+  rownames(out) <- NULL
+  out
 }
 
 #' Create a Population-Compatible Data Frame from a Vector
@@ -175,7 +173,8 @@ as_population_data <- function(data) data.frame(
 #'
 #' @param populations [`Population`] object or `list` of [`Population`] objects.
 #'
-#' @return `character` vector of unique column names.
+#' @return `character` vector of unique population column names augmented with
+#'   `subject_id`, `enroll_time`, `drop_time`, `measurement_time`, and `time`.
 #'
 #' @seealso [Population].
 #'
@@ -194,15 +193,9 @@ as_population_data <- function(data) data.frame(
 #' ))
 #' get_col_names(list(pop1, pop2))
 get_col_names <- function(populations) {
-  col_names <- NULL
-  if (is.list(populations)) {
-    for (p in populations) {
-      col_names <- c(col_names, colnames(p$data))
-    }
-  } else {
-    col_names <- c(col_names, colnames(populations$data))
-  }
-
-  col_names <- c(col_names, "time", "enroll_time", "drop_time", "measure_time")
-  return(unique(col_names))
+  if (inherits(populations, "Population")) populations <- list(populations)
+  unique(c(
+    unlist(lapply(populations, function(p) colnames(p$data))),
+    names(.ADDED_COLS)
+  ))
 }

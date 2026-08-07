@@ -1,3 +1,24 @@
+# Single source of truth for the columns Trial adds to a snapshot beyond the raw
+# population data. NULL = assembled during snapshot construction (enroll_time /
+# drop_time come from Population state via an alignment-sensitive cbind and are
+# NOT recomputed here). function(df, ctx) = derived by .augment_snapshot from the
+# assembled snapshot. List order matters: measurement_time reads enroll_time.
+# Adding a derived column here propagates to get_col_names() and both run paths.
+.ADDED_COLS <- list(
+  enroll_time      = NULL,
+  drop_time        = NULL,
+  subject_id       = function(df, ctx) rep(seq_len(ctx$n_subj), each = ctx$nr),
+  measurement_time = function(df, ctx) df$readout_time + df$enroll_time,
+  time             = function(df, ctx) ctx$time
+)
+
+# Add the derived columns named in `cols` (default: all non-NULL entries) to `df`.
+.augment_snapshot <- function(df, ctx,
+                              cols = names(Filter(Negate(is.null), .ADDED_COLS))) {
+  for (nm in cols) df[[nm]] <- .ADDED_COLS[[nm]](df, ctx)
+  df
+}
+
 #' Trial: Simulate a multi‑arm clinical trial
 #'
 #' @description
@@ -52,7 +73,6 @@
 #' collect_results(trial)
 #'
 #' @export
-
 Trial <- R6::R6Class(
   classname = "Trial",
   public = list(
@@ -80,6 +100,13 @@ Trial <- R6::R6Class(
     #' @field results `list` Analysis outputs per condition.
     results = NULL,
 
+    #' @field adaptive `logical` When `FALSE` (default), uses the fixed fast path:
+    #'   enroll/drop times are precomputed deterministically before iteration,
+    #'   and snapshots are cheap prefix slices. When `TRUE`, uses the adaptive
+    #'   loop: enrollment and dropout are sampled incrementally at each
+    #'   timepoint, supporting designs where the schedule may change mid-trial.
+    adaptive = FALSE,
+
     # --- constructor ---
     #' @description
     #' Create a new `Trial` instance.
@@ -91,6 +118,9 @@ Trial <- R6::R6Class(
     #' @param locked_data `list` Generated at each `$run()` call.
     #' @param results `list` Analysis outputs generated at each `$run()` call.
     #' @param conditions `list` of [Condition] objects to evaluate at each timepoint.
+    #' @param adaptive `logical` When `FALSE` (default), uses the fixed fast path
+    #'   (deterministic precompute, prefix snapshots). When `TRUE`, uses the
+    #'   adaptive loop (incremental random sampling at each timepoint).
     #' @return A new `Trial` instance.
     #'
     #' @examples
@@ -108,7 +138,8 @@ Trial <- R6::R6Class(
       population = list(), # default empty list
       locked_data = list(),
       conditions =list(),
-      results = list()
+      results = list(),
+      adaptive = FALSE
     ) {
       stopifnot(is.character(name))
       self$name <- name
@@ -116,6 +147,7 @@ Trial <- R6::R6Class(
       if (!is.null(seed)) set.seed(seed)
       if (!is.null(timer) && !inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
       stopifnot(is.list(population))
+      stopifnot(is.logical(adaptive), length(adaptive) == 1L)
 
       if (length(population) > 1) {
         readouts <- sapply(population, function(p) p$n_readouts)
@@ -127,7 +159,7 @@ Trial <- R6::R6Class(
         }
       }
 
-      if (is.null(timer) || length(timer$timelist) == 0) {
+      if (is.null(timer) || nrow(timer$timelist) == 0L) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
@@ -150,7 +182,7 @@ Trial <- R6::R6Class(
       self$locked_data <- locked_data
       self$results <- results
       self$conditions <- conditions
-
+      self$adaptive <- adaptive
 
     },
 
@@ -159,14 +191,21 @@ Trial <- R6::R6Class(
     #' @description
     #' Execute a trial simulation.
     #'
-    #' At each unique time defined by the trial's `Timer`:
-    #' - Apply enrollment and dropout actions to each `Population`
-    #' - Build a combined snapshot of all currently enrolled subjects
-    #' - Attach a `time` column to the snapshot
-    #' - Evaluate each [`Condition`] in `self$conditions` against the snapshot
-    #' - Store snapshots and condition outputs under time‑indexed list keys
+    #' Dispatches to the fixed fast path (`adaptive = FALSE`, default) or the
+    #' adaptive loop (`adaptive = TRUE`). Both paths update `locked_data` and
+    #' `results` fields with the same structure.
     #'
-    #' @return Updates `locked_data` and `results` fields.
+    #' **Fixed path** (`adaptive = FALSE`): enroll/drop times are precomputed
+    #' deterministically before iteration. Snapshots are cheap prefix slices of
+    #' a single combined data frame. Conditions are evaluated with per-condition
+    #' exhausted-skip.
+    #'
+    #' **Adaptive loop** (`adaptive = TRUE`): enrollment and dropout are sampled
+    #' randomly at each timepoint, supporting designs where the schedule may
+    #' change mid-trial based on interim results.
+    #'
+    #' @return Updates `locked_data` and `results` fields; returns `self`
+    #'   invisibly.
     #'
     #' @seealso [Timer], [Condition], [collect_results()].
     #'
@@ -198,12 +237,18 @@ Trial <- R6::R6Class(
       if (is.null(self$timer) || length(self$population) == 0) {
         stop("Timer and population list must be set before running run()")
       }
+      if (self$adaptive) private$run_adaptive() else private$run_fixed()
+      invisible(self)
+    }
+  ), # end public
 
-      plan_df <- dplyr::bind_rows(self$timer$timelist)
-      if (nrow(plan_df) == 0L) {
-        return(invisible(self))
-      }
+  private = list(
 
+    # Adaptive loop: incremental random sampling at each timepoint.
+    # Used when adaptive = TRUE.
+    run_adaptive = function() {
+      plan_df <- self$timer$timelist
+      if (nrow(plan_df) == 0L) return(invisible(NULL))
 
       for (i in sort(unique(plan_df$time))) {
         # Apply enrollment/dropout updates to each population at this timepoint
@@ -226,7 +271,7 @@ Trial <- R6::R6Class(
         # Create snapshots of enrolled subjects from all populations
         locked_snapshot_list <- lapply(self$population, function(p) {
           keep <- !is.na(p$enrolled)
-                    cbind(
+          cbind(
             p$data[keep, , drop = FALSE],
             enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
             drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
@@ -234,17 +279,13 @@ Trial <- R6::R6Class(
         })
 
         combined <- do.call(rbind, locked_snapshot_list)
-        nr     <- self$population[[1]]$n_readouts
-        n_subj <- as.integer(nrow(combined) / nr)
-        combined$subject_id <- rep(seq_len(n_subj), each = nr)
-
         if (is.null(combined) || nrow(combined) == 0L) {
           next
         }
 
-        # Add measurement and current time column
-        combined$measurement_time <- combined$readout_time + combined$enroll_time
-        combined$time <- rep(i, nrow(combined))
+        nr     <- self$population[[1]]$n_readouts
+        n_subj <- as.integer(nrow(combined) / nr)
+        combined <- .augment_snapshot(combined, list(n_subj = n_subj, nr = nr, time = i))
 
         # Check all conditions on the combined snapshot
         results <- list()
@@ -260,7 +301,151 @@ Trial <- R6::R6Class(
           self$results[[paste0("time_", i)]] <- results
         }
       }
-      invisible(self)
+      invisible(NULL)
+    },
+
+    # Fixed fast path: deterministic precompute + prefix snapshots.
+    # Used when adaptive = FALSE (default).
+    run_fixed = function() {
+      plan_df <- self$timer$timelist
+      if (nrow(plan_df) == 0L) return(invisible(NULL))
+
+      # Precompute enroll_time/drop_time for all populations deterministically.
+      for (p in self$population) {
+        private$precompute_population(p, plan_df)
+      }
+
+      # Build the full combined snapshot (all enrolled subjects).
+      full_snap <- private$build_full_snapshot()
+      if (is.null(full_snap) || nrow(full_snap) == 0L) return(invisible(NULL))
+
+      unique_times <- sort(unique(plan_df$time))
+
+      # Per-subject enrollment times (sorted) for computing condition fire times.
+      subj_enroll <- sort(full_snap$enroll_time[!duplicated(full_snap$subject_id)])
+
+      conds <- self$conditions
+      # Earliest time each condition could fire; -Inf = evaluate always (unknown
+      # trigger), Inf = never fires. Lets us skip non-firing timepoints cheaply
+      # (integer comparison) without building a prefix or calling dplyr::filter.
+      fire_time <- vapply(conds, function(cn)
+        .trigger_fire_time(cn$trigger_spec, subj_enroll), numeric(1))
+      keep_active <- rep(TRUE, length(conds))
+
+      for (i in unique_times) {
+        act <- which(keep_active & fire_time <= i)
+        if (length(act) == 0L) next  # cheap skip: nothing can fire yet
+
+        # Prefix slice: enrolled subjects visible at time i
+        prefix <- full_snap[full_snap$enroll_time <= i, , drop = FALSE]
+        if (nrow(prefix) == 0L) next
+
+        # Mask drop_time > i (right-censoring: future drops not yet observed)
+        prefix$drop_time[!is.na(prefix$drop_time) & prefix$drop_time > i] <- NA_real_
+        prefix <- .augment_snapshot(prefix, list(time = i), cols = "time")
+
+        results <- list()
+        for (j in act) {
+          results <- c(results, conds[[j]]$check_conditions(
+            locked_data  = prefix,
+            current_time = i
+          ))
+        }
+
+        if (length(results) > 0L) {
+          self$locked_data[[paste0("time_", i)]] <- prefix
+          self$results[[paste0("time_", i)]] <- results
+          # Retire conditions that have exhausted their trigger budget.
+          for (j in act) {
+            cn <- conds[[j]]
+            if (is.finite(cn$max_triggers) && cn$trigger_count >= cn$max_triggers) {
+              keep_active[j] <- FALSE
+            }
+          }
+          if (!any(keep_active)) break
+        }
+      }
+      invisible(NULL)
+    },
+
+    # Deterministically assign enroll_time and drop_time for one population.
+    # Enroll: expand per-timepoint counts into a sorted per-subject vector
+    #   (subjects are exchangeable, so subject 1 gets earliest enroll_time).
+    # Drop: among subjects eligible at each drop timepoint (enrolled by then and
+    #   not yet dropped), pick uniformly at random — same as the adaptive path's
+    #   set_dropped(). Random (not earliest-enrolled) assignment is required so
+    #   the joint (enroll_time, drop_time) distribution — and thus follow-up
+    #   time — matches the adaptive/main behaviour; eligibility still guarantees
+    #   drop_time >= enroll_time. NULL / zero drop column → all drop_time stay NA.
+    precompute_population = function(p, plan_df) {
+      arm_rows <- plan_df[plan_df$arm == p$name, , drop = FALSE]
+
+      # --- enroll ---
+      enroll_times <- rep(
+        arm_rows$time,
+        times = as.integer(arm_rows$enroll)
+      )
+      enroll_times <- sort(enroll_times)
+      n_enroll <- min(length(enroll_times), p$n)
+
+      p$enrolled <- rep(NA_real_, p$n)
+      if (n_enroll > 0L) {
+        p$enrolled[seq_len(n_enroll)] <- enroll_times[seq_len(n_enroll)]
+      }
+
+      # --- drop ---
+      p$dropped <- rep(NA_real_, p$n)
+      has_drops <- !is.null(arm_rows$drop) &&
+        any(!is.na(arm_rows$drop) & arm_rows$drop > 0L)
+      if (!has_drops) return(invisible(NULL))
+
+      drop_rows <- arm_rows[!is.na(arm_rows$drop) & arm_rows$drop > 0L, , drop = FALSE]
+      drop_rows <- drop_rows[order(drop_rows$time), , drop = FALSE]
+
+      # Track which subjects are still drop-eligible at each timepoint:
+      # eligible = enrolled (not NA) and not yet dropped (NA dropped).
+      for (k in seq_len(nrow(drop_rows))) {
+        t_drop <- drop_rows$time[k]
+        n_drop  <- as.integer(drop_rows$drop[k])
+
+        # eligible: enrolled at or before this time and not yet dropped
+        eligible <- which(!is.na(p$enrolled) & p$enrolled <= t_drop & is.na(p$dropped))
+        if (length(eligible) == 0L) next
+
+        n_use <- min(n_drop, length(eligible))
+        if (n_use < n_drop) {
+          warning(sprintf(
+            "Requested %d dropouts at time %s for arm '%s' but only %d eligible; dropping %d.",
+            n_drop, t_drop, p$name, length(eligible), n_use
+          ), call. = FALSE)
+        }
+        # Pick eligible subjects uniformly at random (matches set_dropped()).
+        pick <- eligible[sample.int(length(eligible), n_use)]
+        p$dropped[pick] <- t_drop
+      }
+      invisible(NULL)
+    },
+
+    # Build the full combined snapshot of all enrolled subjects across populations.
+    # subject_id is globally unique across arms (same as adaptive path).
+    build_full_snapshot = function() {
+      nr <- self$population[[1]]$n_readouts
+      parts <- lapply(self$population, function(p) {
+        keep <- !is.na(p$enrolled)
+        if (!any(keep)) return(NULL)
+        cbind(
+          p$data[keep, , drop = FALSE],
+          enroll_time = rep(p$enrolled[keep], times = nr),
+          drop_time   = rep(p$dropped[keep],  times = nr)
+        )
+      })
+      combined <- do.call(rbind, Filter(Negate(is.null), parts))
+      if (is.null(combined) || nrow(combined) == 0L) return(NULL)
+
+      n_subj <- as.integer(nrow(combined) / nr)
+      .augment_snapshot(combined, list(n_subj = n_subj, nr = nr),
+                        cols = c("subject_id", "measurement_time"))
     }
-  ) # end public
+
+  ) # end private
 ) # end class

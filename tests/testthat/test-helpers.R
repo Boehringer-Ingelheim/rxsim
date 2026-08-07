@@ -50,7 +50,7 @@ test_that("add_timepoints adds the correct number of timepoints", {
     drop   = c(0L, 1L, 1L)
   )
   add_timepoints(t, df)
-  expect_equal(length(t$timelist), 3L)
+  expect_equal(nrow(t$timelist), 3L)
 })
 
 test_that("add_timepoints returns the timer invisibly", {
@@ -74,7 +74,7 @@ test_that("add_timepoints stores correct enroll and drop values", {
 test_that("get_col_names always includes the four fixed time columns", {
   pop <- Population$new(name = "P", data = as_population_data(rnorm(5)))
   result <- get_col_names(pop)
-  expect_true(all(c("time", "enroll_time", "drop_time", "measure_time") %in% result))
+  expect_true(all(c("time", "enroll_time", "drop_time", "measurement_time") %in% result))
 })
 
 test_that("get_col_names returns columns from a single population", {

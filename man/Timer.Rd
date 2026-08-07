@@ -4,8 +4,8 @@
 \alias{Timer}
 \title{Timer: Track timed events across arms}
 \description{
-A class to collect and query \emph{timepoints}  -  time-based enrollment and
-dropout events  -  across trial arms.
+A class to collect and query \emph{timepoints} - time-based enrollment and
+dropout events - across trial arms.
 
 Use \code{add_timepoint()} to register events, \code{get_timepoint()} for lookup,
 \code{get_end_timepoint()} / \code{get_n_arms()} / \code{get_unique_times()} for
@@ -33,7 +33,7 @@ t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
 t$get_end_timepoint() # max time => 2
 t$get_n_arms()        # unique arms => 2
 t$get_unique_times()  # unique times => c(1, 2)
-t$get_timepoint("A", 1) # returns a single timepoint
+t$get_timepoint("A", 1) # returns a single-row data.frame
 
 
 ## ------------------------------------------------
@@ -47,12 +47,7 @@ t <- Timer$new(name = "Timer")
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(
-  time = 1,
-  arm = "A",
-  drop = 1L,
-  enroll = 3L
-)
+t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 3L)
 
 ## ------------------------------------------------
 ## Method `Timer$get_end_timepoint`
@@ -87,8 +82,7 @@ t$get_unique_times()
 t <- Timer$new(name = "Timer")
 t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
 t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-t$get_timepoint("A", 1)
+t$get_timepoint("A", 3.14)
 }
 \seealso{
 \code{\link{Trial}} to coordinate simulations with populations,
@@ -100,7 +94,7 @@ t$get_timepoint("A", 1)
 \describe{
 \item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
 
-\item{\code{timelist}}{\code{list} A list of timepoints. Each timepoint is a list with keys:
+\item{\code{timelist}}{\code{data.frame} A data.frame of timepoints with columns:
 \itemize{
 \item \code{time} \code{numeric} Calendar time
 \item \code{arm} \code{character} Unique identifier of the arm
@@ -136,7 +130,8 @@ Create a new \code{Timer} instance.
 \describe{
 \item{\code{name}}{\code{character} Unique identifier.}
 
-\item{\code{timelist}}{\code{list} Optional list of timepoints.}
+\item{\code{timelist}}{\code{data.frame} Optional data.frame of timepoints with columns
+\code{time}, \code{arm}, \code{drop}, \code{enroll}. If \code{NULL}, an empty frame is created.}
 }
 \if{html}{\out{</div>}}
 }
@@ -156,9 +151,9 @@ A new \code{Timer} instance.
 \if{html}{\out{<a id="method-Timer-add_timepoint"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-add_timepoint}{}}}
 \subsection{Method \code{add_timepoint()}}{
-Add a timepoint to a timer.
+Add a timepoint to the timer.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop, enroll)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop = 0L, enroll)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -177,12 +172,7 @@ Add a timepoint to a timer.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(
-  time = 1,
-  arm = "A",
-  drop = 1L,
-  enroll = 3L
-)
+t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 3L)
 }
 \if{html}{\out{</div>}}
 
@@ -261,7 +251,7 @@ t$get_unique_times()
 \if{html}{\out{<a id="method-Timer-get_timepoint"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_timepoint}{}}}
 \subsection{Method \code{get_timepoint()}}{
-Get a timepoint by arm and index.
+Get a timepoint by arm and time value.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Timer$get_timepoint(arm, i)}\if{html}{\out{</div>}}
 }
@@ -271,20 +261,19 @@ Get a timepoint by arm and index.
 \describe{
 \item{\code{arm}}{\code{character} Arm identifier.}
 
-\item{\code{i}}{\code{integer} Timepoint index.}
+\item{\code{i}}{\code{numeric} Time value to look up.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Returns}{
-\code{list} timepoint or \code{NULL} if not found.
+Single-row \code{data.frame} or \code{NULL} if not found.
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
 t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
 t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-t$get_timepoint("A", 1)
+t$get_timepoint("A", 3.14)
 }
 \if{html}{\out{</div>}}
 

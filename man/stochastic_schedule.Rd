@@ -4,7 +4,7 @@
 \alias{stochastic_schedule}
 \title{Generate a Stochastic Enrollment and Dropout Schedule}
 \usage{
-stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
+stochastic_schedule(sample_size, arms, allocation, enrollment, dropout = NULL)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}
@@ -14,7 +14,7 @@ stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
 \item{allocation}{\code{numeric} vector of allocation ratios.}
 
 \item{enrollment}{\code{function} that takes \code{n} and returns \code{n} inter-arrival
-times (e.g. \code{function(n) rexp(n, rate = 0.5)}).}
+times (e.g. \code{function(n) rexp(n, rate = 1)}).}
 
 \item{dropout}{\code{function} that takes \code{n} and returns \code{n} inter-dropout
 times.}
