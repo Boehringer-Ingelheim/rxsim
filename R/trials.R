@@ -99,7 +99,7 @@ replicate_trial <- function(
   timers <- lapply(seq_len(n), function(i) {
     t <- Timer$new(name = paste("timer", i, sep="_"))
     plan <- stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
-    add_timepoints(t, plan)
+    t$add_schedule(plan)
     return(t)
   })
 

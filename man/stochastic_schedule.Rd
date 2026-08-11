@@ -45,5 +45,5 @@ stochastic_schedule(
 }
 \seealso{
 \code{\link[=deterministic_schedule]{deterministic_schedule()}} for piecewise-constant rates,
-\code{\link[=add_timepoints]{add_timepoints()}} to attach to a \code{Timer}.
+\link{Timer}$add_schedule() to attach to a \code{Timer}.
 }

@@ -1,5 +1,19 @@
 .trigger_ops <- c(">=", "<=", ">", "<", "==", "!=", "%in%")
 
+# Validation shared by the trigger constructors. `arg` names the parameter so
+# the message still points at `ref_col`/`time_col`, not a generic "col".
+.check_string <- function(x, arg) {
+  if (!is.character(x) || length(x) != 1L || is.na(x)) {
+    stop(sprintf("`%s` must be a single character string.", arg))
+  }
+}
+
+.check_op <- function(op) {
+  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) {
+    stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  }
+}
+
 #' @name trigger_primitives
 #' @title Build Trial Triggers
 #' @description Create trigger specifications that can be passed to
@@ -22,8 +36,8 @@
 #' t2 <- count_trigger("enroll_time", ">=", 100)
 #' t3 <- enroll_trigger(0.5, 200) & calendar_trigger(52)
 value_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_string(col, "col")
+  .check_op(op)
   if (!is.atomic(rhs)) {
     stop("`rhs` must be atomic for `value_trigger()`.")
   }
@@ -34,8 +48,8 @@ value_trigger <- function(col, op, rhs) {
 #' @rdname trigger_primitives
 #' @export
 count_trigger <- function(col, op, rhs) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_string(col, "col")
+  .check_op(op)
   if (!is.atomic(rhs) || !is.numeric(rhs)) {
     stop("`rhs` must be numeric for `count_trigger()`.")
   }
@@ -46,7 +60,7 @@ count_trigger <- function(col, op, rhs) {
 #' @rdname trigger_primitives
 #' @export
 notna_trigger <- function(col) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
+  .check_string(col, "col")
   structure(list(type = "notna", col = col), class = "trigger")
 }
 
@@ -55,9 +69,9 @@ notna_trigger <- function(col) {
 #'   comparison.
 #' @export
 col_trigger <- function(col, op, ref_col) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
-  if (!is.character(ref_col) || length(ref_col) != 1L || is.na(ref_col)) stop("`ref_col` must be a single character string.")
+  .check_string(col, "col")
+  .check_op(op)
+  .check_string(ref_col, "ref_col")
   structure(list(type = "col_compare", col = col, op = op, ref_col = ref_col), class = "trigger")
 }
 
@@ -67,9 +81,9 @@ col_trigger <- function(col, op, ref_col) {
 #' @param threshold `numeric` Event count threshold used with `op`.
 #' @export
 timed_count_trigger <- function(col, time_col, op, threshold) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) stop("`col` must be a single character string.")
-  if (!is.character(time_col) || length(time_col) != 1L || is.na(time_col)) stop("`time_col` must be a single character string.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_string(col, "col")
+  .check_string(time_col, "time_col")
+  .check_op(op)
   if (!is.numeric(threshold) || length(threshold) != 1L || is.na(threshold)) stop("`threshold` must be a single numeric value.")
   structure(list(type = "timed_count", col = col, time_col = time_col, op = op, threshold = threshold), class = "trigger")
 }
@@ -245,9 +259,9 @@ trigger_by_events <- function(
     op         = ">="
 ) {
   if (missing(event_col) || missing(n_events)) stop("`event_col` and `n_events` are required.")
-  if (!is.character(event_col) || length(event_col) != 1L || is.na(event_col)) stop("`event_col` must be a single character string.")
+  .check_string(event_col, "event_col")
   if (!is.numeric(n_events) || length(n_events) != 1L || is.na(n_events)) stop("`n_events` must be a single numeric value.")
-  if (!is.character(op) || length(op) != 1L || is.na(op) || !op %in% .trigger_ops) stop("`op` must be one of: >=, <=, >, <, ==, !=, %in%.")
+  .check_op(op)
   if (is.null(name)) name <- paste0("events_", n_events)
 
   trig <- timed_count_trigger(event_col, time_col, op, n_events) &

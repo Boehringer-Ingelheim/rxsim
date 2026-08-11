@@ -76,7 +76,7 @@ pop_trt <- Population$new("trt", trt_data)
 
 # 2. Timer: register enrollment/dropout events
 tmr <- Timer$new("my_timer")
-add_timepoints(tmr, stochastic_schedule(n, arms, alloc, enroll_fn, dropout_fn))
+tmr$add_schedule(stochastic_schedule(n, arms, alloc, enroll_fn, dropout_fn))
 
 # 3. Condition: fire at full enrollment, run a t-test
 cond <- Condition$new(
