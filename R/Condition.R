@@ -1,33 +1,32 @@
+# Build one nested call for the whole trigger tree.
+.trigger_expr <- function(trigger) {
+  if (is.null(trigger$type)) {
+    op    <- if (identical(trigger$combinator, "&")) "&" else "|"
+    preds <- if (op == "&") trigger$predicates else list(trigger$left, trigger$right)
+    return(Reduce(function(a, b) call(op, a, b), lapply(preds, .trigger_expr)))
+  }
+
+  if (identical(trigger$type, "value")) {
+    call(trigger$op, call("[[", quote(.data), trigger$col), trigger$rhs)
+  } else if (identical(trigger$type, "notna")) {
+    call("!", call("is.na", call("[[", quote(.data), trigger$col)))
+  } else if (identical(trigger$type, "col_compare")) {
+    call(trigger$op, call("[[", quote(.data), trigger$col), call("[[", quote(.data), trigger$ref_col))
+  } else if (identical(trigger$type, "timed_count")) {
+    col_expr  <- call("[[", quote(.data), trigger$col)
+    time_expr <- call("[[", quote(.data), trigger$time_col)
+    call(trigger$op,
+         call("sum", call("&", call("!", call("is.na", col_expr)), call("<=", col_expr, time_expr))),
+         trigger$threshold)
+  } else {
+    call(trigger$op,
+         call("sum", call("!", call("is.na", call("[[", quote(.data), trigger$col)))),
+         trigger$rhs)
+  }
+}
+
 .trigger_to_quosures <- function(trigger) {
-  if (!is.null(trigger$type)) {
-    expr <- if (identical(trigger$type, "value")) {
-      call(trigger$op, call("[[", quote(.data), trigger$col), trigger$rhs)
-    } else if (identical(trigger$type, "notna")) {
-      call("!", call("is.na", call("[[", quote(.data), trigger$col)))
-    } else if (identical(trigger$type, "col_compare")) {
-      call(trigger$op, call("[[", quote(.data), trigger$col), call("[[", quote(.data), trigger$ref_col))
-    } else if (identical(trigger$type, "timed_count")) {
-      col_expr  <- call("[[", quote(.data), trigger$col)
-      time_expr <- call("[[", quote(.data), trigger$time_col)
-      call(trigger$op,
-           call("sum", call("&", call("!", call("is.na", col_expr)), call("<=", col_expr, time_expr))),
-           trigger$threshold)
-    } else {
-      call(trigger$op,
-           call("sum", call("!", call("is.na", call("[[", quote(.data), trigger$col)))),
-           trigger$rhs)
-    }
-    return(list(rlang::new_quosure(expr, env = rlang::current_env())))
-  }
-
-  if (identical(trigger$combinator, "&")) {
-    return(unlist(lapply(trigger$predicates, .trigger_to_quosures), recursive = FALSE))
-  }
-
-  left_quos  <- .trigger_to_quosures(trigger$left)
-  right_quos <- .trigger_to_quosures(trigger$right)
-  expr <- call("|", rlang::get_expr(left_quos[[1L]]), rlang::get_expr(right_quos[[1L]]))
-  list(rlang::new_quosure(expr, env = rlang::current_env()))
+  list(rlang::new_quosure(.trigger_expr(trigger), env = rlang::current_env()))
 }
 
 #' Condition: Stateful trigger and analysis unit
@@ -90,9 +89,9 @@
 #'   data.frame(n_active = nrow(df), fired_at = current_time)
 #' }
 #'
-#' # Condition fires once when 3+ subjects are enrolled (max_triggers = 1)
+#' # Condition fires once when 3+ of 4 subjects are enrolled (max_triggers = 1)
 #' cond <- Condition$new(
-#'   where        = count_trigger("enroll_time", ">=", 3L),
+#'   where        = enroll_trigger(fraction = 0.75, sample_size = 4),
 #'   analysis     = count_fn,
 #'   name         = "interim_A",
 #'   cooldown     = 0,

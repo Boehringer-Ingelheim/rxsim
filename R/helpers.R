@@ -1,42 +1,4 @@
 
-#' Add Timepoints to a Timer
-#'
-#' Adds multiple enrollment and dropout events from a data frame.
-#'
-#' @param timer [`Timer`] instance.
-#' @param df `data.frame` with columns: `time` (numeric), `arm` (character),
-#'   `enroll` (integer), `drop` (integer).
-#'
-#' @seealso [Timer], [stochastic_schedule()], [deterministic_schedule()].
-#'
-#' @export
-#'
-#' @examples
-#' t <- Timer$new(name = "Timer")
-#'
-#' timepoints <- data.frame(
-#'   time = c(1, 2, 3.1, 4, 5, 6),
-#'   arm = rep("Arm A", 6),
-#'   drop = c(2L, rep(1L, 5)),
-#'   enroll = rep(3L, 6)
-#' )
-#'
-#' add_timepoints(t, timepoints)
-add_timepoints <- function(timer, df) {
-  if (!inherits(timer, "Timer")) stop("`timer` must be a Timer instance.")
-  if (!is.data.frame(df)) stop("`df` must be a data.frame with columns: time, arm, enroll, drop")
-  required_cols <- c("time", "arm", "enroll")
-  missing_cols <- setdiff(required_cols, names(df))
-  if (length(missing_cols) > 0L) {
-    stop(sprintf("Missing required columns in df: %s", paste(missing_cols, collapse = ", ")))
-  }
-  if (!"drop" %in% names(df)) df$drop <- 0L
-  df$drop[is.na(df$drop)] <- 0L
-  timer$timelist <- rbind(timer$timelist, df[, c("time", "arm", "enroll", "drop")])
-  invisible(timer)
-}
-
-
 #' Collect Trial Results Across Replicates
 #'
 #' Gathers analysis outputs from one or more `Trial` objects into a single
