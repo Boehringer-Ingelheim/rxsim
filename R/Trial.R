@@ -1,3 +1,24 @@
+# Single source of truth for the columns Trial adds to a snapshot beyond the raw
+# population data. NULL = assembled during snapshot construction (enroll_time /
+# drop_time come from Population state via an alignment-sensitive cbind and are
+# NOT recomputed here). function(df, ctx) = derived by .augment_snapshot from the
+# assembled snapshot. List order matters: measurement_time reads enroll_time.
+# Adding a derived column here propagates to get_col_names() and both run paths.
+.ADDED_COLS <- list(
+  enroll_time      = NULL,
+  drop_time        = NULL,
+  subject_id       = function(df, ctx) rep(seq_len(ctx$n_subj), each = ctx$nr),
+  measurement_time = function(df, ctx) df$readout_time + df$enroll_time,
+  time             = function(df, ctx) ctx$time
+)
+
+# Add the derived columns named in `cols` (default: all non-NULL entries) to `df`.
+.augment_snapshot <- function(df, ctx,
+                              cols = names(Filter(Negate(is.null), .ADDED_COLS))) {
+  for (nm in cols) df[[nm]] <- .ADDED_COLS[[nm]](df, ctx)
+  df
+}
+
 #' Trial: Simulate a multi‑arm clinical trial
 #'
 #' @description
@@ -25,10 +46,10 @@
 #'
 #' # Create a timer and add timepoints
 #' t <- Timer$new("Timer")
-#' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-#' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+#' t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+#' t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+#' t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+#' t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 #'
 #' # Build a condition: fire at time >= 2 and count enrolled rows
 #' cond <- Condition$new(
@@ -127,7 +148,7 @@ Trial <- R6::R6Class(
         }
       }
 
-      if (is.null(timer) || length(timer$timelist) == 0) {
+      if (is.null(timer) || nrow(timer$timelist) == 0L) {
         # If timer has no timepoints, extract from population enrollment times
         if (all(sapply(population, function(x) all(is.na(x$enrolled))))) {
           stop("Neither Timer nor Population has enrollment data.")
@@ -139,7 +160,7 @@ Trial <- R6::R6Class(
             enroll = 1L,
             drop = 0L
           )
-          add_timepoints(timer, timepoints)
+          timer$add_schedule(timepoints)
           self$timer <- timer
         }
       } else {
@@ -177,10 +198,10 @@ Trial <- R6::R6Class(
     #'
     #' # Create a timer and add timepoints
     #' t <- Timer$new("Timer")
-    #' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-    #' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-    #' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-    #' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+    #' t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+    #' t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+    #' t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+    #' t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
     #'
     #' # Create a trial
     #' trial <- Trial$new(
@@ -199,7 +220,12 @@ Trial <- R6::R6Class(
         stop("Timer and population list must be set before running run()")
       }
 
-      plan_df <- dplyr::bind_rows(self$timer$timelist)
+      # ponytail: current model — stateful incremental sampling: at each timepoint,
+      # randomly pick n unenrolled subjects to enroll. Alternative: precompute
+      # per-subject enroll_time/drop_time at construction; snapshots become a
+      # vectorized filter (enroll_time <= t), no per-step sampling needed.
+
+      plan_df <- self$timer$timelist
       if (nrow(plan_df) == 0L) {
         return(invisible(self))
       }
@@ -234,17 +260,13 @@ Trial <- R6::R6Class(
         })
 
         combined <- do.call(rbind, locked_snapshot_list)
-        nr     <- self$population[[1]]$n_readouts
-        n_subj <- as.integer(nrow(combined) / nr)
-        combined$subject_id <- rep(seq_len(n_subj), each = nr)
-
         if (is.null(combined) || nrow(combined) == 0L) {
           next
         }
 
-        # Add measurement and current time column
-        combined$measurement_time <- combined$readout_time + combined$enroll_time
-        combined$time <- rep(i, nrow(combined))
+        nr     <- self$population[[1]]$n_readouts
+        n_subj <- as.integer(nrow(combined) / nr)
+        combined <- .augment_snapshot(combined, list(n_subj = n_subj, nr = nr, time = i))
 
         # Check all conditions on the combined snapshot
         results <- list()

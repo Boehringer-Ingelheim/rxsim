@@ -99,7 +99,7 @@ replicate_trial <- function(
   timers <- lapply(seq_len(n), function(i) {
     t <- Timer$new(name = paste("timer", i, sep="_"))
     plan <- stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
-    add_timepoints(t, plan)
+    t$add_schedule(plan)
     return(t)
   })
 
@@ -109,7 +109,7 @@ replicate_trial <- function(
   }
 
   n_target <- lapply(timers, function(t) {
-    plan_df <- dplyr::bind_rows(t$timelist)
+    plan_df <- t$timelist
     planned_arms <- unique(plan_df$arm)
     plan_missing_arms <- setdiff(pop_names, planned_arms)
     pop_missing_arms <- setdiff(planned_arms, pop_names)

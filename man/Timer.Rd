@@ -4,12 +4,12 @@
 \alias{Timer}
 \title{Timer: Track timed events across arms}
 \description{
-A class to collect and query \emph{timepoints}  -  time-based enrollment and
-dropout events  -  across trial arms.
+A class to collect and query \emph{timepoints} - time-based enrollment and
+dropout events - across trial arms.
 
-Use \code{add_timepoint()} to register events, \code{get_timepoint()} for lookup,
+Use \code{add_schedule()} to register events and
 \code{get_end_timepoint()} / \code{get_n_arms()} / \code{get_unique_times()} for
-summary queries.
+summary queries. The full event table is the public \code{timelist} field.
 }
 \details{
 Trigger conditions (filtering + analysis) are now managed by the separate
@@ -25,15 +25,18 @@ a \code{\link{Condition}} that you pass to \code{Trial$new(conditions = list(...
 t <- Timer$new(name = "Timer")
 
 # Add timepoints
-t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
+t$add_schedule(data.frame(
+  time   = c(1, 2, 1),
+  arm    = c("A", "A", "B"),
+  drop   = c(2L, 1L, 0L),
+  enroll = c(10L, 12L, 8L)
+))
 
 # Query
 t$get_end_timepoint() # max time => 2
 t$get_n_arms()        # unique arms => 2
 t$get_unique_times()  # unique times => c(1, 2)
-t$get_timepoint("A", 1) # returns a single timepoint
+t$timelist            # the full event table
 
 
 ## ------------------------------------------------
@@ -43,23 +46,23 @@ t$get_timepoint("A", 1) # returns a single timepoint
 t <- Timer$new(name = "Timer")
 
 ## ------------------------------------------------
-## Method `Timer$add_timepoint`
+## Method `Timer$add_schedule`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(
-  time = 1,
-  arm = "A",
-  drop = 1L,
-  enroll = 3L
-)
+
+# single event
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
+
+# whole schedule (data.frame() recycles the constant columns)
+t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 
 ## ------------------------------------------------
 ## Method `Timer$get_end_timepoint`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$get_end_timepoint()
 
 ## ------------------------------------------------
@@ -67,8 +70,8 @@ t$get_end_timepoint()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_n_arms()
 
 ## ------------------------------------------------
@@ -76,31 +79,21 @@ t$get_n_arms()
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_unique_times()
-
-## ------------------------------------------------
-## Method `Timer$get_timepoint`
-## ------------------------------------------------
-
-t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-t$get_timepoint("A", 1)
 }
 \seealso{
 \code{\link{Trial}} to coordinate simulations with populations,
 \code{\link{Condition}} for trigger/analysis logic,
-\code{\link[=add_timepoints]{add_timepoints()}} to attach multiple timepoints.
+\code{\link[=stochastic_schedule]{stochastic_schedule()}} / \code{\link[=deterministic_schedule]{deterministic_schedule()}} to build a schedule.
 }
 \section{Public fields}{
 \if{html}{\out{<div class="r6-fields">}}
 \describe{
 \item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
 
-\item{\code{timelist}}{\code{list} A list of timepoints. Each timepoint is a list with keys:
+\item{\code{timelist}}{\code{data.frame} A data.frame of timepoints with columns:
 \itemize{
 \item \code{time} \code{numeric} Calendar time
 \item \code{arm} \code{character} Unique identifier of the arm
@@ -114,11 +107,10 @@ t$get_timepoint("A", 1)
 \subsection{Public methods}{
 \itemize{
 \item \href{#method-Timer-new}{\code{Timer$new()}}
-\item \href{#method-Timer-add_timepoint}{\code{Timer$add_timepoint()}}
+\item \href{#method-Timer-add_schedule}{\code{Timer$add_schedule()}}
 \item \href{#method-Timer-get_end_timepoint}{\code{Timer$get_end_timepoint()}}
 \item \href{#method-Timer-get_n_arms}{\code{Timer$get_n_arms()}}
 \item \href{#method-Timer-get_unique_times}{\code{Timer$get_unique_times()}}
-\item \href{#method-Timer-get_timepoint}{\code{Timer$get_timepoint()}}
 \item \href{#method-Timer-clone}{\code{Timer$clone()}}
 }
 }
@@ -136,7 +128,8 @@ Create a new \code{Timer} instance.
 \describe{
 \item{\code{name}}{\code{character} Unique identifier.}
 
-\item{\code{timelist}}{\code{list} Optional list of timepoints.}
+\item{\code{timelist}}{\code{data.frame} Optional data.frame of timepoints with columns
+\code{time}, \code{arm}, \code{drop}, \code{enroll}. If \code{NULL}, an empty frame is created.}
 }
 \if{html}{\out{</div>}}
 }
@@ -153,36 +146,37 @@ A new \code{Timer} instance.
 
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Timer-add_timepoint"></a>}}
-\if{latex}{\out{\hypertarget{method-Timer-add_timepoint}{}}}
-\subsection{Method \code{add_timepoint()}}{
-Add a timepoint to a timer.
+\if{html}{\out{<a id="method-Timer-add_schedule"></a>}}
+\if{latex}{\out{\hypertarget{method-Timer-add_schedule}{}}}
+\subsection{Method \code{add_schedule()}}{
+Add a schedule of timepoints to the timer.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_timepoint(time, arm, drop, enroll)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Timer$add_schedule(schedule)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{time}}{\code{numeric} Calendar time.}
+\item{\code{schedule}}{\code{data.frame} with columns \code{time} (numeric), \code{arm}
+(character), \code{enroll} (integer), \code{drop} (integer). One row per event;
+a single event is a one-row data frame. Typically the output of
+\code{\link[=stochastic_schedule]{stochastic_schedule()}} or \code{\link[=deterministic_schedule]{deterministic_schedule()}}.
 
-\item{\code{arm}}{\code{character} Arm identifier.}
-
-\item{\code{drop}}{\code{integer} Count of subjects to drop.}
-
-\item{\code{enroll}}{\code{integer} Count of subjects to enroll.}
+\code{enroll} and \code{drop} are subject counts and must be integer
+(\code{3L}, not \code{3}) - fractional counts are silently truncated
+downstream, so they are rejected here.}
 }
 \if{html}{\out{</div>}}
 }
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(
-  time = 1,
-  arm = "A",
-  drop = 1L,
-  enroll = 3L
-)
+
+# single event
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
+
+# whole schedule (data.frame() recycles the constant columns)
+t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 }
 \if{html}{\out{</div>}}
 
@@ -201,7 +195,7 @@ Determine the last timepoint for a given instance of \code{Timer} class.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$get_end_timepoint()
 }
 \if{html}{\out{</div>}}
@@ -224,8 +218,8 @@ Get number of unique arms.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_n_arms()
 }
 \if{html}{\out{</div>}}
@@ -248,43 +242,9 @@ Get unique timepoints.
 \subsection{Examples}{
 \if{html}{\out{<div class="r example copy">}}
 \preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_unique_times()
-}
-\if{html}{\out{</div>}}
-
-}
-
-}
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Timer-get_timepoint"></a>}}
-\if{latex}{\out{\hypertarget{method-Timer-get_timepoint}{}}}
-\subsection{Method \code{get_timepoint()}}{
-Get a timepoint by arm and index.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$get_timepoint(arm, i)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{arm}}{\code{character} Arm identifier.}
-
-\item{\code{i}}{\code{integer} Timepoint index.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-\code{list} timepoint or \code{NULL} if not found.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-t$get_timepoint("A", 1)
 }
 \if{html}{\out{</div>}}
 

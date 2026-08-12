@@ -51,5 +51,5 @@ deterministic_schedule(
 }
 \seealso{
 \code{\link[=stochastic_schedule]{stochastic_schedule()}} for random inter-event times,
-\code{\link[=add_timepoints]{add_timepoints()}}.
+\link{Timer}$add_schedule().
 }

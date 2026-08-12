@@ -107,7 +107,7 @@ direct_plan <- stochastic_schedule(
 
 # 2. Build the timer from that plan.
 direct_timer <- Timer$new(name = "direct_timer")
-add_timepoints(direct_timer, direct_plan)
+direct_timer$add_schedule(direct_plan)
 
 # 3. Compute the planned arm sizes from the timer input.
 direct_n_by_arm <- vapply(
@@ -173,7 +173,7 @@ build_direct_trial <- function(name) {
 
   # 2. Turn that plan into a timer.
   timer <- Timer$new(name = paste0(name, "_timer"))
-  add_timepoints(timer, plan)
+  timer$add_schedule(plan)
 
   # 3. Size each arm from the generated plan.
   n_by_arm <- vapply(

@@ -90,8 +90,6 @@ Population <- R6::R6Class(
     #'   `data`, and optionally more columns.
     #' @param enrolled `numeric` Optional enrollment times (auto-initialized if `NULL`).
     #' @param dropped `numeric` Optional dropout times (auto-initialized if `NULL`).
-    #' @param n `integer` Auto-computed from data (optional).
-    #' @param n_readouts `integer` Auto-computed from data (optional).
     #'
     #' @return A new `Population` instance.
     #'
@@ -101,9 +99,7 @@ Population <- R6::R6Class(
       name,
       data = NULL,
       enrolled = NULL,
-      dropped = NULL,
-      n = NULL,
-      n_readouts = NULL
+      dropped = NULL
     ) {
       stopifnot(is.character(name))
       self$name <- name
