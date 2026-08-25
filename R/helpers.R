@@ -102,9 +102,9 @@ collect_results <- function(trials, analysis = NULL) {
     }
   }
 
-  result <- dplyr::bind_rows(rows)
-  if (!is.null(result)) rownames(result) <- NULL
-  result
+  out <- dplyr::bind_rows(rows)
+  rownames(out) <- NULL
+  out
 }
 
 #' Create a Population-Compatible Data Frame from a Vector
@@ -135,7 +135,8 @@ as_population_data <- function(data) data.frame(
 #'
 #' @param populations [`Population`] object or `list` of [`Population`] objects.
 #'
-#' @return `character` vector of unique column names.
+#' @return `character` vector of unique population column names augmented with
+#'   `subject_id`, `enroll_time`, `drop_time`, `measurement_time`, and `time`.
 #'
 #' @seealso [Population].
 #'

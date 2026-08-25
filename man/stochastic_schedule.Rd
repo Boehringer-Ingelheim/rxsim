@@ -4,7 +4,7 @@
 \alias{stochastic_schedule}
 \title{Generate a Stochastic Enrollment and Dropout Schedule}
 \usage{
-stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
+stochastic_schedule(sample_size, arms, allocation, enrollment, dropout = NULL)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}
