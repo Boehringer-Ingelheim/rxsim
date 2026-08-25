@@ -496,3 +496,28 @@ test_that("fixed path: warns when requested drops exceed eligible subjects", {
                      conditions = list(cal_cond), adaptive = FALSE)
   testthat::expect_warning(trial$run(), "only .* eligible")
 })
+
+test_that("Trial run: staggered enrollment aligns enroll/drop times per subject (n_readouts > 1)", {
+  for (adaptive in c(FALSE, TRUE)) {
+    pop <- make_pop("A", n_subj = 3, n_read = 2)
+    timer <- Timer$new("t")
+    timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 2L, drop = 0L))
+    timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 1L, drop = 1L))
+    cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+    trial <- Trial$new("staggered", seed = 1, timer = timer, population = list(pop),
+                       conditions = list(cal_cond), adaptive = adaptive)
+    trial$run()
+
+    snap <- trial$locked_data[["time_2"]]
+    # 3 subjects x 2 readouts, subject-major layout
+    testthat::expect_equal(snap$id, rep(1:3, each = 2))
+    # enroll_time constant within each subject: subjects 1-2 at t=1, subject 3 at t=2
+    testthat::expect_equal(snap$enroll_time, rep(c(1, 1, 2), each = 2))
+    # one subject dropped at t=2; whichever it is, both its rows carry drop_time = 2
+    by_subject <- split(snap$drop_time, snap$id)
+    testthat::expect_true(all(vapply(by_subject, function(x) length(unique(x)) == 1L, logical(1))))
+    testthat::expect_equal(sum(!is.na(snap$drop_time)), 2L)
+    # measurement_time = readout_time + enroll_time, per row
+    testthat::expect_equal(snap$measurement_time, snap$readout_time + snap$enroll_time)
+  }
+})
