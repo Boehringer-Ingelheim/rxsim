@@ -17,11 +17,11 @@ make_trial <- function(name = "trial",
                        analysis = function(df, ct) df) {
   pop <- make_pop("A", n_subj, n_read)
   timer <- Timer$new("t")
-  timer$add_timepoint(
+  timer$add_schedule(data.frame(
     time = cal_time, arm = "A",
     enroll = as.integer(enroll),
     drop   = as.integer(drop)
-  )
+  ))
   cal_cond <- condition_calendar_time(cal_time, analysis = analysis)
   Trial$new(name = name, seed = seed, timer = timer, population = list(pop), conditions = list(cal_cond))
 }
@@ -44,8 +44,8 @@ test_that("Trial initialize: errors when populations have different n_readouts",
   ))
 
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 1, arm = "B", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 1, arm = "B", enroll = 3L, drop = 0L))
 
   testthat::expect_error(
     Trial$new(name = "bad_trial", timer = timer, population = list(popA, popB)),
@@ -77,7 +77,7 @@ test_that("Trial initialize: auto-builds timer from pre-enrolled population", {
 
 test_that("Trial run: errors when population list is empty", {
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
   trial <- Trial$new("empty_pop", timer = timer, population = list())
   testthat::expect_error(
     trial$run(),
@@ -88,7 +88,7 @@ test_that("Trial run: errors when population list is empty", {
 test_that("Trial run: locked_data and results remain empty when no conditions fire", {
   pop <- make_pop("A", 4, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 0L))
   trial <- Trial$new("no_cond", timer = timer, population = list(pop))
   trial$run()
 
@@ -106,8 +106,8 @@ test_that("Trial run: measurement_time equals readout_time + enroll_time", {
 
 test_that("Trial run: empty snapshot timepoints are skipped and later snapshots still store", {
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 0, arm = "A", enroll = 0L, drop = 0L)
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 0, arm = "A", enroll = 0L, drop = 0L))
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
   pop <- Population$new("A", as_population_data(rnorm(5)))
   cal_cond_0 <- condition_calendar_time(0, analysis = function(df, ct) df)
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
@@ -137,8 +137,8 @@ test_that("Trial run: only enrolled subjects appear in snapshot", {
 test_that("Trial run: snapshot grows cumulatively across timepoints", {
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 3L, drop = 0L))
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
   cal_cond_2 <- condition_calendar_time(2, analysis = function(df, ct) df)
 
@@ -152,8 +152,8 @@ test_that("Trial run: snapshot grows cumulatively across timepoints", {
 test_that("Trial run: dropped subjects remain in snapshot with non-NA drop_time", {
   pop <- make_pop("A", 4, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 2L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 0L, drop = 2L))
   cal_cond_1 <- condition_calendar_time(2, analysis = function(df, ct) df)
 
   trial <- Trial$new("dropout", seed = 1, timer = timer, population = list(pop), conditions = list(cal_cond_1))
@@ -192,8 +192,8 @@ test_that("Trial run: subject_id globally unique across arms with same n_readout
   popB <- Population$new("B", data = dataB)
 
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 1, arm = "B", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 1, arm = "B", enroll = 3L, drop = 0L))
 
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, current_time) df)
 
@@ -223,7 +223,7 @@ test_that("Trial run: same seed produces identical enrolled and dropped assignme
   make_seeded_trial <- function() {
     pop <- make_pop("A", 6, 1)
     timer <- Timer$new("t")
-    timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 2L)
+    timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 2L))
     cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
     Trial$new("repro", seed = 7654, timer = timer, population = list(pop), conditions = list(cal_cond_1))
   }
@@ -273,8 +273,8 @@ test_that("Trial run: arm column preserved in multi-arm snapshot", {
   popA <- make_pop("A", 3, 1)
   popB <- make_pop("B", 3, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 1, arm = "B", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 1, arm = "B", enroll = 3L, drop = 0L))
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
 
   trial <- Trial$new("arms", seed = 1, timer = timer, population = list(popA, popB), conditions = list(cal_cond_1))
@@ -288,7 +288,7 @@ test_that("Trial run: arm column preserved in multi-arm snapshot", {
 test_that("Trial run: drop_time >= enroll_time for all dropped subjects", {
   trial <- make_trial("inv", seed = 1, n_subj = 6, drop = 0L)
 
-  trial$timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 3L)
+  trial$timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 0L, drop = 3L))
   cal_cond_1 <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial$conditions <- append(trial$conditions, cal_cond_1)
   trial$run()
@@ -306,7 +306,7 @@ test_that("Trial run: output is invariant to timepoint insertion order", {
   build <- function(times) {
     pop <- make_pop("A", 6, 1)
     timer <- Timer$new("t")
-    for (tm in times) timer$add_timepoint(time = tm, arm = "A", enroll = 3L, drop = 0L)
+    timer$add_schedule(data.frame(time = times, arm = "A", enroll = 3L, drop = 0L))
     cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
     cal_cond_2 <- condition_calendar_time(3, analysis = function(df, ct) df)
     trial <- Trial$new("order", seed = 123, timer = timer,
@@ -324,8 +324,8 @@ test_that("Trial run: output is invariant to timepoint insertion order", {
 test_that("Trial run: duplicate time/arm timepoint rows are aggregated", {
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 2L, drop = 0L)
-  timer$add_timepoint(time = 1, arm = "A", enroll = 2L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 2L, drop = 0L))
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 2L, drop = 0L))
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
 
   trial <- Trial$new("agg", seed = 1, timer = timer, population = list(pop), conditions = list(cal_cond_1))
@@ -346,8 +346,8 @@ test_that("fixed path: enroll_times sorted ascending (deterministic)", {
   enroll_per_time <- 3L
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = enroll_per_time, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = enroll_per_time, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 3L, drop = 0L))
   cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_enroll_order", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
@@ -360,8 +360,8 @@ test_that("fixed path: enroll_times sorted ascending (deterministic)", {
 test_that("fixed path: drop_time >= enroll_time for all dropped subjects", {
   pop <- make_pop("A", 4, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 2L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 0L, drop = 2L))
   cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_drop_order", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
@@ -375,8 +375,8 @@ test_that("fixed path: drop_time >= enroll_time for all dropped subjects", {
 test_that("fixed path: drop_time masked to NA for future drops in earlier snapshots", {
   pop <- make_pop("A", 4, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 2L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 0L, drop = 2L))
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
   cal_cond_2 <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_mask", timer = timer, population = list(pop),
@@ -392,8 +392,8 @@ test_that("fixed path: drop_time masked to NA for future drops in earlier snapsh
 test_that("fixed path: prefix snapshots grow cumulatively across timepoints", {
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 3L, drop = 0L))
   cal_cond_1 <- condition_calendar_time(1, analysis = function(df, ct) df)
   cal_cond_2 <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_cumulative", timer = timer, population = list(pop),
@@ -406,7 +406,7 @@ test_that("fixed path: prefix snapshots grow cumulatively across timepoints", {
 test_that("fixed path: NULL drops produce all-NA drop_time", {
   pop <- make_pop("A", 4, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 4L, drop = NULL)
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 4L, drop = 0L))
   cal_cond <- condition_calendar_time(1, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_null_drop", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
@@ -419,8 +419,8 @@ test_that("fixed path: parity with adaptive — same nrow and enrolled count", {
   make_parity_trial <- function(mode) {
     pop <- make_pop("A", 6, 1)
     timer <- Timer$new("t")
-    timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-    timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 1L)
+    timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+    timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 3L, drop = 1L))
     cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
     Trial$new("parity", seed = 42, timer = timer, population = list(pop),
               conditions = list(cal_cond), adaptive = mode)
@@ -448,9 +448,9 @@ test_that("fixed path: adaptive=FALSE and adaptive=TRUE give identical results",
   run_eq_trial <- function(mode) {
     pop <- make_pop("A", 10, 1)
     timer <- Timer$new("t")
-    for (k in 1:5) timer$add_timepoint(time = k, arm = "A", enroll = 2L, drop = 0L)
-    timer$add_timepoint(time = 3, arm = "A", enroll = 0L, drop = 2L)
-    timer$add_timepoint(time = 5, arm = "A", enroll = 0L, drop = 3L)
+    for (k in 1:5) timer$add_schedule(data.frame(time = k, arm = "A", enroll = 2L, drop = 0L))
+    timer$add_schedule(data.frame(time = 3, arm = "A", enroll = 0L, drop = 2L))
+    timer$add_schedule(data.frame(time = 5, arm = "A", enroll = 0L, drop = 3L))
     interim <- condition_enrollment_fraction(
       0.5, 10, analysis = function(df, t) c(n = nrow(df), m = mean(df$data)))
     final <- condition_enrollment_fraction(
@@ -469,8 +469,8 @@ test_that("fixed path: adaptive=FALSE and adaptive=TRUE give identical results",
 test_that("fixed path: drops are assigned randomly among eligible, not earliest-enrolled", {
   pop <- make_pop("A", 20, 1)
   timer <- Timer$new("t")
-  for (k in 1:20) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
-  timer$add_timepoint(time = 20, arm = "A", enroll = 0L, drop = 5L)
+  for (k in 1:20) timer$add_schedule(data.frame(time = k, arm = "A", enroll = 1L, drop = 0L))
+  timer$add_schedule(data.frame(time = 20, arm = "A", enroll = 0L, drop = 5L))
   reveal <- condition_calendar_time(20, analysis = function(df, ct) df)
   trial <- Trial$new("rand_drop", seed = 1, timer = timer, population = list(pop),
                      conditions = list(reveal), adaptive = FALSE)
@@ -490,8 +490,8 @@ test_that("fixed path: drops are assigned randomly among eligible, not earliest-
 test_that("fixed path: warns when requested drops exceed eligible subjects", {
   pop <- make_pop("A", 3, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 0L, drop = 5L)  # only 3 eligible
+  timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L))
+  timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 0L, drop = 5L))  # only 3 eligible
   cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
   trial <- Trial$new("fixed_shortfall", timer = timer, population = list(pop),
                      conditions = list(cal_cond), adaptive = FALSE)
@@ -588,4 +588,27 @@ test_that("fixed path: leading timepoints are actually skipped (not just correct
   n_evaluated <- length(5:10)
   testthat::expect_equal(spy$calls, n_evaluated)
   testthat::expect_equal(spy$trigger_count, n_evaluated)
+test_that("Trial run: staggered enrollment aligns enroll/drop times per subject (n_readouts > 1)", {
+  for (adaptive in c(FALSE, TRUE)) {
+    pop <- make_pop("A", n_subj = 3, n_read = 2)
+    timer <- Timer$new("t")
+    timer$add_schedule(data.frame(time = 1, arm = "A", enroll = 2L, drop = 0L))
+    timer$add_schedule(data.frame(time = 2, arm = "A", enroll = 1L, drop = 1L))
+    cal_cond <- condition_calendar_time(2, analysis = function(df, ct) df)
+    trial <- Trial$new("staggered", seed = 1, timer = timer, population = list(pop),
+                       conditions = list(cal_cond), adaptive = adaptive)
+    trial$run()
+
+    snap <- trial$locked_data[["time_2"]]
+    # 3 subjects x 2 readouts, subject-major layout
+    testthat::expect_equal(snap$id, rep(1:3, each = 2))
+    # enroll_time constant within each subject: subjects 1-2 at t=1, subject 3 at t=2
+    testthat::expect_equal(snap$enroll_time, rep(c(1, 1, 2), each = 2))
+    # one subject dropped at t=2; whichever it is, both its rows carry drop_time = 2
+    by_subject <- split(snap$drop_time, snap$id)
+    testthat::expect_true(all(vapply(by_subject, function(x) length(unique(x)) == 1L, logical(1))))
+    testthat::expect_equal(sum(!is.na(snap$drop_time)), 2L)
+    # measurement_time = readout_time + enroll_time, per row
+    testthat::expect_equal(snap$measurement_time, snap$readout_time + snap$enroll_time)
+  }
 })

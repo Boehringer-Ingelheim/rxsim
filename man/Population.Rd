@@ -111,14 +111,7 @@ pop$set_data(
 \subsection{Method \code{new()}}{
 Create a new \code{Population} instance.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$new(
-  name,
-  data = NULL,
-  enrolled = NULL,
-  dropped = NULL,
-  n = NULL,
-  n_readouts = NULL
-)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Population$new(name, data = NULL, enrolled = NULL, dropped = NULL)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -132,10 +125,6 @@ Create a new \code{Population} instance.
 \item{\code{enrolled}}{\code{numeric} Optional enrollment times (auto-initialized if \code{NULL}).}
 
 \item{\code{dropped}}{\code{numeric} Optional dropout times (auto-initialized if \code{NULL}).}
-
-\item{\code{n}}{\code{integer} Auto-computed from data (optional).}
-
-\item{\code{n_readouts}}{\code{integer} Auto-computed from data (optional).}
 }
 \if{html}{\out{</div>}}
 }

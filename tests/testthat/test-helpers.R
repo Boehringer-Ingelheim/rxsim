@@ -27,48 +27,6 @@ test_that("as_population_data works with a single value", {
   expect_equal(pop, df)
 })
 
-# add_timepoints()
-
-test_that("add_timepoints errors when timer is not a Timer instance", {
-  df <- data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  expect_error(add_timepoints("not_a_timer", df), "`timer` must be a Timer instance")
-  expect_error(add_timepoints(list(), df), "`timer` must be a Timer instance")
-})
-
-test_that("add_timepoints errors when df is not a data.frame", {
-  t <- Timer$new(name = "T")
-  expect_error(add_timepoints(t, "not_a_df"), "`df` must be a data.frame")
-  expect_error(add_timepoints(t, 1:5), "`df` must be a data.frame")
-})
-
-test_that("add_timepoints adds the correct number of timepoints", {
-  t <- Timer$new(name = "T")
-  df <- data.frame(
-    time   = c(1, 2, 3),
-    arm    = rep("A", 3),
-    enroll = c(5L, 3L, 2L),
-    drop   = c(0L, 1L, 1L)
-  )
-  add_timepoints(t, df)
-  expect_equal(nrow(t$timelist), 3L)
-})
-
-test_that("add_timepoints returns the timer invisibly", {
-  t <- Timer$new(name = "T")
-  df <- data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  result <- add_timepoints(t, df)
-  expect_true(inherits(result, "Timer"))
-})
-
-test_that("add_timepoints stores correct enroll and drop values", {
-  t <- Timer$new(name = "T")
-  df <- data.frame(time = 5, arm = "B", enroll = 4L, drop = 2L)
-  add_timepoints(t, df)
-  tp <- t$get_timepoint("B", 5)
-  expect_equal(tp$enroll, 4L)
-  expect_equal(tp$drop, 2L)
-})
-
 # get_col_names()
 
 test_that("get_col_names always includes the four fixed time columns", {
@@ -109,8 +67,8 @@ test_that("get_col_names returns unique column names (no duplicates)", {
 make_trial <- function(seed = 1L) {
   pop <- Population$new(name = "A", data = as_population_data(rnorm(10)))
   t   <- Timer$new(name = "T")
-  t$add_timepoint(time = 1, arm = "A", enroll = 5L, drop = 0L)
-  t$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 1L)
+  t$add_schedule(data.frame(time = 1, arm = "A", enroll = 5L, drop = 0L))
+  t$add_schedule(data.frame(time = 2, arm = "A", enroll = 3L, drop = 1L))
 
   cond <- Condition$new(
     where    = calendar_trigger(1),

@@ -31,11 +31,11 @@ testthat::test_that("Timer initialize: errors on non-character name", {
   testthat::expect_error(Timer$new(name = NULL))
 })
 
-# Timer: add_timepoint
+# Timer: add_schedule
 
-testthat::test_that("add_timepoint: appends a single timepoint", {
+testthat::test_that("add_schedule: appends a single timepoint", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
+  t$add_schedule(data.frame(time = 1, arm = "A", drop = 2L, enroll = 10L))
 
   testthat::expect_equal(nrow(t$timelist), 1L)
   testthat::expect_equal(t$timelist$time[[1]], 1)
@@ -44,45 +44,80 @@ testthat::test_that("add_timepoint: appends a single timepoint", {
   testthat::expect_equal(t$timelist$enroll[[1]], 10L)
 })
 
-testthat::test_that("add_timepoint: appends multiple timepoints preserving order", {
+testthat::test_that("add_schedule: appends multiple timepoints preserving order", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 8L)
-  t$add_timepoint(time = 3, arm = "A", drop = 0L, enroll = 3L)
+  t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 8L))
+  t$add_schedule(data.frame(time = 3, arm = "A", drop = 0L, enroll = 3L))
 
   testthat::expect_equal(nrow(t$timelist), 3L)
   testthat::expect_equal(t$timelist$arm[[2]], "B")
   testthat::expect_equal(t$timelist$time[[3]], 3)
 })
 
-testthat::test_that("add_timepoint: errors when drop is not integer", {
+testthat::test_that("add_schedule: errors when drop is not integer", {
   t <- Timer$new(name = "t")
   testthat::expect_error(
-    t$add_timepoint(time = 1, arm = "A", drop = 2, enroll = 10L)
+    t$add_schedule(data.frame(time = 1, arm = "A", drop = 2, enroll = 10L)),
+    "`drop` must be an integer vector"
   )
 })
 
-testthat::test_that("add_timepoint: errors when enroll is not integer", {
+testthat::test_that("add_schedule: errors when enroll is not integer", {
   t <- Timer$new(name = "t")
   testthat::expect_error(
-    t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10)
+    t$add_schedule(data.frame(time = 1, arm = "A", drop = 2L, enroll = 10)),
+    "`enroll` must be an integer vector"
   )
+})
+
+testthat::test_that("add_schedule: errors when schedule is not a data.frame", {
+  t <- Timer$new(name = "t")
+  testthat::expect_error(t$add_schedule("not_a_df"), "must be a data.frame")
+  testthat::expect_error(t$add_schedule(1:5), "must be a data.frame")
+  testthat::expect_error(t$add_schedule(), "must be a data.frame")
+})
+
+testthat::test_that("add_schedule: errors when required columns are missing", {
+  t <- Timer$new(name = "t")
+  testthat::expect_error(
+    t$add_schedule(data.frame(time = 1, arm = "A")),
+    "Missing required columns in schedule: enroll, drop"
+  )
+})
+
+testthat::test_that("add_schedule: adds a whole multi-row schedule and returns timer invisibly", {
+  t <- Timer$new(name = "t")
+  df <- data.frame(time = c(1, 2, 3), arm = "A", enroll = c(5L, 3L, 2L), drop = c(0L, 1L, 1L))
+  result <- t$add_schedule(df)
+
+  testthat::expect_true(inherits(result, "Timer"))
+  testthat::expect_equal(nrow(t$timelist), 3L)
+  testthat::expect_equal(t$timelist$enroll, c(5L, 3L, 2L))
+})
+
+testthat::test_that("add_schedule: normalizes tibble input to a plain data.frame", {
+  t <- Timer$new(name = "t")
+  t$add_schedule(dplyr::group_by(
+    data.frame(time = 1, arm = "A", enroll = 3L, drop = 0L), arm
+  ))
+  testthat::expect_identical(class(t$timelist), "data.frame")
 })
 
 # Timer: get_end_timepoint
 
 testthat::test_that("get_end_timepoint: returns max time across all arms", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 5, arm = "B", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 3, arm = "A", drop = 0L, enroll = 2L)
+  t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 5, arm = "B", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 3, arm = "A", drop = 0L, enroll = 2L))
 
   testthat::expect_equal(t$get_end_timepoint(), 5)
 })
 
 testthat::test_that("get_end_timepoint: works with a single timepoint", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 3.5, arm = "A", drop = 7L, enroll = 22L)
+  t$add_schedule(data.frame(time = 3.5, arm = "A", drop = 7L, enroll = 22L))
 
   testthat::expect_equal(t$get_end_timepoint(), 3.5)
 })
@@ -96,10 +131,10 @@ testthat::test_that("get_end_timepoint: errors on empty timelist", {
 
 testthat::test_that("get_n_arms: counts unique arms", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 1, arm = "B", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 1, arm = "C", drop = 1L, enroll = 5L)
+  t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 1, arm = "B", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 1, arm = "C", drop = 1L, enroll = 5L))
 
   testthat::expect_equal(t$get_n_arms(), 3L)
 })
@@ -108,9 +143,9 @@ testthat::test_that("get_n_arms: counts unique arms", {
 
 testthat::test_that("get_unique_times: returns sorted unique time values", {
   t <- Timer$new(name = "t")
-  t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 1, arm = "B", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 2, arm = "B", drop = 1L, enroll = 5L)
+  t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 1, arm = "B", drop = 1L, enroll = 5L))
+  t$add_schedule(data.frame(time = 2, arm = "B", drop = 1L, enroll = 5L))
 
   result <- t$get_unique_times()
   testthat::expect_equal(sort(result), c(1, 2))
@@ -122,45 +157,3 @@ testthat::test_that("get_unique_times: returns empty for empty timelist", {
   testthat::expect_equal(length(result), 0L)
 })
 
-# Timer: get_timepoint
-
-testthat::test_that("get_timepoint: returns matching timepoint", {
-  t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
-  t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
-  t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
-
-  tp <- t$get_timepoint("A", 1)
-  testthat::expect_true(is.data.frame(tp))
-  testthat::expect_equal(nrow(tp), 1L)
-  testthat::expect_equal(tp$time, 1)
-  testthat::expect_equal(tp$arm, "A")
-  testthat::expect_equal(tp$drop, 2L)
-  testthat::expect_equal(tp$enroll, 10L)
-})
-
-testthat::test_that("get_timepoint: returns NULL when no match", {
-  t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 5L)
-
-  testthat::expect_null(t$get_timepoint("B", 1))
-  testthat::expect_null(t$get_timepoint("A", 9))
-})
-
-testthat::test_that("get_timepoint: errors on multiple matches", {
-  t <- Timer$new(name = "t")
-  t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 5L)
-  t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 6L)
-
-  testthat::expect_error(t$get_timepoint("A", 1), "Multiple timepoints")
-})
-
-testthat::test_that("get_timepoint: errors when arm is missing", {
-  t <- Timer$new(name = "t")
-  testthat::expect_error(t$get_timepoint(i = 1), "`arm` is required")
-})
-
-testthat::test_that("get_timepoint: errors when i is missing", {
-  t <- Timer$new(name = "t")
-  testthat::expect_error(t$get_timepoint(arm = "A"), "`i` is required")
-})

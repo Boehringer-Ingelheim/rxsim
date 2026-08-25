@@ -46,10 +46,10 @@
 #'
 #' # Create a timer and add timepoints
 #' t <- Timer$new("Timer")
-#' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-#' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+#' t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+#' t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+#' t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+#' t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 #'
 #' # Build a condition: fire at time >= 2 and count enrolled rows
 #' cond <- Condition$new(
@@ -171,7 +171,7 @@ Trial <- R6::R6Class(
             enroll = 1L,
             drop = 0L
           )
-          add_timepoints(timer, timepoints)
+          timer$add_schedule(timepoints)
           self$timer <- timer
         }
       } else {
@@ -216,10 +216,10 @@ Trial <- R6::R6Class(
     #'
     #' # Create a timer and add timepoints
     #' t <- Timer$new("Timer")
-    #' t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-    #' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-    #' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-    #' t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+    #' t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+    #' t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+    #' t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+    #' t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
     #'
     #' # Create a trial
     #' trial <- Trial$new(
@@ -272,9 +272,9 @@ Trial <- R6::R6Class(
         locked_snapshot_list <- lapply(self$population, function(p) {
           keep <- !is.na(p$enrolled)
           cbind(
-            p$data[keep, , drop = FALSE],
-            enroll_time = rep(x=p$enrolled[keep],times=p$n_readouts),
-            drop_time   = rep(x=p$dropped[keep],times=p$n_readouts)
+            p$data[rep(keep, each = p$n_readouts), , drop = FALSE],
+            enroll_time = rep(x=p$enrolled[keep],each=p$n_readouts),
+            drop_time   = rep(x=p$dropped[keep],each=p$n_readouts)
           )
         })
 
@@ -434,9 +434,9 @@ Trial <- R6::R6Class(
         keep <- !is.na(p$enrolled)
         if (!any(keep)) return(NULL)
         cbind(
-          p$data[keep, , drop = FALSE],
-          enroll_time = rep(p$enrolled[keep], times = nr),
-          drop_time   = rep(p$dropped[keep],  times = nr)
+          p$data[rep(keep, each = nr), , drop = FALSE],
+          enroll_time = rep(p$enrolled[keep], each = nr),
+          drop_time   = rep(p$dropped[keep],  each = nr)
         )
       })
       combined <- do.call(rbind, Filter(Negate(is.null), parts))
