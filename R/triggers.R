@@ -44,10 +44,6 @@
   -Inf
 }
 
-.check_col_op <- function(col, op) {
-  if (!is.character(col) || length(col) != 1L || is.na(col)) {
-    stop("`col` must be a single character string.")
-  }
 # Validation shared by the trigger constructors. `arg` names the parameter so
 # the message still points at `ref_col`/`time_col`, not a generic "col".
 .check_string <- function(x, arg) {

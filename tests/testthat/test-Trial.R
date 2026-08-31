@@ -503,7 +503,7 @@ test_that("fixed path: warns when requested drops exceed eligible subjects", {
 test_that("fixed path: interim + final both fire (mid-gap skip is correct)", {
   pop <- make_pop("A", 10, 1)
   timer <- Timer$new("t")
-  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1:10, arm = "A", enroll = 1L, drop = 0L))
   # 10 subjects enrolled 1/timepoint: interim (0.5 => 5 enrolled) fires at t=5,
   # final (1.0 => 10 enrolled) fires at t=10. Uses the public helper so the
   # fraction -> trigger pipeline (condition_enrollment_fraction -> enroll_trigger)
@@ -520,8 +520,7 @@ test_that("fixed path: interim + final both fire (mid-gap skip is correct)", {
 test_that("fixed path: unknown (non-monotone) trigger still fires via fallback", {
   pop <- make_pop("A", 6, 1)
   timer <- Timer$new("t")
-  timer$add_timepoint(time = 1, arm = "A", enroll = 3L, drop = 0L)
-  timer$add_timepoint(time = 2, arm = "A", enroll = 3L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1:2, arm = "A", enroll = 3L, drop = 0L))
   cond <- Condition$new(where = value_trigger("subject_id", "==", 1),
                         analysis = function(df, ct) nrow(df), name = "any")
   trial <- Trial$new("skip_fallback", timer = timer, population = list(pop),
@@ -576,7 +575,7 @@ test_that("fixed path: leading timepoints are actually skipped (not just correct
 
   pop <- make_pop("A", 10, 1)
   timer <- Timer$new("t")
-  for (k in 1:10) timer$add_timepoint(time = k, arm = "A", enroll = 1L, drop = 0L)
+  timer$add_schedule(data.frame(time = 1:10, arm = "A", enroll = 1L, drop = 0L))
   spy <- SpyCond$new(where = count_trigger("enroll_time", ">=", 5L),
                      analysis = function(df, ct) nrow(df), name = "spy",
                      max_triggers = 100L)
@@ -588,6 +587,8 @@ test_that("fixed path: leading timepoints are actually skipped (not just correct
   n_evaluated <- length(5:10)
   testthat::expect_equal(spy$calls, n_evaluated)
   testthat::expect_equal(spy$trigger_count, n_evaluated)
+})
+
 test_that("Trial run: staggered enrollment aligns enroll/drop times per subject (n_readouts > 1)", {
   for (adaptive in c(FALSE, TRUE)) {
     pop <- make_pop("A", n_subj = 3, n_read = 2)
