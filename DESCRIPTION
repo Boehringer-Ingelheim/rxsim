@@ -1,7 +1,7 @@
 Package: rxsim
 Type: Package
 Title: Reducing friction for Randomized Clinical Trial simulations
-Version: 0.1.6.9000
+Version: 0.1.7.9000
 Authors@R: c(
     person(
       "Matthew", "Valko",
@@ -39,15 +39,6 @@ Depends:
 Suggests: 
     knitr,
     rmarkdown,
-    tibble,
-    tidyr,
-    MASS,
-    multcomp,
-    DoseFinding,
-    RBesT,
-    BayesianMCPMod,
-    survival,
-    ggplot2,
     testthat (>= 3.0.0)
 VignetteBuilder: knitr
 RoxygenNote: 7.3.3

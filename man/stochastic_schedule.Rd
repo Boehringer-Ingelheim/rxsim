@@ -4,7 +4,7 @@
 \alias{stochastic_schedule}
 \title{Generate a Stochastic Enrollment and Dropout Schedule}
 \usage{
-stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
+stochastic_schedule(sample_size, arms, allocation, enrollment, dropout = NULL)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}
@@ -45,5 +45,5 @@ stochastic_schedule(
 }
 \seealso{
 \code{\link[=deterministic_schedule]{deterministic_schedule()}} for piecewise-constant rates,
-\code{\link[=add_timepoints]{add_timepoints()}} to attach to a \code{Timer}.
+\link{Timer}$add_schedule() to attach to a \code{Timer}.
 }

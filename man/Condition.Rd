@@ -37,63 +37,23 @@ On a successful trigger, the condition calls
 appended as additional named arguments. If no analysis function is
 provided, the filtered data frame is returned as-is with a warning.
 }
-\section{Fields}{
-
-\describe{
-\item{\code{where}}{\code{list} of quosures (from \code{rlang::quos()}) used as
-\code{dplyr::filter()} predicates, or a \code{trigger} object (converted
-automatically). \code{NULL} or an empty list passes the full snapshot.}
-\item{\code{analysis}}{\code{function} or \code{NULL}. Called as
-\code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
-are any values from \code{analysis_args}. Should return a \code{data.frame} or
-named list. If \code{NULL}, the filtered data frame is returned with a warning.}
-\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra arguments
-injected into every call to \code{analysis}.}
-\item{\code{name}}{\code{character} or \code{NULL}. Key used to label the result
-in the returned list. Falls back to \code{1L} when \code{NULL}.}
-\item{\code{cooldown}}{\code{numeric}. Minimum time units that must elapse
-between consecutive triggers. Default \code{0} (no cooldown).}
-\item{\code{max_triggers}}{\code{integer}. Maximum number of times this
-condition may fire. Use \code{Inf} for unlimited. Default \code{1L}.}
-\item{\code{trigger_count}}{\code{integer}. Number of successful triggers so
-far. Initialised to \code{0L}.}
-\item{\code{last_trigger_time}}{\code{numeric}. Calendar time of the most
-recent successful trigger. Initialised to \code{NA_real_}.}
-}
-}
-
-\section{Methods}{
-
-\describe{
-\item{\code{$new(where, analysis, name, cooldown, max_triggers)}}{
-Construct a new \code{Condition}. All arguments except \code{where} are
-optional. \code{cooldown} must be a single non-negative number;
-\code{max_triggers} must be a single non-negative integer or \code{Inf}.}
-\item{\code{$check_conditions(locked_data, current_time)}}{
-Evaluate the condition against \code{locked_data} at \code{current_time}.
-Returns a named \code{list} containing the analysis result (or filtered
-data frame) if the condition fires, or an empty \code{list} otherwise.
-On a successful trigger, \code{trigger_count} is incremented and
-\code{last_trigger_time} is updated.}
-}
-}
-
 \examples{
-# Build a snapshot data frame
+# Build a snapshot data frame (enroll_time = NA means not yet enrolled)
 snapshot <- data.frame(
-  arm    = c("A", "A", "A", "B"),
-  status = c("active", "active", "active", "active"),
+  arm         = c("A", "A", "A", "B"),
+  status      = c("active", "active", "active", "active"),
+  enroll_time = c(1, 2, 3, NA_real_),
   stringsAsFactors = FALSE
 )
 
-# Analysis function: count active subjects per arm
+# Analysis function: count enrolled subjects and record fire time
 count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when 3+ subjects are active (max_triggers = 1)
+# Condition fires once when 3+ of 4 subjects are enrolled (max_triggers = 1)
 cond <- Condition$new(
-  where        = count_trigger("enroll_time", ">=", 3L),
+  where        = enroll_trigger(fraction = 0.75, sample_size = 4),
   analysis     = count_fn,
   name         = "interim_A",
   cooldown     = 0,
@@ -102,7 +62,7 @@ cond <- Condition$new(
 
 # First call: fires and returns analysis result
 res <- cond$check_conditions(snapshot, current_time = 5)
-res[["interim_A"]]  # data.frame(n_active = 3, fired_at = 5)
+res[["interim_A"]]  # data.frame(n_active = 4, fired_at = 5)
 
 # Second call: does not fire (max_triggers already reached)
 res2 <- cond$check_conditions(snapshot, current_time = 6)
@@ -125,6 +85,11 @@ for convenient \code{Condition} constructors
 \item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
 predicates, or a \code{trigger} object (converted automatically). \code{NULL} or
 empty list passes the full snapshot.}
+
+\item{\code{trigger_spec}}{The original \code{trigger} object passed to \code{where}
+(before quosure conversion), or \code{NULL}. Used by the fixed fast path to
+compute the earliest possible firing time and skip non-firing
+timepoints. \code{NULL} means "evaluate at every timepoint" (safe fallback).}
 
 \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
