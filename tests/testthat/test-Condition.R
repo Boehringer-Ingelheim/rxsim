@@ -343,7 +343,7 @@ testthat::test_that("collect_results: combines analyses with different columns",
   )
 
   t <- Timer$new(name = "timer")
-  add_timepoints(t, stochastic_schedule(sample_size, arms, allocation, enrollment_fn, dropout_fn))
+  t$add_schedule(stochastic_schedule(sample_size, arms, allocation, enrollment_fn, dropout_fn))
 
   final <- condition_enrollment_fraction(1.0, sample_size, analysis = function(df, time) {
     enrolled <- subset(df, !is.na(enroll_time))

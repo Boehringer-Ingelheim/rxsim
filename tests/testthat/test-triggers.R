@@ -56,14 +56,17 @@ test_that("count_trigger: errors on invalid col and op", {
 
 # ── enroll_trigger ───────────────────────────────────────────────────────────
 
-test_that("enroll_trigger: wraps count_trigger with enroll_time", {
+test_that("enroll_trigger: wraps count_trigger with enroll_time, filters to enrolled", {
   t <- enroll_trigger(0.5, 200)
 
   expect_s3_class(t, "trigger")
-  expect_equal(t$type, "count")
-  expect_equal(t$col, "enroll_time")
-  expect_equal(t$op, ">=")
-  expect_equal(t$rhs, 100)  # 0.5 * 200
+  expect_equal(t$combinator, "&")
+  expect_equal(t$predicates[[1L]]$type, "count")
+  expect_equal(t$predicates[[1L]]$col, "enroll_time")
+  expect_equal(t$predicates[[1L]]$op, ">=")
+  expect_equal(t$predicates[[1L]]$rhs, 100)  # 0.5 * 200
+  expect_equal(t$predicates[[2L]]$type, "notna")
+  expect_equal(t$predicates[[2L]]$col, "enroll_time")
 })
 
 test_that("enroll_trigger: errors on fraction out of range", {
@@ -156,21 +159,13 @@ test_that("Condition$new: rxsim_trigger count_trigger produces correct quosure",
   expect_length(cond$where, 1L)
 })
 
-test_that("Condition$new: AND trigger produces two quosures (dplyr ANDs them)", {
-  trig <- enroll_trigger(0.5, 200) & calendar_trigger(52)
+test_that("Condition$new: AND trigger filters as logical AND (truth table)", {
+  trig <- value_trigger("a", "==", TRUE) & value_trigger("b", "==", TRUE)
   cond <- Condition$new(where = trig, name = "and_test")
+  df   <- cbind(id = 1:4, expand.grid(a = c(FALSE, TRUE), b = c(FALSE, TRUE)))
 
-  expect_r6_class(cond, "Condition")
-  expect_length(cond$where, 2L)  # dplyr::filter(..., pred1, pred2) ANDs them
-})
-
-test_that("Condition$new: OR trigger produces one quosure with | expression", {
-  trig <- enroll_trigger(0.5, 200) | calendar_trigger(26)
-  cond <- Condition$new(where = trig, name = "or_test")
-
-  expect_r6_class(cond, "Condition")
-  expect_length(cond$where, 1L)
-  expect_equal(rlang::call_name(rlang::get_expr(cond$where[[1L]])), "|")
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$id, with(df, id[a & b]))
 })
 
 test_that("Condition$new: cooldown and max_triggers are passed through", {
@@ -192,6 +187,15 @@ test_that("Condition$new value_trigger quosure evaluates correctly in filter", {
   expect_equal(result$time, 3:5)
 })
 
+test_that("Condition$new value_trigger %in% quosure evaluates correctly in filter", {
+  trig <- value_trigger("time", "%in%", c(2, 4))
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(time = 1:5)
+
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$time, c(2L, 4L))
+})
+
 test_that("Condition$new count_trigger quosure evaluates correctly in filter", {
   trig <- count_trigger("enroll_time", ">=", 2)
   cond <- Condition$new(where = trig)
@@ -201,22 +205,46 @@ test_that("Condition$new count_trigger quosure evaluates correctly in filter", {
   expect_equal(nrow(result), 4L)
 })
 
-test_that("Condition$new AND quosures: both conditions must hold", {
-  trig <- count_trigger("enroll_time", ">=", 1) & value_trigger("time", ">=", 3)
-  cond <- Condition$new(where = trig)
-  df   <- data.frame(time = 1:5, enroll_time = c(1, NA, 1, 1, 1))
+test_that("Condition$new OR distributes over AND", {
+  triggers <- lapply(letters[1:4], value_trigger, op = "==", rhs = TRUE)
+  cond <- Condition$new(where = (triggers[[1L]] & triggers[[2L]]) |
+    (triggers[[3L]] & triggers[[4L]]))
+  df <- cbind(id = 1:16, expand.grid(
+    a = c(FALSE, TRUE), b = c(FALSE, TRUE),
+    c = c(FALSE, TRUE), d = c(FALSE, TRUE)
+  ))
 
   result <- dplyr::filter(df, !!!cond$where)
-  expect_true(all(result$time >= 3))
+  expect_equal(result$id, with(df, id[(a & b) | (c & d)]))
 })
 
-test_that("Condition$new OR quosure: either condition fires", {
-  trig <- value_trigger("time", ">=", 4) | value_trigger("time", "<=", 2)
-  cond <- Condition$new(where = trig)
-  df   <- data.frame(time = 1:5)
+test_that("Condition$new AND preserves nested OR", {
+  triggers <- lapply(letters[1:3], value_trigger, op = "==", rhs = TRUE)
+  cond <- Condition$new(where = (triggers[[1L]] | triggers[[2L]]) &
+    triggers[[3L]])
+  df <- cbind(id = 1:8, expand.grid(
+    a = c(FALSE, TRUE), b = c(FALSE, TRUE), c = c(FALSE, TRUE)
+  ))
 
   result <- dplyr::filter(df, !!!cond$where)
-  expect_equal(result$time, c(1L, 2L, 4L, 5L))
+  expect_equal(result$id, with(df, id[(a | b) & c]))
+})
+
+test_that("OR keeps notna on the enroll branch: A | enroll_trigger drops unenrolled non-A rows", {
+  # Regression: enroll_trigger is count(enroll_time) & notna(enroll_time). When
+  # ORed with A, the notna guard must remain on the enroll branch, so an
+  # unenrolled row only survives via A, never via the enrollment count alone.
+  trig <- value_trigger("time", ">=", 100) | enroll_trigger(0.5, 4)
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(
+    id          = 1:4,
+    time        = c(200, 1, 1, 1),
+    enroll_time = c(NA, 1, 2, NA)  # row1 unenrolled but A true; row4 unenrolled, A false
+  )
+
+  result <- dplyr::filter(df, !!!cond$where)
+  # row1 via A; rows 2-3 via (count >= 2 & notna); row4 dropped by notna guard
+  expect_equal(result$id, c(1L, 2L, 3L))
 })
 
 # ── condition_calendar_time ───────────────────────────────────────────────────────
@@ -427,9 +455,19 @@ test_that("trigger_by_events: errors on invalid arguments", {
   expect_error(trigger_by_events("ev", 100, op = "!"), "`op`")
 })
 
-test_that("trigger_by_events: produces 3 quosures (ANDed)", {
-  cond <- trigger_by_events("pfs_event_time", 50)
-  expect_length(cond$where, 3L)
+test_that("trigger_by_events: filters as AND of its three conditions (truth table)", {
+  cond <- trigger_by_events("pfs_event_time", 2)
+  # enough events overall (2 <= time); vary enrolled / enroll<=time / event states
+  df <- cbind(id = 1:4, data.frame(
+    time           = 10,
+    enroll_time    = c(1, NA, 12, 3),           # enrolled?  T F T(future) T
+    pfs_event_time = c(5,  6, 7,  NA)
+  ))
+
+  result <- dplyr::filter(df, !!!cond$where)
+  gate   <- sum(!is.na(df$pfs_event_time) & df$pfs_event_time <= df$time) >= 2
+  keep   <- gate & !is.na(df$enroll_time) & df$enroll_time <= df$time
+  expect_equal(result$id, df$id[keep])
 })
 
 test_that("trigger_by_events: fires when event threshold is reached", {

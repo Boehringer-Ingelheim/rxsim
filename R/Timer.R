@@ -1,12 +1,14 @@
+
+
 #' Timer: Track timed events across arms
 #'
 #' @description
 #' A class to collect and query _timepoints_ - time-based enrollment and
 #' dropout events - across trial arms.
 #'
-#' Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
+#' Use `add_schedule()` to register events and
 #' `get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
-#' summary queries.
+#' summary queries. The full event table is the public `timelist` field.
 #'
 #' @details
 #' Trigger conditions (filtering + analysis) are now managed by the separate
@@ -19,22 +21,25 @@
 #'
 #' @seealso [`Trial`] to coordinate simulations with populations,
 #'   [`Condition`] for trigger/analysis logic,
-#'   [`add_timepoints()`] to attach multiple timepoints.
+#'   [stochastic_schedule()] / [deterministic_schedule()] to build a schedule.
 #'
 #' @examples
 #' # Basic construction
 #' t <- Timer$new(name = "Timer")
 #'
 #' # Add timepoints
-#' t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
-#' t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
-#' t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
+#' t$add_schedule(data.frame(
+#'   time   = c(1, 2, 1),
+#'   arm    = c("A", "A", "B"),
+#'   drop   = c(2L, 1L, 0L),
+#'   enroll = c(10L, 12L, 8L)
+#' ))
 #'
 #' # Query
 #' t$get_end_timepoint() # max time => 2
 #' t$get_n_arms()        # unique arms => 2
 #' t$get_unique_times()  # unique times => c(1, 2)
-#' t$get_timepoint("A", 1) # returns a single-row data.frame
+#' t$timelist            # the full event table
 #'
 #' @importFrom rlang enquos
 #' @importFrom dplyr filter
@@ -81,30 +86,52 @@ Timer <- R6::R6Class(
     },
 
     #' @description
-    #' Add a timepoint to the timer.
+    #' Add a schedule of timepoints to the timer.
     #'
-    #' @param time `numeric` Calendar time.
-    #' @param arm `character` Arm identifier.
-    #' @param drop `integer` Count of subjects to drop.
-    #' @param enroll `integer` Count of subjects to enroll.
+    #' @param schedule `data.frame` with columns `time` (numeric), `arm`
+    #'   (character), `enroll` (integer), `drop` (integer). One row per event;
+    #'   a single event is a one-row data frame. Typically the output of
+    #'   [stochastic_schedule()] or [deterministic_schedule()].
+    #'
+    #'   `enroll` and `drop` are subject counts and must be integer
+    #'   (`3L`, not `3`) - fractional counts are silently truncated
+    #'   downstream, so they are rejected here.
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 1, arm = "A", drop = 1L, enroll = 3L)
-    add_timepoint = function(time, arm, drop = 0L, enroll) {
-      stopifnot(is.integer(enroll))
-      if (is.null(drop)) {
-        drop <- 0L
-      } else {
-        stopifnot(is.integer(drop))
+    #'
+    #' # single event
+    #' t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
+    #'
+    #' # whole schedule (data.frame() recycles the constant columns)
+    #' t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
+    add_schedule = function(schedule) {
+      if (missing(schedule) || !is.data.frame(schedule)) {
+        stop("`schedule` must be a data.frame with columns: time, arm, enroll, drop")
       }
+      required_cols <- c("time", "arm", "enroll", "drop")
+      missing_cols <- setdiff(required_cols, names(schedule))
+      if (length(missing_cols) > 0L) {
+        stop(sprintf("Missing required columns in schedule: %s", paste(missing_cols, collapse = ", ")))
+      }
+      for (col in c("enroll", "drop")) {
+        if (!is.integer(schedule[[col]])) {
+          stop(sprintf(
+            "`%s` must be an integer vector (e.g. 3L), not %s. Subject counts cannot be fractional.",
+            col, class(schedule[[col]])[1]
+          ))
+        }
+      }
+
+      # ponytail: rebuild as a plain data.frame so tibble/grouped_df input
+      # doesn't leak its class into timelist.
       self$timelist <- rbind(
         self$timelist,
         data.frame(
-          time = time,
-          arm = arm,
-          drop = drop,
-          enroll = enroll,
+          time   = schedule$time,
+          arm    = schedule$arm,
+          drop   = schedule$drop,
+          enroll = schedule$enroll,
           stringsAsFactors = FALSE
         )
       )
@@ -116,7 +143,7 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    #' t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
     #' t$get_end_timepoint()
     get_end_timepoint = function() {
       if (nrow(self$timelist) == 0L) stop("`timelist` is empty.")
@@ -130,8 +157,8 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+    #' t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+    #' t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
     #' t$get_n_arms()
     get_n_arms = function() length(unique(self$timelist$arm)),
 
@@ -142,36 +169,9 @@ Timer <- R6::R6Class(
     #'
     #' @examples
     #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+    #' t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+    #' t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
     #' t$get_unique_times()
-    get_unique_times = function() unique(self$timelist$time),
-
-    #' @description
-    #' Get a timepoint by arm and time value.
-    #'
-    #' @param arm `character` Arm identifier.
-    #' @param i `numeric` Time value to look up.
-    #'
-    #' @return Single-row `data.frame` or `NULL` if not found.
-    #'
-    #' @examples
-    #' t <- Timer$new(name = "Timer")
-    #' t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    #' t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-    #' t$get_timepoint("A", 3.14)
-    get_timepoint = function(arm, i) {
-      if (missing(arm)) stop("`arm` is required.")
-      if (missing(i)) stop("`i` is required.")
-
-      idx <- which(self$timelist$time == i & self$timelist$arm == arm)
-
-      if (length(idx) == 0L) return(NULL)
-      if (length(idx) > 1L) {
-        stop(sprintf("Multiple timepoints found for arm = %s and time = %s.", arm, as.character(i)))
-      }
-
-      self$timelist[idx, , drop = FALSE]
-    }
+    get_unique_times = function() unique(self$timelist$time)
   )
 )

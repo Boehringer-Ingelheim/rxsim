@@ -47,7 +47,7 @@ modeling philosophy:
   endpoints and analyses from variability in timing.
 
 Both functions return a data frame that is passed directly to
-`add_timepoints()` to populate a `Timer`.
+`Timer$add_schedule()` to populate a `Timer`.
 
 ## Stochastic enrollment with `stochastic_schedule()`
 
@@ -127,7 +127,7 @@ head(plan_b, 4)
 
 ### Passing the plan to a Timer
 
-Once you have the data frame, pass it to `add_timepoints()` to register all
+Once you have the data frame, pass it to `Timer$add_schedule()` to register all
 events on a `Timer` object.
 
 ```{r stochastic_schedule_timer}
@@ -141,7 +141,7 @@ plan <- stochastic_schedule(
 )
 
 tmr <- Timer$new(name = "stochastic_timer")
-add_timepoints(tmr, plan)
+tmr$add_schedule(plan)
 
 tmr$get_end_timepoint()   # last event time
 tmr$get_n_arms()          # number of unique arms
@@ -228,11 +228,11 @@ identical(tp, tp2)
 
 ### Passing the schedule to a Timer
 
-As with `stochastic_schedule()`, pass the result directly to `add_timepoints()`.
+As with `stochastic_schedule()`, pass the result directly to `Timer$add_schedule()`.
 
 ```{r deterministic_schedule_timer}
 tmr2 <- Timer$new(name = "deterministic_timer")
-add_timepoints(tmr2, tp)
+tmr2$add_schedule(tp)
 
 tmr2$get_end_timepoint()
 tmr2$get_unique_times()
@@ -321,7 +321,7 @@ The dropout rate applies independently of enrollment: it is not conditioned on
 how many subjects are currently enrolled. Both processes are generated separately
 and then combined into a single schedule.
 
-## The Timer class: `add_timepoint`, `add_timepoints`, `timelist`
+## The Timer class: `add_schedule`, `timelist`
 
 A `Timer` is the trial clock. It stores a list of timepoint records, where each
 record says when something happens in one arm and how many subjects are
@@ -332,37 +332,43 @@ all distinct event times from the timer, sorts them, and updates the trial at
 those times. That makes `Timer` the object that defines the calendar of the
 simulation.
 
-### Building a Timer manually with `add_timepoint()`
+### Building a Timer manually with `add_schedule()`
+
+`add_schedule()` takes a data frame with columns `time`, `arm`, `enroll`, and
+`drop` - one row per event. That is the same shape `stochastic_schedule()` and
+`deterministic_schedule()` return, so hand-written and generated schedules load
+through the same call.
 
 Manual construction is useful when you want complete control over the event
-schedule. You create a `Timer`, add one event at a time with `add_timepoint()`,
-and inspect it with the query methods.
+schedule:
 
 ```{r manual_timer_build}
 manual_timer <- Timer$new(name = "manual_timer")
 
-manual_timer$add_timepoint(time = 1, arm = "pbo", drop = 0L, enroll = 3L)
-manual_timer$add_timepoint(time = 2, arm = "pbo", drop = 1L, enroll = 2L)
-manual_timer$add_timepoint(time = 4, arm = "pbo", drop = 1L, enroll = 0L)
-
-manual_timer$add_timepoint(time = 1, arm = "trt", drop = 0L, enroll = 2L)
-manual_timer$add_timepoint(time = 3, arm = "trt", drop = 0L, enroll = 3L)
-manual_timer$add_timepoint(time = 4, arm = "trt", drop = 1L, enroll = 0L)
+manual_timer$add_schedule(data.frame(
+  time   = c(1, 2, 4, 1, 3, 4),
+  arm    = c("pbo", "pbo", "pbo", "trt", "trt", "trt"),
+  drop   = c(0L, 1L, 1L, 0L, 0L, 1L),
+  enroll = c(3L, 2L, 0L, 2L, 3L, 0L)
+))
 
 # Inspect the timelist structure
 manual_timer$get_end_timepoint()
 manual_timer$get_n_arms()
 sort(manual_timer$get_unique_times())
-manual_timer$get_timepoint("trt", 3)
+subset(manual_timer$timelist, arm == "trt" & time == 3)
 ```
 
-### Adding a whole schedule with `add_timepoints()`
+`enroll` and `drop` are subject counts, so they must be integers (`3L`, not
+`3`); fractional counts are rejected. Calls accumulate, so you can add events
+in several batches.
 
-`add_timepoints(timer, plan_df)` is the bulk-loading function. It reads every
-row of a schedule data frame produced by `stochastic_schedule()` or
-`deterministic_schedule()` and registers each row as a timepoint.
+### Adding a generated schedule
 
-```{r add_timepoints_example}
+The output of `stochastic_schedule()` or `deterministic_schedule()` goes
+straight in, with no reshaping:
+
+```{r add_schedule_example}
 set.seed(2024)
 plan_stoch2 <- stochastic_schedule(
   sample_size = 8,
@@ -373,7 +379,7 @@ plan_stoch2 <- stochastic_schedule(
 )
 
 stochastic_timer <- Timer$new(name = "stochastic_timer2")
-add_timepoints(stochastic_timer, plan_stoch2)
+stochastic_timer$add_schedule(plan_stoch2)
 
 head(stochastic_timer$get_unique_times())
 stochastic_timer$get_end_timepoint()
@@ -382,13 +388,16 @@ stochastic_timer$get_end_timepoint()
 ### The `timelist` structure
 
 `timer$timelist` is a `data.frame` with columns `time`, `arm`, `enroll`, and
-`drop`. Each row corresponds to one call to `add_timepoint()`.
+`drop`. Each row is one event registered through `add_schedule()`.
 
 ```{r timelist_structure}
 trial_clock <- Timer$new(name = "trial_clock")
-trial_clock$add_timepoint(time = 1, arm = "pbo", drop = 0L, enroll = 3L)
-trial_clock$add_timepoint(time = 1, arm = "trt", drop = 0L, enroll = 3L)
-trial_clock$add_timepoint(time = 4, arm = "pbo", drop = 1L, enroll = 0L)
+trial_clock$add_schedule(data.frame(
+  time   = c(1, 1, 4),
+  arm    = c("pbo", "trt", "pbo"),
+  drop   = c(0L, 0L, 1L),
+  enroll = c(3L, 3L, 0L)
+))
 
 trial_clock$timelist
 sort(unique(trial_clock$timelist$time))
@@ -400,7 +409,7 @@ This example builds a complete trial manually using `deterministic_schedule()`,
 a `Timer`, a `Condition`, and two `Population` objects.
 
 1. Call `deterministic_schedule()` to get the schedule data frame.
-2. Create a `Timer$new()` and register timepoints with `add_timepoints()`.
+2. Create a `Timer$new()` and register timepoints with `add_schedule()`.
 3. Build `Condition` objects and pass them to `Trial$new(conditions = ...)`.
 4. Build populations and construct a `Trial$new()`.
 
@@ -418,7 +427,7 @@ fixed_plan <- deterministic_schedule(
 )
 
 tmr3 <- Timer$new(name = "fixed_timer")
-add_timepoints(tmr3, fixed_plan)
+tmr3$add_schedule(fixed_plan)
 
 # Condition: fire at the final calendar time
 final_t <- tmr3$get_end_timepoint()

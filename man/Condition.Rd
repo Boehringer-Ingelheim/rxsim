@@ -51,9 +51,9 @@ count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when 3+ subjects are enrolled (max_triggers = 1)
+# Condition fires once when 3+ of 4 subjects are enrolled (max_triggers = 1)
 cond <- Condition$new(
-  where        = count_trigger("enroll_time", ">=", 3L),
+  where        = enroll_trigger(fraction = 0.75, sample_size = 4),
   analysis     = count_fn,
   name         = "interim_A",
   cooldown     = 0,

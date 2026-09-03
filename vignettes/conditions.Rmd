@@ -148,7 +148,7 @@ plan <- deterministic_schedule(
 )
 
 tmr <- Timer$new(name = "conditions_timer")
-add_timepoints(tmr, plan)
+tmr$add_schedule(plan)
 
 n_by_arm <- c(
   pbo = sum(plan$enroll[plan$arm == "pbo"]),

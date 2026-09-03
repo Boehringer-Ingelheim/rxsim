@@ -230,9 +230,9 @@ set.seed(303)
 trial_pop <- Population$new(name = "active", data = subject_data)
 
 timer <- Timer$new(name = "population_timer")
-timer$add_timepoint(time = 1, arm = "active", enroll = 2L, drop = 0L)
-timer$add_timepoint(time = 3, arm = "active", enroll = 1L, drop = 0L)
-timer$add_timepoint(time = 5, arm = "active", enroll = 0L, drop = 1L)
+timer$add_schedule(data.frame(time = 1, arm = "active", enroll = 2L, drop = 0L))
+timer$add_schedule(data.frame(time = 3, arm = "active", enroll = 1L, drop = 0L))
+timer$add_schedule(data.frame(time = 5, arm = "active", enroll = 0L, drop = 1L))
 
 snapshot_condition <- Condition$new(
   where = calendar_trigger(5),

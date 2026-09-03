@@ -51,7 +51,6 @@ reference:
   - title: "Timer helpers"
     desc: "Helpers for building Timer timepoint lists"
     contents:
-      - add_timepoints
       - deterministic_schedule
       - stochastic_schedule
 
