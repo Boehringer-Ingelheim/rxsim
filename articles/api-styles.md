@@ -33,14 +33,14 @@ The sections below use the same two-arm design in both styles:
 - stochastic dropout from `rexp(n, rate = 0.05)`
 - continuous endpoint with mean `0` for placebo and `0.5` for treatment
 - one final analysis at full enrollment
-- `100` replicates for the operating characteristics
+- `10` replicates for the operating characteristics
 
 ``` r
 sample_size <- 40L
 arms <- c("pbo", "trt")
 allocation <- c(1, 1)
 delta <- 0.5
-n_reps <- 100L
+n_reps <- 10L
 
 enrollment <- function(n) rexp(n, rate = 1)
 dropout <- function(n) rexp(n, rate = 0.05)
@@ -94,7 +94,7 @@ direct_plan <- stochastic_schedule(
 
 # 2. Build the timer from that plan.
 direct_timer <- Timer$new(name = "direct_timer")
-add_timepoints(direct_timer, direct_plan)
+direct_timer$add_schedule(direct_plan)
 
 # 3. Compute the planned arm sizes from the timer input.
 direct_n_by_arm <- vapply(
@@ -134,14 +134,14 @@ before running.
 ``` r
 head(direct_plan)
 #>        time arm enroll drop
-#> 1 0.1983368 trt      1    0
-#> 2 0.8592321 pbo      1    0
-#> 3 1.1427231 trt      1    0
-#> 4 1.1809150 pbo      1    0
-#> 5 1.6540916 pbo      1    0
-#> 6 3.1177188 trt      1    0
+#> 1 0.1983368 pbo      1    0
+#> 2 1.1427231 pbo      1    0
+#> 3 1.1809150 pbo      1    0
+#> 4 1.6540916 pbo      1    0
+#> 5 3.4317033 pbo      1    0
+#> 6 5.0334307 pbo      1    0
 direct_timer$get_end_timepoint()
-#> [1] 1110.694
+#> [1] 764.053
 ```
 
 ``` r
@@ -151,8 +151,8 @@ direct_trial$run()
 
 ``` r
 collect_results(direct_trial)
-#>   replicate timepoint analysis  n   mean_pbo  mean_trt    p_value
-#> 1         1  39.32605    final 40 -0.2365031 0.3138118 0.07738052
+#>   replicate timepoint analysis  n   mean_pbo  mean_trt   p_value
+#> 1         1  39.32605    final 40 -0.0557219 0.1194667 0.6202483
 ```
 
 For many stochastic replicates, the direct pattern is usually wrapped in
@@ -171,7 +171,7 @@ build_direct_trial <- function(name) {
 
   # 2. Turn that plan into a timer.
   timer <- Timer$new(name = paste0(name, "_timer"))
-  add_timepoints(timer, plan)
+  timer$add_schedule(plan)
 
   # 3. Size each arm from the generated plan.
   n_by_arm <- vapply(
@@ -218,13 +218,13 @@ run_trials(direct_trials)
 ``` r
 direct_results <- collect_results(direct_trials)
 head(direct_results)
-#>   replicate timepoint analysis  n    mean_pbo  mean_trt     p_value
-#> 1         1  41.37433    final 40 -0.15072151 0.4098671 0.054209202
-#> 2         2  46.89639    final 40 -0.24803270 0.6183037 0.006305818
-#> 3         3  39.48357    final 40  0.09571239 0.6604110 0.027212451
-#> 4         4  58.20288    final 40  0.27907034 0.5495985 0.538070676
-#> 5         5  41.54251    final 40  0.32055414 0.1959181 0.687516418
-#> 6         6  37.94218    final 40  0.31120700 0.4925153 0.491698998
+#>   replicate timepoint analysis  n    mean_pbo  mean_trt    p_value
+#> 1         1  45.97723    final 40  0.22031537 0.6831231 0.11616961
+#> 2         2  38.68791    final 40 -0.12834383 0.6033173 0.03610186
+#> 3         3  39.78981    final 40  0.17085927 0.6229233 0.13717783
+#> 4         4  40.73727    final 40 -0.07649800 0.3610610 0.12120162
+#> 5         5  42.68275    final 40  0.02060517 0.3789782 0.29638352
+#> 6         6  44.00494    final 40  0.24331892 0.3731780 0.71147851
 ```
 
 ## Style B: Generator API
@@ -254,7 +254,7 @@ The trigger must be a `trigger` object such as
 `enroll_trigger(1.0, sample_size)`. No quotation helpers are needed.
 
 ``` r
-# 3. Ask rxsim to build 100 independent trials.
+# 3. Ask rxsim to build 10 independent trials.
 generator_trials <- replicate_trial(
   trial_name = "generator",
   sample_size = sample_size,
@@ -274,13 +274,13 @@ run_trials(generator_trials)
 ``` r
 generator_results <- collect_results(generator_trials)
 head(generator_results)
-#>   replicate timepoint analysis  n    mean_pbo  mean_trt    p_value
-#> 1         1  42.90242    final 40  0.17727332 0.3057526 0.76280511
-#> 2         2  33.13166    final 40 -0.26273620 0.3530079 0.09358722
-#> 3         3  41.63035    final 40  0.04993081 0.2030695 0.68585888
-#> 4         4  55.59473    final 40 -0.33050838 0.4749362 0.01359331
-#> 5         5  30.49985    final 40  0.18127567 0.6535889 0.18802339
-#> 6         6  36.88387    final 40  0.01316165 0.5411758 0.06682232
+#>   replicate timepoint analysis  n    mean_pbo   mean_trt      p_value
+#> 1         1  41.31080    final 40  0.14790964 0.64055125 0.1843726111
+#> 2         2  42.57187    final 40 -0.08040526 0.46229123 0.0748187763
+#> 3         3  36.74258    final 40 -0.37301982 0.44163311 0.0074422896
+#> 4         4  32.38417    final 40 -0.03727242 0.04886914 0.8133832280
+#> 5         5  44.70138    final 40 -0.48426483 0.48936266 0.0175744028
+#> 6         6  41.63317    final 40 -0.35693944 0.80935517 0.0004009703
 ```
 
 This style is shorter because
@@ -301,7 +301,7 @@ underlying objects.
   `locked_data`.
 - Build multi-stage designs where the schedule is easier to express
   directly, such as the seamless pattern in [Example
-  5](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md).
+  5](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html).
 
 ## When to use Style B
 
@@ -326,7 +326,7 @@ once you are happy with the setup.
 ``` r
 # 1. Build one trial directly so you can inspect it.
 mixed_trial <- build_direct_trial("mixed_1")
-head(do.call(rbind, mixed_trial$timer$timelist))
+mixed_trial$timer$timelist
 
 # 2. Extend the same direct pattern to more replicates.
 mixed_trials <- c(
@@ -344,11 +344,16 @@ replicate,
 is also useful. That pattern is most natural for deterministic
 schedules, not for stochastic enrollment.
 
+``` r
+# Deep copies with independent timer and population state.
+clones <- clone_trial(mixed_trial, n = 2)
+names(clones)
+#> NULL
+```
+
 ## Next steps
 
-- Add interims and multiple analyses: [Conditions and
-  Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.md)
-- Learn more about trigger objects and analyses: [Conditions and
+- Add interims and compose trigger objects: [Conditions and
   Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.md)
 - Inspect the `Trial` class documentation: [Trial
   reference](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md)

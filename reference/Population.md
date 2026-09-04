@@ -16,9 +16,6 @@ for managing timepoints.
 Population,
 [Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md).
 
-Population,
-[Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md).
-
 Population.
 
 ## Public fields
@@ -61,7 +58,7 @@ Population.
 
 ### Public methods
 
-- [`Population$new()`](#method-Population-new)
+- [`Population$new()`](#method-Population-initialize)
 
 - [`Population$set_enrolled()`](#method-Population-set_enrolled)
 
@@ -73,20 +70,13 @@ Population.
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `Population$new()`
 
 Create a new `Population` instance.
 
 #### Usage
 
-    Population$new(
-      name,
-      data = NULL,
-      enrolled = NULL,
-      dropped = NULL,
-      n = NULL,
-      n_readouts = NULL
-    )
+    Population$new(name, data = NULL, enrolled = NULL, dropped = NULL)
 
 #### Arguments
 
@@ -107,14 +97,6 @@ Create a new `Population` instance.
 
   `numeric` Optional dropout times (auto-initialized if `NULL`).
 
-- `n`:
-
-  `integer` Auto-computed from data (optional).
-
-- `n_readouts`:
-
-  `integer` Auto-computed from data (optional).
-
 #### Returns
 
 A new `Population` instance.
@@ -125,7 +107,7 @@ A new `Population` instance.
 
 ------------------------------------------------------------------------
 
-### Method `set_enrolled()`
+### `Population$set_enrolled()`
 
 Mark subjects as enrolled at a given time.
 
@@ -152,7 +134,7 @@ Enrollment applies only to unenrolled subjects (`NA`).
 
 ------------------------------------------------------------------------
 
-### Method `set_dropped()`
+### `Population$set_dropped()`
 
 Mark subjects as dropped at a given time.
 
@@ -180,7 +162,7 @@ Dropout applies only to enrolled, not-yet-dropped subjects.
 
 ------------------------------------------------------------------------
 
-### Method `set_data()`
+### `Population$set_data()`
 
 Replace underlying subject data and reset enrollment/dropout status.
 
@@ -209,7 +191,7 @@ Replace underlying subject data and reset enrollment/dropout status.
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `Population$clone()`
 
 The objects of this class are cloneable with this method.
 
@@ -251,7 +233,7 @@ pop$set_data(as_population_data(rnorm(8)))
 
 
 ## ------------------------------------------------
-## Method `Population$new`
+## Method `Population$new()`
 ## ------------------------------------------------
 
 Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
@@ -261,7 +243,7 @@ Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 #>     data: data.frame
 #>     dropped: NA NA NA NA NA
 #>     enrolled: NA NA NA NA NA
-#>     initialize: function (name, data = NULL, enrolled = NULL, dropped = NULL, 
+#>     initialize: function (name, data = NULL, enrolled = NULL, dropped = NULL) 
 #>     n: 5
 #>     n_readouts: 1
 #>     name: Intervention
@@ -270,14 +252,14 @@ Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 #>     set_enrolled: function (n, time) 
 
 ## ------------------------------------------------
-## Method `Population$set_enrolled`
+## Method `Population$set_enrolled()`
 ## ------------------------------------------------
 
 pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 
 ## ------------------------------------------------
-## Method `Population$set_dropped`
+## Method `Population$set_dropped()`
 ## ------------------------------------------------
 
 pop <- Population$new("Test", as_population_data(rnorm(10)))
@@ -285,7 +267,7 @@ pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
 ## ------------------------------------------------
-## Method `Population$set_data`
+## Method `Population$set_data()`
 ## ------------------------------------------------
 
 pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))

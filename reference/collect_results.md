@@ -76,6 +76,7 @@ run_trials(trials)
 #> [[1]]
 #> <Trial>
 #>   Public:
+#>     adaptive: FALSE
 #>     clone: function (deep = FALSE) 
 #>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
@@ -86,10 +87,16 @@ run_trials(trials)
 #>     run: function () 
 #>     seed: NULL
 #>     timer: Timer, R6
+#>   Private:
+#>     build_full_snapshot: function () 
+#>     precompute_population: function (p, plan_df) 
+#>     run_adaptive: function () 
+#>     run_fixed: function () 
 #> 
 #> [[2]]
 #> <Trial>
 #>   Public:
+#>     adaptive: FALSE
 #>     clone: function (deep = FALSE) 
 #>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
@@ -100,10 +107,16 @@ run_trials(trials)
 #>     run: function () 
 #>     seed: NULL
 #>     timer: Timer, R6
+#>   Private:
+#>     build_full_snapshot: function () 
+#>     precompute_population: function (p, plan_df) 
+#>     run_adaptive: function () 
+#>     run_fixed: function () 
 #> 
 #> [[3]]
 #> <Trial>
 #>   Public:
+#>     adaptive: FALSE
 #>     clone: function (deep = FALSE) 
 #>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
@@ -114,17 +127,22 @@ run_trials(trials)
 #>     run: function () 
 #>     seed: NULL
 #>     timer: Timer, R6
+#>   Private:
+#>     build_full_snapshot: function () 
+#>     precompute_population: function (p, plan_df) 
+#>     run_adaptive: function () 
+#>     run_fixed: function () 
 #> 
 collect_results(trials)
-#>   replicate timepoint analysis   mean_ctrl
-#> 1         1  25.06804    final -0.02675718
-#> 2         2  16.29980    final  0.25020896
-#> 3         3  22.88046    final  0.08546772
+#>   replicate timepoint analysis  mean_ctrl
+#> 1         1  20.40020    final  0.1604161
+#> 2         2  24.68394    final  0.2248352
+#> 3         3  17.30206    final -0.3351042
 
 # --- filter to a specific analysis name ---
 collect_results(trials, analysis = "final")
-#>   replicate timepoint analysis   mean_ctrl
-#> 1         1  25.06804    final -0.02675718
-#> 2         2  16.29980    final  0.25020896
-#> 3         3  22.88046    final  0.08546772
+#>   replicate timepoint analysis  mean_ctrl
+#> 1         1  20.40020    final  0.1604161
+#> 2         2  24.68394    final  0.2248352
+#> 3         3  17.30206    final -0.3351042
 ```

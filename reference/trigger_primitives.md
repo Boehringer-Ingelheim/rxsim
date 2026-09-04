@@ -11,6 +11,12 @@ value_trigger(col, op, rhs)
 
 count_trigger(col, op, rhs)
 
+notna_trigger(col)
+
+col_trigger(col, op, ref_col)
+
+timed_count_trigger(col, time_col, op, threshold)
+
 enroll_trigger(fraction, sample_size)
 
 calendar_trigger(cal_time)
@@ -37,6 +43,18 @@ e1 | e2
 
   Right-hand side value. Must be atomic for `value_trigger()` and
   numeric for `count_trigger()`.
+
+- ref_col:
+
+  `character` Column name on the right-hand side of the comparison.
+
+- time_col:
+
+  `character` Column name of the current-time column (e.g. `"time"`).
+
+- threshold:
+
+  `numeric` Event count threshold used with `op`.
 
 - fraction:
 

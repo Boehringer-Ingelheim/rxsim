@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Conditions and Triggers • rxsim</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Conditions and Triggers">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,13 +48,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -141,6 +134,25 @@ accrued sample size</li>
 <code><a href="../reference/trigger_primitives.html">count_trigger()</a></code> / <code><a href="../reference/trigger_primitives.html">value_trigger()</a></code>: custom
 state-driven logic</li>
 </ul>
+<p>Three lower-level primitives complete the set. You rarely need them
+directly - <code><a href="../reference/trigger_primitives.html">enroll_trigger()</a></code> and
+<code><a href="../reference/trigger_by_events.html">trigger_by_events()</a></code> are built from them - but they are
+available for custom rules:</p>
+<ul>
+<li>
+<code>notna_trigger(col)</code>: rows where <code>col</code> is not
+<code>NA</code>
+</li>
+<li>
+<code>col_trigger(col, op, ref_col)</code>: compare two columns,
+e.g. <code>col_trigger("enroll_time", "&lt;=", "time")</code> selects
+subjects enrolled by the current time</li>
+<li>
+<code>timed_count_trigger(col, time_col, op, threshold)</code>:
+count events with <code>col &lt;= time_col</code> and compare against
+<code>threshold</code>
+</li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="composing-triggers-with-and">Composing triggers with <code>&amp;</code> and <code>|</code><a class="anchor" aria-label="anchor" href="#composing-triggers-with-and"></a>
@@ -184,11 +196,12 @@ directly with <code>Condition$new()</code>.</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">cond_composed</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Condition" "R6"</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">cond_composed</span><span class="op">$</span><span class="va">where</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
+<span><span class="va">cond_composed</span><span class="op">$</span><span class="va">trigger_spec</span><span class="op">$</span><span class="va">combinator</span></span>
+<span><span class="co">#&gt; [1] "&amp;"</span></span></code></pre></div>
 <p><code>where</code> accepts any <code>trigger</code> object (primitive
 or composed) and internally converts it to the filter predicates used
-during condition evaluation.</p>
+during condition evaluation. The original trigger is kept on
+<code>trigger_spec</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="helper-constructors-for-common-conditions">Helper constructors for common conditions<a class="anchor" aria-label="anchor" href="#helper-constructors-for-common-conditions"></a>
@@ -242,7 +255,7 @@ condition and one final condition, then pass both into
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmr</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"conditions_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr</span>, <span class="va">plan</span><span class="op">)</span></span>
+<span><span class="va">tmr</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">plan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">n_by_arm</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  pbo <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">plan</span><span class="op">$</span><span class="va">enroll</span><span class="op">[</span><span class="va">plan</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"pbo"</span><span class="op">]</span><span class="op">)</span>,</span>
@@ -308,8 +321,8 @@ condition and one final condition, then pass both into
 <code class="sourceCode R"><span><span class="va">trial</span><span class="op">$</span><span class="va">results</span></span>
 <span><span class="co">#&gt; $time_4</span></span>
 <span><span class="co">#&gt; $time_4$interim</span></span>
-<span><span class="co">#&gt;      look time n_total      p_value</span></span>
-<span><span class="co">#&gt; 1 interim    4      32 0.0007027072</span></span>
+<span><span class="co">#&gt;      look time n_total     p_value</span></span>
+<span><span class="co">#&gt; 1 interim    4      32 0.005971048</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $time_9</span></span>
@@ -318,24 +331,74 @@ condition and one final condition, then pass both into
 <span><span class="co">#&gt; 1 final    9      80 9.633389e-06</span></span>
 <span><span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trial</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   replicate timepoint analysis    look time n_total      p_value</span></span>
-<span><span class="co">#&gt; 1         1         4  interim interim    4      32 7.027072e-04</span></span>
+<span><span class="co">#&gt; 1         1         4  interim interim    4      32 5.971048e-03</span></span>
 <span><span class="co">#&gt; 2         1         9    final   final    9      80 9.633389e-06</span></span></code></pre></div>
 <p>Each look writes to a different entry under
 <code>trial$results</code> and appears as a separate row in
 <code><a href="../reference/collect_results.html">collect_results()</a></code> via the <code>analysis</code> column.</p>
 </div>
 <div class="section level2">
+<h2 id="event-driven-looks-with-trigger_by_events">Event-driven looks with <code>trigger_by_events()</code><a class="anchor" aria-label="anchor" href="#event-driven-looks-with-trigger_by_events"></a>
+</h2>
+<p>For time-to-event endpoints, analyses usually fire after a target
+number of <em>events</em>, not at a calendar time.
+<code><a href="../reference/trigger_by_events.html">trigger_by_events()</a></code> builds that <code>Condition</code>
+directly: it fires once <code>n_events</code> rows have an event time at
+or before the current trial time, and automatically restricts to
+enrolled subjects.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cond_events</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/trigger_by_events.html">trigger_by_events</a></span><span class="op">(</span></span>
+<span>  event_col <span class="op">=</span> <span class="st">"pfs_event_time"</span>,</span>
+<span>  n_events  <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>  analysis  <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>      fired_at <span class="op">=</span> <span class="va">current_time</span>,</span>
+<span>      n_events <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">pfs_event_time</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">}</span>,</span>
+<span>  name <span class="op">=</span> <span class="st">"pfs_40_events"</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">cond_events</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Condition" "R6"</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="cooldown-and-max-triggers">Cooldown and max triggers<a class="anchor" aria-label="anchor" href="#cooldown-and-max-triggers"></a>
 </h2>
-<p>For recurrent conditions, you can cap firing frequency with:</p>
-<ul>
-<li>
-<code>cooldown</code>: minimum time gap between triggers</li>
-<li>
-<code>max_triggers</code>: maximum total number of triggers</li>
-</ul>
-<p>These settings are useful for frequent data-driven checks where you
-want guardrails against over-triggering.</p>
+<p>By default every <code>Condition</code> fires <strong>once</strong>
+(<code>max_triggers = 1L</code>). For recurrent conditions, raise
+<code>max_triggers</code> (use <code>Inf</code> for unlimited) and
+optionally set <code>cooldown</code>, the minimum time gap between
+firings:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">snapshot</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  arm         <span class="op">=</span> <span class="st">"pbo"</span>,</span>
+<span>  enroll_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  y           <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span>,</span>
+<span>  time        <span class="op">=</span> <span class="fl">5</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">cond_recurrent</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  where <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>fired_at <span class="op">=</span> <span class="va">current_time</span><span class="op">)</span>,</span>
+<span>  name <span class="op">=</span> <span class="st">"recurrent"</span>,</span>
+<span>  cooldown <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  max_triggers <span class="op">=</span> <span class="fl">2L</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Fires at time 5 and 7 (cooldown of 2), then stops: max_triggers reached</span></span>
+<span><span class="va">cond_recurrent</span><span class="op">$</span><span class="fu">check_conditions</span><span class="op">(</span><span class="va">snapshot</span>, current_time <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
+<span><span class="co">#&gt; $recurrent</span></span>
+<span><span class="co">#&gt;   fired_at</span></span>
+<span><span class="co">#&gt; 1        5</span></span>
+<span><span class="va">cond_recurrent</span><span class="op">$</span><span class="fu">check_conditions</span><span class="op">(</span><span class="va">snapshot</span>, current_time <span class="op">=</span> <span class="fl">6</span><span class="op">)</span>  <span class="co"># cooldown blocks</span></span>
+<span><span class="co">#&gt; list()</span></span>
+<span><span class="va">cond_recurrent</span><span class="op">$</span><span class="fu">check_conditions</span><span class="op">(</span><span class="va">snapshot</span>, current_time <span class="op">=</span> <span class="fl">7</span><span class="op">)</span></span>
+<span><span class="co">#&gt; $recurrent</span></span>
+<span><span class="co">#&gt;   fired_at</span></span>
+<span><span class="co">#&gt; 1        7</span></span>
+<span><span class="va">cond_recurrent</span><span class="op">$</span><span class="fu">check_conditions</span><span class="op">(</span><span class="va">snapshot</span>, current_time <span class="op">=</span> <span class="fl">9</span><span class="op">)</span>  <span class="co"># cap reached</span></span>
+<span><span class="co">#&gt; list()</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="pattern-summary">Pattern summary<a class="anchor" aria-label="anchor" href="#pattern-summary"></a>
@@ -360,8 +423,8 @@ timers for fixed or stochastic schedules</li>
 <a href="../reference/Trial.html">Trial reference</a> - how Trial
 orchestrates timer, populations, and conditions</li>
 <li>
-<a href="example-5.html">Example 5</a> - seamless Ph2a/2b with
-interim and final looks</li>
+<a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html">Example
+5</a> - seamless Ph2a/2b with interim and final looks</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

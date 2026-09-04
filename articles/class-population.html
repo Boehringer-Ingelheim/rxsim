@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Population: Subject-Level Data and Enrollment Tracking • rxsim</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Population: Subject-Level Data and Enrollment Tracking">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,13 +48,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -271,8 +264,8 @@ subjects who are enrolled and not yet dropped.</p>
 <span><span class="va">state_3</span></span>
 <span><span class="co">#&gt;   id enrolled dropped</span></span>
 <span><span class="co">#&gt; 1  1        1      NA</span></span>
-<span><span class="co">#&gt; 2  2        1      NA</span></span>
-<span><span class="co">#&gt; 3  3        3       5</span></span>
+<span><span class="co">#&gt; 2  2        1       5</span></span>
+<span><span class="co">#&gt; 3  3        3      NA</span></span>
 <span><span class="co">#&gt; 4  4       NA      NA</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -389,10 +382,10 @@ binary endpoints, and survival methods for time-to-event outcomes.</p>
 <code>Trial</code>. At each timer update, <code>Trial$run()</code> calls
 <code>set_enrolled()</code> and <code>set_dropped()</code> for each arm,
 then builds a locked snapshot from the currently enrolled subjects. That
-snapshot carries forward the original population columns and adds
-<code>enroll_time</code>, <code>drop_time</code>,
-<code>measurement_time</code>, and the current trial
-<code>time</code>.</p>
+snapshot carries forward the original population columns and adds five
+more: <code>subject_id</code>, <code>enroll_time</code>,
+<code>drop_time</code>, <code>measurement_time</code> (enrollment +
+readout), and the current trial <code>time</code>.</p>
 <p>This example defines one simple analysis so that the trial stores a
 <code>locked_data</code> snapshot at calendar time 5.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
@@ -401,9 +394,9 @@ snapshot carries forward the original population columns and adds
 <span><span class="va">trial_pop</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"active"</span>, data <span class="op">=</span> <span class="va">subject_data</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">timer</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"population_timer"</span><span class="op">)</span></span>
-<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">2L</span>, drop <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">3</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">1L</span>, drop <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">5</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">0L</span>, drop <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span></span>
+<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">2L</span>, drop <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fl">3</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">1L</span>, drop <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fl">5</span>, arm <span class="op">=</span> <span class="st">"active"</span>, enroll <span class="op">=</span> <span class="fl">0L</span>, drop <span class="op">=</span> <span class="fl">1L</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">snapshot_condition</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
 <span>  where <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">calendar_trigger</a></span><span class="op">(</span><span class="fl">5</span><span class="op">)</span>,</span>
@@ -439,13 +432,21 @@ snapshot carries forward the original population columns and adds
 <span>  <span class="op">)</span></span>
 <span><span class="op">]</span></span>
 <span><span class="co">#&gt;   id    arm readout_time response enroll_time drop_time measurement_time time</span></span>
-<span><span class="co">#&gt; 1  1 active            0     11.2           3        NA                3    5</span></span>
-<span><span class="co">#&gt; 3  3 active            0     10.5           1         5                1    5</span></span>
-<span><span class="co">#&gt; 4  4 active            0     12.1           1        NA                1    5</span></span>
+<span><span class="co">#&gt; 1  1 active            0     11.2           1        NA                1    5</span></span>
+<span><span class="co">#&gt; 2  2 active            0      9.8           1        NA                1    5</span></span>
+<span><span class="co">#&gt; 3  3 active            0     10.5           3         5                3    5</span></span>
 <span></span>
 <span><span class="va">trial</span><span class="op">$</span><span class="va">results</span><span class="op">$</span><span class="va">time_5</span><span class="op">$</span><span class="va">snapshot</span></span>
 <span><span class="co">#&gt;   current_time n_subjects</span></span>
 <span><span class="co">#&gt; 1            5          3</span></span></code></pre></div>
+<p><code><a href="../reference/get_col_names.html">get_col_names()</a></code> tells you exactly which columns an
+analysis function will see in that snapshot - your population columns
+plus the five added ones:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/get_col_names.html">get_col_names</a></span><span class="op">(</span><span class="va">trial_pop</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "id"               "readout_time"     "response"         "arm"             </span></span>
+<span><span class="co">#&gt; [5] "enroll_time"      "drop_time"        "subject_id"       "measurement_time"</span></span>
+<span><span class="co">#&gt; [9] "time"</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="tips-and-gotchas">Tips and gotchas<a class="anchor" aria-label="anchor" href="#tips-and-gotchas"></a>
@@ -459,7 +460,7 @@ columns after <code>arm</code> is added: the three structural columns
 and at least one endpoint column.</p>
 <p>The checks below summarise those rules on the objects already created
 above.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  check <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"Unique subjects in multi_pop"</span>,</span>

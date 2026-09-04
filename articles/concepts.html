@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Core Concepts • rxsim</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Core Concepts">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,13 +48,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -111,14 +104,15 @@ graph LR
 Instead you use the high-level entry point
 <code><a href="../reference/replicate_trial.html">replicate_trial()</a></code> + <code><a href="../reference/run_trials.html">run_trials()</a></code>, which build
 and execute <code>n</code> independent <code>Trial</code> objects from
-your generator functions. Understanding the three classes directly is
+your generator functions. Understanding the four classes directly is
 useful when you want to:</p>
 <ul>
 <li>inspect the locked snapshot mid-simulation for debugging</li>
 <li>write custom multi-timepoint designs that
 <code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code> cannot express</li>
 <li>use <code>Trial$new()</code> directly for a one-off single-run
-simulation (as in <a href="example-5.html">Example 5</a>)</li>
+simulation (as in <a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html">Example
+5</a>)</li>
 </ul>
 <p>The sections below give a short summary of each building block. For
 the full reference, see the dedicated vignettes linked in the table.</p>
@@ -169,26 +163,46 @@ trigger state</td>
 </h2>
 <p>A typical two-arm simulation follows this pattern:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># 1. Populations: one per arm</span></span>
-<span><span class="va">pop_pbo</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"pbo"</span>, <span class="va">pbo_data</span><span class="op">)</span></span>
-<span><span class="va">pop_trt</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"trt"</span>, <span class="va">trt_data</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">7</span><span class="op">)</span></span>
+<span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">20</span></span>
+<span><span class="va">arms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pbo"</span>, <span class="st">"trt"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># 2. Timer: register enrollment/dropout events</span></span>
+<span><span class="co"># 1. Timer: draw a stochastic enrollment plan and register it</span></span>
 <span><span class="va">tmr</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"my_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr</span>, <span class="fu"><a href="../reference/stochastic_schedule.html">stochastic_schedule</a></span><span class="op">(</span><span class="va">n</span>, <span class="va">arms</span>, <span class="va">alloc</span>, <span class="va">enroll_fn</span>, <span class="va">dropout_fn</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stochastic_schedule.html">stochastic_schedule</a></span><span class="op">(</span></span>
+<span>  sample_size <span class="op">=</span> <span class="va">n</span>, arms <span class="op">=</span> <span class="va">arms</span>, allocation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  enrollment <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">tmr</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">plan</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># 2. Populations: one per arm, sized from the plan</span></span>
+<span><span class="va">n_pbo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">plan</span><span class="op">$</span><span class="va">enroll</span><span class="op">[</span><span class="va">plan</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"pbo"</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">n_trt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">plan</span><span class="op">$</span><span class="va">enroll</span><span class="op">[</span><span class="va">plan</span><span class="op">$</span><span class="va">arm</span> <span class="op">==</span> <span class="st">"trt"</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">pop_pbo</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"pbo"</span>, <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_pbo</span><span class="op">)</span>, y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_pbo</span>, <span class="fl">0.0</span><span class="op">)</span>, readout_time <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pop_trt</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Population.html">Population</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"trt"</span>, <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>id <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">n_trt</span><span class="op">)</span>, y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n_trt</span>, <span class="fl">0.5</span><span class="op">)</span>, readout_time <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. Condition: fire at full enrollment, run a t-test</span></span>
 <span><span class="va">cond</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Condition.html">Condition</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
 <span>  where    <span class="op">=</span> <span class="fu"><a href="../reference/trigger_primitives.html">enroll_trigger</a></span><span class="op">(</span><span class="fl">1.0</span>, <span class="va">n</span><span class="op">)</span>,</span>
-<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">t</span><span class="op">)</span> <span class="op">{</span> <span class="va">...</span> <span class="op">}</span>,</span>
+<span>  analysis <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">df</span>, <span class="va">current_time</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>p_value <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/t.test.html" class="external-link">t.test</a></span><span class="op">(</span><span class="va">y</span> <span class="op">~</span> <span class="va">arm</span>, data <span class="op">=</span> <span class="va">df</span><span class="op">)</span><span class="op">$</span><span class="va">p.value</span><span class="op">)</span></span>
+<span>  <span class="op">}</span>,</span>
 <span>  name     <span class="op">=</span> <span class="st">"final"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 4. Trial: assemble and run</span></span>
-<span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span><span class="st">"trial"</span>, timer<span class="op">=</span><span class="va">tmr</span>,</span>
-<span>                   population<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop_pbo</span>, <span class="va">pop_trt</span><span class="op">)</span>,</span>
-<span>                   conditions<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">trial</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Trial.html">Trial</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span></span>
+<span>  name <span class="op">=</span> <span class="st">"trial"</span>, timer <span class="op">=</span> <span class="va">tmr</span>,</span>
+<span>  population <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">pop_pbo</span>, <span class="va">pop_trt</span><span class="op">)</span>,</span>
+<span>  conditions <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">cond</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">trial</span><span class="op">$</span><span class="va">results</span></span>
+<span><span class="co">#&gt; $time_22.6927616733819</span></span>
+<span><span class="co">#&gt; $time_22.6927616733819$final</span></span>
+<span><span class="co">#&gt;     p_value</span></span>
+<span><span class="co">#&gt; 1 0.6679858</span></span></code></pre></div>
 <p>For a step-by-step walkthrough see <a href="enrollment.html">Enrollment and Dropout</a>. For the generator
 shortcut (<code>replicate_trial</code>) see <a href="api-styles.html">Two API Styles</a>.</p>
 </div>

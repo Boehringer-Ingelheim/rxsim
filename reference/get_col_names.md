@@ -19,7 +19,9 @@ get_col_names(populations)
 
 ## Value
 
-`character` vector of unique column names.
+`character` vector of unique population column names augmented with
+`subject_id`, `enroll_time`, `drop_time`, `measurement_time`, and
+`time`.
 
 ## See also
 
@@ -39,6 +41,7 @@ weight = runif(10, 150, 250),
 readout_time = 0
 ))
 get_col_names(list(pop1, pop2))
-#> [1] "id"           "age"          "readout_time" "arm"          "weight"      
-#> [6] "time"         "enroll_time"  "drop_time"    "measure_time"
+#>  [1] "id"               "age"              "readout_time"     "arm"             
+#>  [5] "weight"           "enroll_time"      "drop_time"        "subject_id"      
+#>  [9] "measurement_time" "time"            
 ```

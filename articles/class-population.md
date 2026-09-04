@@ -167,8 +167,8 @@ state_2
 state_3
 #>   id enrolled dropped
 #> 1  1        1      NA
-#> 2  2        1      NA
-#> 3  3        3       5
+#> 2  2        1       5
+#> 3  3        3      NA
 #> 4  4       NA      NA
 ```
 
@@ -268,8 +268,8 @@ names(pop_tte$data)
 timer update, `Trial$run()` calls `set_enrolled()` and `set_dropped()`
 for each arm, then builds a locked snapshot from the currently enrolled
 subjects. That snapshot carries forward the original population columns
-and adds `enroll_time`, `drop_time`, `measurement_time`, and the current
-trial `time`.
+and adds five more: `subject_id`, `enroll_time`, `drop_time`,
+`measurement_time` (enrollment + readout), and the current trial `time`.
 
 This example defines one simple analysis so that the trial stores a
 `locked_data` snapshot at calendar time 5.
@@ -280,9 +280,9 @@ set.seed(303)
 trial_pop <- Population$new(name = "active", data = subject_data)
 
 timer <- Timer$new(name = "population_timer")
-timer$add_timepoint(time = 1, arm = "active", enroll = 2L, drop = 0L)
-timer$add_timepoint(time = 3, arm = "active", enroll = 1L, drop = 0L)
-timer$add_timepoint(time = 5, arm = "active", enroll = 0L, drop = 1L)
+timer$add_schedule(data.frame(time = 1, arm = "active", enroll = 2L, drop = 0L))
+timer$add_schedule(data.frame(time = 3, arm = "active", enroll = 1L, drop = 0L))
+timer$add_schedule(data.frame(time = 5, arm = "active", enroll = 0L, drop = 1L))
 
 snapshot_condition <- Condition$new(
   where = calendar_trigger(5),
@@ -318,13 +318,24 @@ trial$locked_data$time_5[
   )
 ]
 #>   id    arm readout_time response enroll_time drop_time measurement_time time
-#> 1  1 active            0     11.2           3        NA                3    5
-#> 3  3 active            0     10.5           1         5                1    5
-#> 4  4 active            0     12.1           1        NA                1    5
+#> 1  1 active            0     11.2           1        NA                1    5
+#> 2  2 active            0      9.8           1        NA                1    5
+#> 3  3 active            0     10.5           3         5                3    5
 
 trial$results$time_5$snapshot
 #>   current_time n_subjects
 #> 1            5          3
+```
+
+[`get_col_names()`](https://boehringer-ingelheim.github.io/rxsim/reference/get_col_names.md)
+tells you exactly which columns an analysis function will see in that
+snapshot - your population columns plus the five added ones:
+
+``` r
+get_col_names(trial_pop)
+#> [1] "id"               "readout_time"     "response"         "arm"             
+#> [5] "enroll_time"      "drop_time"        "subject_id"       "measurement_time"
+#> [9] "time"
 ```
 
 ## Tips and gotchas

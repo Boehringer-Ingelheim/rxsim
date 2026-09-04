@@ -45,12 +45,13 @@ matter: endpoints, allocation, analysis rules, and adaptive strategies.
 
 ## Core Concepts
 
-rxsim is built on three composable classes:
+rxsim is built on four composable classes:
 
 | Class            | Role                                                                                                              |
 |------------------|-------------------------------------------------------------------------------------------------------------------|
 | **`Population`** | Holds subject-level data (endpoints, covariates) and tracks each subject’s enrollment and dropout times           |
-| **`Timer`**      | Drives the trial clock - stores discrete timepoints per arm and evaluates condition-triggered analyses            |
+| **`Timer`**      | Drives the trial clock - stores discrete enrollment and dropout timepoints per arm                                |
+| **`Condition`**  | Pairs a trigger expression with an analysis function - fires when the snapshot data meets the criterion           |
 | **`Trial`**      | Orchestrates the simulation - iterates over timepoints, updates populations, snapshots data, and collects results |
 
 The high-level helpers
@@ -99,11 +100,23 @@ trials <- replicate_trial(
   n                     = 500
 )
 
-run_trials(trials)
+invisible(run_trials(trials))
 ```
 
-Collect results across all replicates in one pass - see the [Two API
-Styles
+Collect results across all replicates in one pass:
+
+``` r
+head(collect_results(trials))
+#>   replicate timepoint analysis   n      p_value
+#> 1         1  99.90854    final 100 6.245937e-02
+#> 2         2 105.63913    final 100 2.810251e-05
+#> 3         3  89.53149    final 100 8.723310e-03
+#> 4         4 104.78511    final 100 7.632889e-01
+#> 5         5  90.23233    final 100 8.664230e-03
+#> 6         6  87.83837    final 100 1.306854e-02
+```
+
+See the [Two API Styles
 vignette](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)
 for the full walkthrough.
 
@@ -112,19 +125,19 @@ for the full walkthrough.
 Full documentation lives on the **[rxsim package
 website](https://boehringer-ingelheim.github.io/rxsim)**.
 
-| Vignette                                                                                                    | What it covers                                                                                                                                                                                                             |
-|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html)                        | Architecture overview: Population, Timer, Condition, Trial                                                                                                                                                                 |
-| [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.html)                   | Subject data, enrollment/dropout mechanics, endpoint types                                                                                                                                                                 |
-| [Enrollment & Dropout](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html)               | [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md) vs [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md) |
-| [Conditions & Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.html)              | Trigger API, combining triggers, interim analyses                                                                                                                                                                          |
-| [Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html)                                  | Trial class reference, run loop, seed reproducibility                                                                                                                                                                      |
-| [Two API Styles](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)                     | Direct instantiation vs generator + replicate_trial                                                                                                                                                                        |
-| [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html) | Two-arm fixed design, t-test                                                                                                                                                                                               |
-| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html)     | Two correlated continuous endpoints, Holm correction                                                                                                                                                                       |
-| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html)    | Multi-arm dose-finding with Dunnett + MCP-Mod                                                                                                                                                                              |
-| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html)        | Bayesian decision rule with historical placebo borrowing (RBesT)                                                                                                                                                           |
-| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html)   | Multi-stage adaptive design with BayesianMCPMod                                                                                                                                                                            |
+| Vignette                                                                                                            | What it covers                                                                                                                                                                                                             |
+|---------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [Core Concepts](https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html)                                | Architecture overview: Population, Timer, Condition, Trial                                                                                                                                                                 |
+| [Population](https://boehringer-ingelheim.github.io/rxsim/articles/class-population.html)                           | Subject data, enrollment/dropout mechanics, endpoint types                                                                                                                                                                 |
+| [Enrollment & Dropout](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html)                       | [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md) vs [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md) |
+| [Conditions & Triggers](https://boehringer-ingelheim.github.io/rxsim/articles/conditions.html)                      | Trigger API, combining triggers, interim analyses                                                                                                                                                                          |
+| [Trial](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html)                                          | Trial class reference, run loop, seed reproducibility                                                                                                                                                                      |
+| [Two API Styles](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)                             | Direct instantiation vs generator + replicate_trial                                                                                                                                                                        |
+| [Example 1: Fixed design, continuous](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-1.html) | Two-arm fixed design, t-test                                                                                                                                                                                               |
+| [Example 2: Correlated endpoints](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-2.html)     | Two correlated continuous endpoints, Holm correction                                                                                                                                                                       |
+| [Example 3: Dose-finding, MCP-Mod](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-3.html)    | Multi-arm dose-finding with Dunnett + MCP-Mod                                                                                                                                                                              |
+| [Example 4: Bayesian Go/No-Go](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-4.html)        | Bayesian decision rule with historical placebo borrowing (RBesT)                                                                                                                                                           |
+| [Example 5: Seamless Phase IIa/IIb](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html)   | Multi-stage adaptive design with BayesianMCPMod                                                                                                                                                                            |
 
 ## Installation
 
@@ -163,11 +176,12 @@ or analyses - hand the code to a colleague
   
 
 No. rxsim supports any number of arms, any endpoint type, and arbitrary
-analysis functions. The built-in examples cover continuous endpoints,
-correlated multi-endpoints, time-to-event endpoints, multi-arm
-dose-finding (Dunnett + MCP-Mod), subgroup analyses, and Bayesian
-Go/No-Go rules with historical borrowing. If your analysis can be
-written as an R function, rxsim can run it.
+analysis functions. The [gallery
+examples](https://boehringer-ingelheim.github.io/rxsim-gallery/) cover
+continuous endpoints, correlated multi-endpoints, time-to-event
+endpoints, multi-arm dose-finding (Dunnett + MCP-Mod), subgroup
+analyses, and Bayesian Go/No-Go rules with historical borrowing. If your
+analysis can be written as an R function, rxsim can run it.
 
 **Can rxsim handle adaptive designs with interim analyses?**
 
@@ -213,25 +227,26 @@ with any R parallel back-end:
 parallel::mclapply(trials, function(tr) tr$run(), mc.cores = parallel::detectCores())
 ```
 
-**What is the difference between `gen_plan()` and `gen_timepoints()`?**
+**What is the difference between `stochastic_schedule()` and
+`deterministic_schedule()`?**
 
   
 
 Both functions produce an enrollment/dropout schedule that feeds into a
 `Timer`, but they model timing differently:
 
-- **`gen_plan()`** is **stochastic**: you supply a inter-event time
-  probability distribution function (e.g.,
-  `function(n) rexp(n, rate = 1)`). Each replicate gets a different
-  realization of the enrollment process, capturing natural variability
-  in study timelines.
-- **`gen_timepoints()`** is **deterministic piecewise-constant rate**:
-  you specify enrollment rates per time period (e.g., 5 patients/month
-  for months 1–4, then 10/month). Every replicate follows the same fixed
-  schedule.
+- **[`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)**
+  is **random**: you supply an inter-event time distribution (e.g.,
+  `function(n) rexp(n, rate = 1)`). Each call draws a new realization,
+  so every replicate captures natural variability in study timelines.
+- **[`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)**
+  is **piecewise-constant**: you specify enrollment rates per time
+  period (e.g., 5 patients/month for months 1–4, then 10/month) as
+  `list(end_time = ..., rate = ...)`. Every replicate follows the same
+  fixed schedule.
 
-See the [Enrollment & Dropout Modeling
-vignette](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html)
+See the [Enrollment & Dropout
+vignette](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html)
 for a side-by-side comparison.
 
 # Package index
@@ -264,8 +279,6 @@ Functions to build and replicate trials
 
 Helpers for building Timer timepoint lists
 
-- [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
-  : Add Timepoints to a Timer
 - [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)
   : Generate a Deterministic Enrollment and Dropout Schedule
 - [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
@@ -277,6 +290,9 @@ Convenience constructors for Condition objects
 
 - [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`notna_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`col_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`timed_count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`` `&`( ``*`<trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
@@ -286,6 +302,8 @@ Convenience constructors for Condition objects
   : Build a Condition that Fires at a Calendar Time
 - [`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md)
   : Build a Condition that Fires at an Enrollment Fraction
+- [`trigger_by_events()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_events.md)
+  : Trigger Analysis When Enough TTE Events Have Occurred
 
 ## Population helpers
 
@@ -328,20 +346,3 @@ Functions to collect and display simulation results
 
 - [Two API Styles: Direct and
   Generator](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.md):
-
-### Examples
-
-- [Example 1: Two arm \| Fixed design \|
-  Continuous](https://boehringer-ingelheim.github.io/rxsim/articles/example-1.md):
-- [Example 2: Two arm \| Fixed design \| Two correlated continuous
-  endpoints \|
-  t-test](https://boehringer-ingelheim.github.io/rxsim/articles/example-2.md):
-- [Example 3: Multi-arm \| Fixed design \| Single continuous endpoint \|
-  Dunnett test +
-  MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-3.md):
-- [Example 4: Two-arm \| Fixed design \| Single continuous endpoint \|
-  Bayesian Go/No-Go with placebo
-  borrowing](https://boehringer-ingelheim.github.io/rxsim/articles/example-4.md):
-- [Example 5: Seamless Ph2a/2b \| Two-arm -\> Multi-arm \| Single
-  continuous endpoint \| Bayesian Go/No-Go + Bayesian
-  MCP-Mod](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md):

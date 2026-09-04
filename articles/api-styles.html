@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Two API Styles: Direct and Generator • rxsim</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Two API Styles: Direct and Generator">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,13 +48,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -124,14 +117,14 @@ replicates, quick scenario grids, or minimal boilerplate.</p>
 <code>0.5</code> for treatment</li>
 <li>one final analysis at full enrollment</li>
 <li>
-<code>100</code> replicates for the operating characteristics</li>
+<code>10</code> replicates for the operating characteristics</li>
 </ul>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sample_size</span> <span class="op">&lt;-</span> <span class="fl">40L</span></span>
 <span><span class="va">arms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pbo"</span>, <span class="st">"trt"</span><span class="op">)</span></span>
 <span><span class="va">allocation</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">delta</span> <span class="op">&lt;-</span> <span class="fl">0.5</span></span>
-<span><span class="va">n_reps</span> <span class="op">&lt;-</span> <span class="fl">100L</span></span>
+<span><span class="va">n_reps</span> <span class="op">&lt;-</span> <span class="fl">10L</span></span>
 <span></span>
 <span><span class="va">enrollment</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">dropout</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
@@ -184,7 +177,7 @@ assemble the trial yourself.</p>
 <span></span>
 <span><span class="co"># 2. Build the timer from that plan.</span></span>
 <span><span class="va">direct_timer</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"direct_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">direct_timer</span>, <span class="va">direct_plan</span><span class="op">)</span></span>
+<span><span class="va">direct_timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">direct_plan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. Compute the planned arm sizes from the timer input.</span></span>
 <span><span class="va">direct_n_by_arm</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span></span>
@@ -221,21 +214,21 @@ before running.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">direct_plan</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        time arm enroll drop</span></span>
-<span><span class="co">#&gt; 1 0.1983368 trt      1    0</span></span>
-<span><span class="co">#&gt; 2 0.8592321 pbo      1    0</span></span>
-<span><span class="co">#&gt; 3 1.1427231 trt      1    0</span></span>
-<span><span class="co">#&gt; 4 1.1809150 pbo      1    0</span></span>
-<span><span class="co">#&gt; 5 1.6540916 pbo      1    0</span></span>
-<span><span class="co">#&gt; 6 3.1177188 trt      1    0</span></span>
+<span><span class="co">#&gt; 1 0.1983368 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2 1.1427231 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3 1.1809150 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4 1.6540916 pbo      1    0</span></span>
+<span><span class="co">#&gt; 5 3.4317033 pbo      1    0</span></span>
+<span><span class="co">#&gt; 6 5.0334307 pbo      1    0</span></span>
 <span><span class="va">direct_timer</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1110.694</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 764.053</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 7. Run the single direct trial.</span></span>
 <span><span class="va">direct_trial</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">direct_trial</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   replicate timepoint analysis  n   mean_pbo  mean_trt    p_value</span></span>
-<span><span class="co">#&gt; 1         1  39.32605    final 40 -0.2365031 0.3138118 0.07738052</span></span></code></pre></div>
+<span><span class="co">#&gt;   replicate timepoint analysis  n   mean_pbo  mean_trt   p_value</span></span>
+<span><span class="co">#&gt; 1         1  39.32605    final 40 -0.0557219 0.1194667 0.6202483</span></span></code></pre></div>
 <p>For many stochastic replicates, the direct pattern is usually wrapped
 in a small constructor function.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
@@ -251,7 +244,7 @@ in a small constructor function.</p>
 <span></span>
 <span>  <span class="co"># 2. Turn that plan into a timer.</span></span>
 <span>  <span class="va">timer</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="va">name</span>, <span class="st">"_timer"</span><span class="op">)</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">timer</span>, <span class="va">plan</span><span class="op">)</span></span>
+<span>  <span class="va">timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">plan</span><span class="op">)</span></span>
 <span></span>
 <span>  <span class="co"># 3. Size each arm from the generated plan.</span></span>
 <span>  <span class="va">n_by_arm</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span></span>
@@ -294,13 +287,13 @@ in a small constructor function.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">direct_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">direct_trials</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">direct_results</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   replicate timepoint analysis  n    mean_pbo  mean_trt     p_value</span></span>
-<span><span class="co">#&gt; 1         1  41.37433    final 40 -0.15072151 0.4098671 0.054209202</span></span>
-<span><span class="co">#&gt; 2         2  46.89639    final 40 -0.24803270 0.6183037 0.006305818</span></span>
-<span><span class="co">#&gt; 3         3  39.48357    final 40  0.09571239 0.6604110 0.027212451</span></span>
-<span><span class="co">#&gt; 4         4  58.20288    final 40  0.27907034 0.5495985 0.538070676</span></span>
-<span><span class="co">#&gt; 5         5  41.54251    final 40  0.32055414 0.1959181 0.687516418</span></span>
-<span><span class="co">#&gt; 6         6  37.94218    final 40  0.31120700 0.4925153 0.491698998</span></span></code></pre></div>
+<span><span class="co">#&gt;   replicate timepoint analysis  n    mean_pbo  mean_trt    p_value</span></span>
+<span><span class="co">#&gt; 1         1  45.97723    final 40  0.22031537 0.6831231 0.11616961</span></span>
+<span><span class="co">#&gt; 2         2  38.68791    final 40 -0.12834383 0.6033173 0.03610186</span></span>
+<span><span class="co">#&gt; 3         3  39.78981    final 40  0.17085927 0.6229233 0.13717783</span></span>
+<span><span class="co">#&gt; 4         4  40.73727    final 40 -0.07649800 0.3610610 0.12120162</span></span>
+<span><span class="co">#&gt; 5         5  42.68275    final 40  0.02060517 0.3789782 0.29638352</span></span>
+<span><span class="co">#&gt; 6         6  44.00494    final 40  0.24331892 0.3731780 0.71147851</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="style-b-generator-api">Style B: Generator API<a class="anchor" aria-label="anchor" href="#style-b-generator-api"></a>
@@ -327,7 +320,7 @@ internally.</p>
 <code>enroll_trigger(1.0, sample_size)</code>. No quotation helpers are
 needed.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># 3. Ask rxsim to build 100 independent trials.</span></span>
+<code class="sourceCode R"><span><span class="co"># 3. Ask rxsim to build 10 independent trials.</span></span>
 <span><span class="va">generator_trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/replicate_trial.html">replicate_trial</a></span><span class="op">(</span></span>
 <span>  trial_name <span class="op">=</span> <span class="st">"generator"</span>,</span>
 <span>  sample_size <span class="op">=</span> <span class="va">sample_size</span>,</span>
@@ -345,13 +338,13 @@ needed.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">generator_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">generator_trials</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">generator_results</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   replicate timepoint analysis  n    mean_pbo  mean_trt    p_value</span></span>
-<span><span class="co">#&gt; 1         1  42.90242    final 40  0.17727332 0.3057526 0.76280511</span></span>
-<span><span class="co">#&gt; 2         2  33.13166    final 40 -0.26273620 0.3530079 0.09358722</span></span>
-<span><span class="co">#&gt; 3         3  41.63035    final 40  0.04993081 0.2030695 0.68585888</span></span>
-<span><span class="co">#&gt; 4         4  55.59473    final 40 -0.33050838 0.4749362 0.01359331</span></span>
-<span><span class="co">#&gt; 5         5  30.49985    final 40  0.18127567 0.6535889 0.18802339</span></span>
-<span><span class="co">#&gt; 6         6  36.88387    final 40  0.01316165 0.5411758 0.06682232</span></span></code></pre></div>
+<span><span class="co">#&gt;   replicate timepoint analysis  n    mean_pbo   mean_trt      p_value</span></span>
+<span><span class="co">#&gt; 1         1  41.31080    final 40  0.14790964 0.64055125 0.1843726111</span></span>
+<span><span class="co">#&gt; 2         2  42.57187    final 40 -0.08040526 0.46229123 0.0748187763</span></span>
+<span><span class="co">#&gt; 3         3  36.74258    final 40 -0.37301982 0.44163311 0.0074422896</span></span>
+<span><span class="co">#&gt; 4         4  32.38417    final 40 -0.03727242 0.04886914 0.8133832280</span></span>
+<span><span class="co">#&gt; 5         5  44.70138    final 40 -0.48426483 0.48936266 0.0175744028</span></span>
+<span><span class="co">#&gt; 6         6  41.63317    final 40 -0.35693944 0.80935517 0.0004009703</span></span></code></pre></div>
 <p>This style is shorter because <code><a href="../reference/replicate_trial.html">replicate_trial()</a></code> handles
 the timer construction, population sizing, and condition creation for
 every replicate.</p>
@@ -368,7 +361,8 @@ underlying objects.</p>
 <li>Debug a single trial by inspecting <code>timer</code>,
 <code>population</code>, and <code>locked_data</code>.</li>
 <li>Build multi-stage designs where the schedule is easier to express
-directly, such as the seamless pattern in <a href="example-5.html">Example 5</a>.</li>
+directly, such as the seamless pattern in <a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html">Example
+5</a>.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -394,7 +388,7 @@ happy with the setup.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1. Build one trial directly so you can inspect it.</span></span>
 <span><span class="va">mixed_trial</span> <span class="op">&lt;-</span> <span class="fu">build_direct_trial</span><span class="op">(</span><span class="st">"mixed_1"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">rbind</span>, <span class="va">mixed_trial</span><span class="op">$</span><span class="va">timer</span><span class="op">$</span><span class="va">timelist</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mixed_trial</span><span class="op">$</span><span class="va">timer</span><span class="op">$</span><span class="va">timelist</span></span>
 <span></span>
 <span><span class="co"># 2. Extend the same direct pattern to more replicates.</span></span>
 <span><span class="va">mixed_trials</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -408,14 +402,17 @@ happy with the setup.</p>
 each replicate, <code><a href="../reference/clone_trial.html">clone_trial()</a></code> is also useful. That pattern
 is most natural for deterministic schedules, not for stochastic
 enrollment.</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Deep copies with independent timer and population state.</span></span>
+<span><span class="va">clones</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/clone_trial.html">clone_trial</a></span><span class="op">(</span><span class="va">mixed_trial</span>, n <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">clones</span><span class="op">)</span></span>
+<span><span class="co">#&gt; NULL</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
 </h2>
 <ul>
-<li>Add interims and multiple analyses: <a href="conditions.html">Conditions and Triggers</a>
-</li>
-<li>Learn more about trigger objects and analyses: <a href="conditions.html">Conditions and Triggers</a>
+<li>Add interims and compose trigger objects: <a href="conditions.html">Conditions and Triggers</a>
 </li>
 <li>Inspect the <code>Trial</code> class documentation: <a href="../reference/Trial.html">Trial reference</a>
 </li>

@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Enrollment and Dropout • rxsim</title>
 <script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Enrollment and Dropout">
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script>
@@ -25,7 +25,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -48,13 +48,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="../articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="../articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="../articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="../articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="../articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
@@ -117,7 +110,7 @@ enrollment plan and want to isolate variability in endpoints and
 analyses from variability in timing.</p></li>
 </ul>
 <p>Both functions return a data frame that is passed directly to
-<code><a href="../reference/add_timepoints.html">add_timepoints()</a></code> to populate a <code>Timer</code>.</p>
+<code>Timer$add_schedule()</code> to populate a <code>Timer</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="stochastic-enrollment-with-stochastic_schedule">Stochastic enrollment with <code>stochastic_schedule()</code><a class="anchor" aria-label="anchor" href="#stochastic-enrollment-with-stochastic_schedule"></a>
@@ -159,30 +152,30 @@ reflecting a trial where most subjects are expected to complete.</p>
 <span></span>
 <span><span class="va">plan_a</span></span>
 <span><span class="co">#&gt;          time arm enroll drop</span></span>
-<span><span class="co">#&gt; 1    1.181941 trt      1    0</span></span>
-<span><span class="co">#&gt; 2    4.356924 pbo      1    0</span></span>
-<span><span class="co">#&gt; 3    4.776292 pbo      1    0</span></span>
-<span><span class="co">#&gt; 4    5.091672 trt      1    0</span></span>
-<span><span class="co">#&gt; 5    6.685949 trt      1    0</span></span>
-<span><span class="co">#&gt; 6    7.175917 trt      1    0</span></span>
-<span><span class="co">#&gt; 7    7.491383 pbo      1    0</span></span>
-<span><span class="co">#&gt; 8    8.132255 pbo      1    0</span></span>
-<span><span class="co">#&gt; 9    9.545312 trt      1    0</span></span>
-<span><span class="co">#&gt; 10   9.946735 pbo      1    0</span></span>
-<span><span class="co">#&gt; 11  10.094619 trt      1    0</span></span>
-<span><span class="co">#&gt; 12  10.143980 pbo      1    0</span></span>
-<span><span class="co">#&gt; 13  25.015565 pbo      0    1</span></span>
-<span><span class="co">#&gt; 14  51.394606 pbo      0    1</span></span>
-<span><span class="co">#&gt; 15  57.768809 pbo      0    1</span></span>
-<span><span class="co">#&gt; 16  74.372883 pbo      0    1</span></span>
-<span><span class="co">#&gt; 17 108.205985 pbo      0    1</span></span>
-<span><span class="co">#&gt; 18 109.138428 trt      0    1</span></span>
-<span><span class="co">#&gt; 19 112.004907 trt      0    1</span></span>
-<span><span class="co">#&gt; 20 187.133638 pbo      0    1</span></span>
-<span><span class="co">#&gt; 21 193.163489 pbo      0    1</span></span>
-<span><span class="co">#&gt; 22 203.591067 trt      0    1</span></span>
-<span><span class="co">#&gt; 23 224.090914 pbo      0    1</span></span>
-<span><span class="co">#&gt; 24 249.502430 pbo      0    1</span></span></code></pre></div>
+<span><span class="co">#&gt; 1    1.181941 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2    4.776292 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3    6.685949 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4    7.175917 pbo      1    0</span></span>
+<span><span class="co">#&gt; 5    9.545312 pbo      1    0</span></span>
+<span><span class="co">#&gt; 6   10.094619 pbo      1    0</span></span>
+<span><span class="co">#&gt; 7   28.718580 pbo      0    1</span></span>
+<span><span class="co">#&gt; 8   39.586323 pbo      0    1</span></span>
+<span><span class="co">#&gt; 9   82.273269 pbo      0    1</span></span>
+<span><span class="co">#&gt; 10 122.125954 pbo      0    1</span></span>
+<span><span class="co">#&gt; 11 122.874100 pbo      0    1</span></span>
+<span><span class="co">#&gt; 12 134.037356 pbo      0    1</span></span>
+<span><span class="co">#&gt; 13 146.620943 pbo      0    1</span></span>
+<span><span class="co">#&gt; 14 159.022740 pbo      0    1</span></span>
+<span><span class="co">#&gt; 15 163.420177 pbo      0    1</span></span>
+<span><span class="co">#&gt; 16   4.356924 trt      1    0</span></span>
+<span><span class="co">#&gt; 17   5.091672 trt      1    0</span></span>
+<span><span class="co">#&gt; 18   7.491383 trt      1    0</span></span>
+<span><span class="co">#&gt; 19   8.132255 trt      1    0</span></span>
+<span><span class="co">#&gt; 20   9.946735 trt      1    0</span></span>
+<span><span class="co">#&gt; 21  10.143980 trt      1    0</span></span>
+<span><span class="co">#&gt; 22  89.464239 trt      0    1</span></span>
+<span><span class="co">#&gt; 23  98.838488 trt      0    1</span></span>
+<span><span class="co">#&gt; 24 130.506330 trt      0    1</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="output-columns">Output columns<a class="anchor" aria-label="anchor" href="#output-columns"></a>
@@ -190,36 +183,26 @@ reflecting a trial where most subjects are expected to complete.</p>
 <p>Each row in the returned data frame represents a single event -
 either an enrollment or a dropout:</p>
 <table class="table">
-<colgroup>
-<col width="47%">
-<col width="52%">
-</colgroup>
 <thead><tr class="header">
 <th>Column</th>
 <th>Meaning</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td><code>time</code></td>
+<td>Calendar time of the event</td>
+</tr>
+<tr class="even">
 <td><code>arm</code></td>
 <td>Arm label (<code>"pbo"</code> or <code>"trt"</code>)</td>
 </tr>
-<tr class="even">
-<td><code>enroll_time</code></td>
-<td>Calendar time of enrollment (cumulative sum of inter-arrival
-gaps)</td>
-</tr>
 <tr class="odd">
-<td><code>drop_time</code></td>
-<td>Calendar time of dropout; <code>NA</code> if the subject
-completes</td>
-</tr>
-<tr class="even">
 <td><code>enroll</code></td>
 <td>
 <code>1</code> if this row is an enrollment event, <code>0</code>
 otherwise</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>drop</code></td>
 <td>
 <code>1</code> if this row is a dropout event, <code>0</code>
@@ -227,8 +210,8 @@ otherwise</td>
 </tr>
 </tbody>
 </table>
-<p>Because the times are cumulative sums of exponential random
-variables, they are continuous-valued and always positive.</p>
+<p>Because the enrollment times are cumulative sums of exponential
+random variables, they are continuous-valued and always positive.</p>
 </div>
 <div class="section level3">
 <h3 id="every-call-produces-a-different-schedule">Every call produces a different schedule<a class="anchor" aria-label="anchor" href="#every-call-produces-a-different-schedule"></a>
@@ -251,22 +234,22 @@ replicate.</p>
 <span><span class="co"># Enrollment times differ across the two calls</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">plan_a</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       time arm enroll drop</span></span>
-<span><span class="co">#&gt; 1 1.181941 trt      1    0</span></span>
-<span><span class="co">#&gt; 2 4.356924 pbo      1    0</span></span>
-<span><span class="co">#&gt; 3 4.776292 pbo      1    0</span></span>
-<span><span class="co">#&gt; 4 5.091672 trt      1    0</span></span>
+<span><span class="co">#&gt; 1 1.181941 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2 4.776292 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3 6.685949 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4 7.175917 pbo      1    0</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">plan_b</span>, <span class="fl">4</span><span class="op">)</span></span>
-<span><span class="co">#&gt;       time arm enroll drop</span></span>
-<span><span class="co">#&gt; 1 1.417195 trt      1    0</span></span>
-<span><span class="co">#&gt; 2 1.757497 pbo      1    0</span></span>
-<span><span class="co">#&gt; 3 2.769804 trt      1    0</span></span>
-<span><span class="co">#&gt; 4 4.785916 pbo      1    0</span></span></code></pre></div>
+<span><span class="co">#&gt;        time arm enroll drop</span></span>
+<span><span class="co">#&gt; 1  5.952201 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2  6.516808 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3  8.490974 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4 12.483522 pbo      1    0</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="passing-the-plan-to-a-timer">Passing the plan to a Timer<a class="anchor" aria-label="anchor" href="#passing-the-plan-to-a-timer"></a>
 </h3>
 <p>Once you have the data frame, pass it to
-<code><a href="../reference/add_timepoints.html">add_timepoints()</a></code> to register all events on a
+<code>Timer$add_schedule()</code> to register all events on a
 <code>Timer</code> object.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">404</span><span class="op">)</span></span>
@@ -279,10 +262,10 @@ replicate.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmr</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"stochastic_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr</span>, <span class="va">plan</span><span class="op">)</span></span>
+<span><span class="va">tmr</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">plan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmr</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span>   <span class="co"># last event time</span></span>
-<span><span class="co">#&gt; [1] 206.6357</span></span>
+<span><span class="co">#&gt; [1] 197.1576</span></span>
 <span><span class="va">tmr</span><span class="op">$</span><span class="fu">get_n_arms</span><span class="op">(</span><span class="op">)</span>          <span class="co"># number of unique arms</span></span>
 <span><span class="co">#&gt; [1] 2</span></span></code></pre></div>
 </div>
@@ -338,19 +321,17 @@ and 9 subjects per unit time. Dropout rate is low and constant.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tp</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 10 × 4</span></span></span>
-<span><span class="co">#&gt;     time arm   enroll  drop</span></span>
-<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span>     1 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span>     2 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span>     3 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span>     4 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span>     5 pbo        2     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span>     1 trt        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span>     2 trt        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span>     3 trt        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span>     4 trt        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span>     5 trt        2     0</span></span></code></pre></div>
+<span><span class="co">#&gt;    time arm enroll drop</span></span>
+<span><span class="co">#&gt; 1     1 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2     2 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3     3 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4     4 pbo      1    0</span></span>
+<span><span class="co">#&gt; 5     5 pbo      2    0</span></span>
+<span><span class="co">#&gt; 6     1 trt      1    0</span></span>
+<span><span class="co">#&gt; 7     2 trt      1    0</span></span>
+<span><span class="co">#&gt; 8     3 trt      1    0</span></span>
+<span><span class="co">#&gt; 9     4 trt      1    0</span></span>
+<span><span class="co">#&gt; 10    5 trt      2    0</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="output-columns-1">Output columns<a class="anchor" aria-label="anchor" href="#output-columns-1"></a>
@@ -358,40 +339,30 @@ and 9 subjects per unit time. Dropout rate is low and constant.</p>
 <p>The output format uses the same column names as
 <code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code>, but the semantics differ:</p>
 <table class="table">
-<colgroup>
-<col width="47%">
-<col width="52%">
-</colgroup>
 <thead><tr class="header">
 <th>Column</th>
 <th>Meaning</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
+<td><code>time</code></td>
+<td>Integer calendar time of the event</td>
+</tr>
+<tr class="even">
 <td><code>arm</code></td>
 <td>Arm label</td>
 </tr>
-<tr class="even">
-<td><code>enroll_time</code></td>
-<td>Integer calendar time at which one or more subjects enroll</td>
-</tr>
 <tr class="odd">
-<td><code>drop_time</code></td>
-<td>Integer calendar time of dropout event</td>
-</tr>
-<tr class="even">
 <td><code>enroll</code></td>
 <td>Count of subjects enrolling at this time (can be &gt; 1)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>drop</code></td>
 <td>Count of subjects dropping out at this time</td>
 </tr>
 </tbody>
 </table>
-<p>Because multiple subjects may enroll in the same time unit,
-<code>enroll</code> can be greater than 1. All times are positive
-integers.</p>
+<p>All times are positive integers.</p>
 </div>
 <div class="section level3">
 <h3 id="every-call-returns-the-same-schedule">Every call returns the same schedule<a class="anchor" aria-label="anchor" href="#every-call-returns-the-same-schedule"></a>
@@ -415,10 +386,10 @@ nature of this approach.</p>
 <h3 id="passing-the-schedule-to-a-timer">Passing the schedule to a Timer<a class="anchor" aria-label="anchor" href="#passing-the-schedule-to-a-timer"></a>
 </h3>
 <p>As with <code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code>, pass the result directly
-to <code><a href="../reference/add_timepoints.html">add_timepoints()</a></code>.</p>
+to <code>Timer$add_schedule()</code>.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tmr2</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"deterministic_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr2</span>, <span class="va">tp</span><span class="op">)</span></span>
+<span><span class="va">tmr2</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">tp</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmr2</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 5</span></span>
@@ -455,22 +426,20 @@ two-arm design makes the structural differences clear.</p>
 <span><span class="co"># stochastic_schedule: continuous (fractional) enrollment times</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">plan_stoch</span><span class="op">[</span><span class="va">plan_stoch</span><span class="op">$</span><span class="va">enroll</span> <span class="op">==</span> <span class="fl">1</span>, <span class="op">]</span>, <span class="fl">5</span><span class="op">)</span></span>
 <span><span class="co">#&gt;       time arm enroll drop</span></span>
-<span><span class="co">#&gt; 1 1.176158 trt      1    0</span></span>
-<span><span class="co">#&gt; 2 1.548616 pbo      1    0</span></span>
-<span><span class="co">#&gt; 3 1.840486 trt      1    0</span></span>
-<span><span class="co">#&gt; 4 4.792944 pbo      1    0</span></span>
-<span><span class="co">#&gt; 5 4.818969 pbo      1    0</span></span>
+<span><span class="co">#&gt; 1 1.840486 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2 4.792944 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3 4.818969 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4 9.206899 pbo      1    0</span></span>
+<span><span class="co">#&gt; 5 9.709935 pbo      1    0</span></span>
 <span></span>
 <span><span class="co"># deterministic_schedule: integer times, counts &gt;= 1</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">plan_det</span><span class="op">[</span><span class="va">plan_det</span><span class="op">$</span><span class="va">enroll</span> <span class="op">&gt;</span> <span class="fl">0</span>, <span class="op">]</span>, <span class="fl">5</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 4</span></span></span>
-<span><span class="co">#&gt;    time arm   enroll  drop</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span>     1 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span>     2 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span>     3 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span>     4 pbo        1     0</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span>     5 pbo        2     0</span></span></code></pre></div>
+<span><span class="co">#&gt;   time arm enroll drop</span></span>
+<span><span class="co">#&gt; 1    1 pbo      1    0</span></span>
+<span><span class="co">#&gt; 2    2 pbo      1    0</span></span>
+<span><span class="co">#&gt; 3    3 pbo      1    0</span></span>
+<span><span class="co">#&gt; 4    4 pbo      1    0</span></span>
+<span><span class="co">#&gt; 5    5 pbo      2    0</span></span></code></pre></div>
 <p>The key trade-offs:</p>
 <table class="table">
 <thead><tr class="header">
@@ -545,10 +514,10 @@ are generated separately and then combined into a single schedule.</p>
 </div>
 </div>
 <div class="section level2">
-<h2 id="the-timer-class-add_timepoint-add_timepoints-timelist">The Timer class: <code>add_timepoint</code>,
-<code>add_timepoints</code>, <code>timelist</code><a class="anchor" aria-label="anchor" href="#the-timer-class-add_timepoint-add_timepoints-timelist"></a>
+<h2 id="the-timer-class-add_schedule-timelist">The Timer class: <code>add_schedule</code>,
+<code>timelist</code><a class="anchor" aria-label="anchor" href="#the-timer-class-add_schedule-timelist"></a>
 </h2>
-<p>A <code>Timer</code> is the trial clock. It stores a list of
+<p>A <code>Timer</code> is the trial clock. It stores a data frame of
 timepoint records, where each record says when something happens in one
 arm and how many subjects are affected. Each record has four fields:
 <code>time</code>, <code>arm</code>, <code>enroll</code>, and
@@ -559,22 +528,25 @@ them, and updates the trial at those times. That makes
 <code>Timer</code> the object that defines the calendar of the
 simulation.</p>
 <div class="section level3">
-<h3 id="building-a-timer-manually-with-add_timepoint">Building a Timer manually with <code>add_timepoint()</code><a class="anchor" aria-label="anchor" href="#building-a-timer-manually-with-add_timepoint"></a>
+<h3 id="building-a-timer-manually-with-add_schedule">Building a Timer manually with <code>add_schedule()</code><a class="anchor" aria-label="anchor" href="#building-a-timer-manually-with-add_schedule"></a>
 </h3>
+<p><code>add_schedule()</code> takes a data frame with columns
+<code>time</code>, <code>arm</code>, <code>enroll</code>, and
+<code>drop</code> - one row per event. That is the same shape
+<code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code> and
+<code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code> return, so hand-written and
+generated schedules load through the same call.</p>
 <p>Manual construction is useful when you want complete control over the
-event schedule. You create a <code>Timer</code>, add one event at a time
-with <code>add_timepoint()</code>, and inspect it with the query
-methods.</p>
+event schedule:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">manual_timer</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"manual_timer"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"pbo"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">2</span>, arm <span class="op">=</span> <span class="st">"pbo"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">4</span>, arm <span class="op">=</span> <span class="st">"pbo"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"trt"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">2L</span><span class="op">)</span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">3</span>, arm <span class="op">=</span> <span class="st">"trt"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">4</span>, arm <span class="op">=</span> <span class="st">"trt"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
+<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  time   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  arm    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pbo"</span>, <span class="st">"pbo"</span>, <span class="st">"pbo"</span>, <span class="st">"trt"</span>, <span class="st">"trt"</span>, <span class="st">"trt"</span><span class="op">)</span>,</span>
+<span>  drop   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">1L</span>, <span class="fl">1L</span>, <span class="fl">0L</span>, <span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  enroll <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3L</span>, <span class="fl">2L</span>, <span class="fl">0L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">0L</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Inspect the timelist structure</span></span>
 <span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
@@ -583,27 +555,20 @@ methods.</p>
 <span><span class="co">#&gt; [1] 2</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">get_unique_times</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1 2 3 4</span></span>
-<span><span class="va">manual_timer</span><span class="op">$</span><span class="fu">get_timepoint</span><span class="op">(</span><span class="st">"trt"</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $time</span></span>
-<span><span class="co">#&gt; [1] 3</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $arm</span></span>
-<span><span class="co">#&gt; [1] "trt"</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $drop</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $enroll</span></span>
-<span><span class="co">#&gt; [1] 3</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">manual_timer</span><span class="op">$</span><span class="va">timelist</span>, <span class="va">arm</span> <span class="op">==</span> <span class="st">"trt"</span> <span class="op">&amp;</span> <span class="va">time</span> <span class="op">==</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   time arm drop enroll</span></span>
+<span><span class="co">#&gt; 5    3 trt    0      3</span></span></code></pre></div>
+<p><code>enroll</code> and <code>drop</code> are subject counts, so they
+must be integers (<code>3L</code>, not <code>3</code>); fractional
+counts are rejected. Calls accumulate, so you can add events in several
+batches.</p>
 </div>
 <div class="section level3">
-<h3 id="adding-a-whole-schedule-with-add_timepoints">Adding a whole schedule with <code>add_timepoints()</code><a class="anchor" aria-label="anchor" href="#adding-a-whole-schedule-with-add_timepoints"></a>
+<h3 id="adding-a-generated-schedule">Adding a generated schedule<a class="anchor" aria-label="anchor" href="#adding-a-generated-schedule"></a>
 </h3>
-<p><code>add_timepoints(timer, plan_df)</code> is the bulk-loading
-function. It reads every row of a schedule data frame produced by
-<code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code> or
-<code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code> and registers each row as a
-timepoint.</p>
+<p>The output of <code><a href="../reference/stochastic_schedule.html">stochastic_schedule()</a></code> or
+<code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code> goes straight in, with no
+reshaping:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
 <span><span class="va">plan_stoch2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/stochastic_schedule.html">stochastic_schedule</a></span><span class="op">(</span></span>
@@ -615,69 +580,35 @@ timepoint.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">stochastic_timer</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"stochastic_timer2"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">stochastic_timer</span>, <span class="va">plan_stoch2</span><span class="op">)</span></span>
+<span><span class="va">stochastic_timer</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">plan_stoch2</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">stochastic_timer</span><span class="op">$</span><span class="fu">get_unique_times</span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 0.6738851 1.6505024 2.0112290 2.4075753 3.3888714 4.2948551</span></span>
+<span><span class="co">#&gt; [1] 2.405811 2.407575 3.388871 4.377373 4.734888 5.293186</span></span>
 <span><span class="va">stochastic_timer</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 60.10328</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 87.41329</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="the-timelist-structure">The <code>timelist</code> structure<a class="anchor" aria-label="anchor" href="#the-timelist-structure"></a>
 </h3>
-<p><code>timer$timelist</code> is a named list of individual timepoint
-records. Each element corresponds to one call to
-<code>add_timepoint()</code> and contains the four fields
+<p><code>timer$timelist</code> is a <code>data.frame</code> with columns
 <code>time</code>, <code>arm</code>, <code>enroll</code>, and
-<code>drop</code>.</p>
+<code>drop</code>. Each row is one event registered through
+<code>add_schedule()</code>.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">trial_clock</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"trial_clock"</span><span class="op">)</span></span>
-<span><span class="va">trial_clock</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"pbo"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
-<span><span class="va">trial_clock</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span>, arm <span class="op">=</span> <span class="st">"trt"</span>, drop <span class="op">=</span> <span class="fl">0L</span>, enroll <span class="op">=</span> <span class="fl">3L</span><span class="op">)</span></span>
-<span><span class="va">trial_clock</span><span class="op">$</span><span class="fu">add_timepoint</span><span class="op">(</span>time <span class="op">=</span> <span class="fl">4</span>, arm <span class="op">=</span> <span class="st">"pbo"</span>, drop <span class="op">=</span> <span class="fl">1L</span>, enroll <span class="op">=</span> <span class="fl">0L</span><span class="op">)</span></span>
+<span><span class="va">trial_clock</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  time   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  arm    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"pbo"</span>, <span class="st">"trt"</span>, <span class="st">"pbo"</span><span class="op">)</span>,</span>
+<span>  drop   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0L</span>, <span class="fl">0L</span>, <span class="fl">1L</span><span class="op">)</span>,</span>
+<span>  enroll <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3L</span>, <span class="fl">3L</span>, <span class="fl">0L</span><span class="op">)</span></span>
+<span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">trial_clock</span><span class="op">$</span><span class="va">timelist</span></span>
-<span><span class="co">#&gt; [[1]]</span></span>
-<span><span class="co">#&gt; [[1]]$time</span></span>
-<span><span class="co">#&gt; [1] 1</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[1]]$arm</span></span>
-<span><span class="co">#&gt; [1] "pbo"</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[1]]$drop</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[1]]$enroll</span></span>
-<span><span class="co">#&gt; [1] 3</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[2]]</span></span>
-<span><span class="co">#&gt; [[2]]$time</span></span>
-<span><span class="co">#&gt; [1] 1</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[2]]$arm</span></span>
-<span><span class="co">#&gt; [1] "trt"</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[2]]$drop</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[2]]$enroll</span></span>
-<span><span class="co">#&gt; [1] 3</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[3]]</span></span>
-<span><span class="co">#&gt; [[3]]$time</span></span>
-<span><span class="co">#&gt; [1] 4</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[3]]$arm</span></span>
-<span><span class="co">#&gt; [1] "pbo"</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[3]]$drop</span></span>
-<span><span class="co">#&gt; [1] 1</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; [[3]]$enroll</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="va">trial_clock</span><span class="op">$</span><span class="va">timelist</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="va">x</span><span class="op">$</span><span class="va">time</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   time arm drop enroll</span></span>
+<span><span class="co">#&gt; 1    1 pbo    0      3</span></span>
+<span><span class="co">#&gt; 2    1 trt    0      3</span></span>
+<span><span class="co">#&gt; 3    4 pbo    1      0</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">trial_clock</span><span class="op">$</span><span class="va">timelist</span><span class="op">$</span><span class="va">time</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1 4</span></span></code></pre></div>
 </div>
 </div>
@@ -691,7 +622,7 @@ records. Each element corresponds to one call to
 <li>Call <code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code> to get the schedule data
 frame.</li>
 <li>Create a <code>Timer$new()</code> and register timepoints with
-<code><a href="../reference/add_timepoints.html">add_timepoints()</a></code>.</li>
+<code>add_schedule()</code>.</li>
 <li>Build <code>Condition</code> objects and pass them to
 <code>Trial$new(conditions = ...)</code>.</li>
 <li>Build populations and construct a <code>Trial$new()</code>.</li>
@@ -710,7 +641,7 @@ frame.</li>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">tmr3</span> <span class="op">&lt;-</span> <span class="va"><a href="../reference/Timer.html">Timer</a></span><span class="op">$</span><span class="fu">new</span><span class="op">(</span>name <span class="op">=</span> <span class="st">"fixed_timer"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add_timepoints.html">add_timepoints</a></span><span class="op">(</span><span class="va">tmr3</span>, <span class="va">fixed_plan</span><span class="op">)</span></span>
+<span><span class="va">tmr3</span><span class="op">$</span><span class="fu">add_schedule</span><span class="op">(</span><span class="va">fixed_plan</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Condition: fire at the final calendar time</span></span>
 <span><span class="va">final_t</span> <span class="op">&lt;-</span> <span class="va">tmr3</span><span class="op">$</span><span class="fu">get_end_timepoint</span><span class="op">(</span><span class="op">)</span></span>
@@ -762,8 +693,8 @@ subject-level endpoint variability contributes to simulation noise.</p>
 <p>This same timer-centric pattern scales to seamless and platform-style
 designs. You can stage arm activation by time, define multiple
 <code>Condition</code> objects for interim and final looks, and carry
-decision logic across looks inside the trial state. See <a href="example-5.html">Example 5</a> for a complete seamless Ph2a/2b
-implementation.</p>
+decision logic across looks inside the trial state. See <a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html">Example
+5</a> for a complete seamless Ph2a/2b implementation.</p>
 </div>
 <div class="section level2">
 <h2 id="next-steps">Next steps<a class="anchor" aria-label="anchor" href="#next-steps"></a>
@@ -778,9 +709,9 @@ how they interact during a simulation run.</li>
 interim analyses, <code>cooldown</code>, and
 <code>max_triggers</code>.</li>
 <li>
-<a href="example-2.html">Example 2</a> - a worked example using
-<code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code> with two correlated continuous
-endpoints.</li>
+<a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-2.html">Example
+2</a> - a worked example using <code><a href="../reference/deterministic_schedule.html">deterministic_schedule()</a></code>
+with two correlated continuous endpoints.</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

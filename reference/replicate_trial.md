@@ -13,10 +13,11 @@ replicate_trial(
   arms,
   allocation,
   enrollment,
-  dropout,
+  dropout = NULL,
   analysis_generators,
   population_generators,
-  n
+  n,
+  adaptive = FALSE
 )
 ```
 
@@ -45,7 +46,8 @@ replicate_trial(
 
 - dropout:
 
-  `function` that generates inter-dropout times.
+  `function` that generates inter-dropout times, or `NULL` for no
+  dropout.
 
 - analysis_generators:
 
@@ -64,6 +66,11 @@ replicate_trial(
 - n:
 
   `integer` Number of trials to create.
+
+- adaptive:
+
+  `logical` Passed to each `Trial$new()`. When `FALSE` (default), uses
+  the fixed fast path. When `TRUE`, uses the adaptive loop.
 
 ## Value
 

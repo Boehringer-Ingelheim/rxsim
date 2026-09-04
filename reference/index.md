@@ -28,8 +28,6 @@ Functions to build and replicate trials
 
 Helpers for building Timer timepoint lists
 
-- [`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
-  : Add Timepoints to a Timer
 - [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)
   : Generate a Deterministic Enrollment and Dropout Schedule
 - [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
@@ -41,6 +39,9 @@ Convenience constructors for Condition objects
 
 - [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`notna_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`col_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+  [`timed_count_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`calendar_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
   [`` `&`( ``*`<trigger>`*`)`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
@@ -50,6 +51,8 @@ Convenience constructors for Condition objects
   : Build a Condition that Fires at a Calendar Time
 - [`condition_enrollment_fraction()`](https://boehringer-ingelheim.github.io/rxsim/reference/condition_enrollment_fraction.md)
   : Build a Condition that Fires at an Enrollment Fraction
+- [`trigger_by_events()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_events.md)
+  : Trigger Analysis When Enough TTE Events Have Occurred
 
 ## Population helpers
 

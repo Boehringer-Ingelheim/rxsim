@@ -71,11 +71,19 @@ and stored in `trial$conditions`.
 
   `list` Analysis outputs per condition.
 
+- `adaptive`:
+
+  `logical` When `FALSE` (default), uses the fixed fast path:
+  enroll/drop times are precomputed deterministically before iteration,
+  and snapshots are cheap prefix slices. When `TRUE`, uses the adaptive
+  loop: enrollment and dropout are sampled incrementally at each
+  timepoint, supporting designs where the schedule may change mid-trial.
+
 ## Methods
 
 ### Public methods
 
-- [`Trial$new()`](#method-Trial-new)
+- [`Trial$new()`](#method-Trial-initialize)
 
 - [`Trial$run()`](#method-Trial-run)
 
@@ -83,7 +91,7 @@ and stored in `trial$conditions`.
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `Trial$new()`
 
 Create a new `Trial` instance.
 
@@ -96,7 +104,8 @@ Create a new `Trial` instance.
       population = list(),
       locked_data = list(),
       conditions = list(),
-      results = list()
+      results = list(),
+      adaptive = FALSE
     )
 
 #### Arguments
@@ -133,6 +142,12 @@ Create a new `Trial` instance.
 
   `list` Analysis outputs generated at each `$run()` call.
 
+- `adaptive`:
+
+  `logical` When `FALSE` (default), uses the fixed fast path
+  (deterministic precompute, prefix snapshots). When `TRUE`, uses the
+  adaptive loop (incremental random sampling at each timepoint).
+
 #### Returns
 
 A new `Trial` instance.
@@ -149,23 +164,22 @@ A new `Trial` instance.
 
 ------------------------------------------------------------------------
 
-### Method `run()`
+### `Trial$run()`
 
 Execute a trial simulation.
 
-At each unique time defined by the trial's `Timer`:
+Dispatches to the fixed fast path (`adaptive = FALSE`, default) or the
+adaptive loop (`adaptive = TRUE`). Both paths update `locked_data` and
+`results` fields with the same structure.
 
-- Apply enrollment and dropout actions to each `Population`
+**Fixed path** (`adaptive = FALSE`): enroll/drop times are precomputed
+deterministically before iteration. Snapshots are cheap prefix slices of
+a single combined data frame. Conditions are evaluated with
+per-condition exhausted-skip.
 
-- Build a combined snapshot of all currently enrolled subjects
-
-- Attach a `time` column to the snapshot
-
-- Evaluate each
-  [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
-  in `self$conditions` against the snapshot
-
-- Store snapshots and condition outputs under time‑indexed list keys
+**Adaptive loop** (`adaptive = TRUE`): enrollment and dropout are
+sampled randomly at each timepoint, supporting designs where the
+schedule may change mid-trial based on interim results.
 
 #### Usage
 
@@ -173,7 +187,7 @@ At each unique time defined by the trial's `Timer`:
 
 #### Returns
 
-Updates `locked_data` and `results` fields.
+Updates `locked_data` and `results` fields; returns `self` invisibly.
 
 #### Examples
 
@@ -183,10 +197,10 @@ Updates `locked_data` and `results` fields.
 
     # Create a timer and add timepoints
     t <- Timer$new("Timer")
-    t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-    t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-    t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-    t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+    t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+    t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+    t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+    t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
     # Create a trial
     trial <- Trial$new(
@@ -203,7 +217,7 @@ Updates `locked_data` and `results` fields.
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `Trial$clone()`
 
 The objects of this class are cloneable with this method.
 
@@ -226,10 +240,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
 # Build a condition: fire at time >= 2 and count enrolled rows
 cond <- Condition$new(
@@ -256,7 +270,7 @@ collect_results(trial)
 
 
 ## ------------------------------------------------
-## Method `Trial$new`
+## Method `Trial$new()`
 ## ------------------------------------------------
 
 t <- Timer$new(name="simple_timer")
@@ -268,6 +282,7 @@ pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
 #> <Trial>
 #>   Public:
+#>     adaptive: FALSE
 #>     clone: function (deep = FALSE) 
 #>     conditions: list
 #>     initialize: function (name, seed = NULL, timer = NULL, population = list(), 
@@ -278,9 +293,14 @@ Trial$new(name = "simple_trial", timer=t, population = list(pop))
 #>     run: function () 
 #>     seed: NULL
 #>     timer: Timer, R6
+#>   Private:
+#>     build_full_snapshot: function () 
+#>     precompute_population: function (p, plan_df) 
+#>     run_adaptive: function () 
+#>     run_fixed: function () 
 
 ## ------------------------------------------------
-## Method `Trial$run`
+## Method `Trial$run()`
 ## ------------------------------------------------
 
 # Create two populations
@@ -289,10 +309,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
 # Create a trial
 trial <- Trial$new(

@@ -7,7 +7,13 @@ schedule, so all replicates follow an identical enrollment pattern.
 ## Usage
 
 ``` r
-deterministic_schedule(sample_size, arms, allocation, enrollment, dropout)
+deterministic_schedule(
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout = NULL
+)
 ```
 
 ## Arguments
@@ -50,7 +56,7 @@ stochastic (random) schedule see
 
 [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
 for random inter-event times,
-[`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md).
+[Timer](https://boehringer-ingelheim.github.io/rxsim/reference/Timer.md)\$add_schedule().
 
 ## Examples
 
@@ -68,27 +74,25 @@ deterministic_schedule(
     rate = c(0, 3, 6)
   )
 )
-#> # A tibble: 20 × 4
-#>     time arm   enroll  drop
-#>    <int> <chr>  <int> <int>
-#>  1     1 A          4     0
-#>  2     2 A          4     0
-#>  3     3 A          4     0
-#>  4     4 A          4     0
-#>  5     5 A          8     0
-#>  6     6 A          8     2
-#>  7     7 A          8     2
-#>  8     8 A          8     2
-#>  9     9 A         12     2
-#> 10    10 A          7     2
-#> 11     1 B          2     0
-#> 12     2 B          2     0
-#> 13     3 B          2     0
-#> 14     4 B          2     0
-#> 15     5 B          4     0
-#> 16     6 B          4     1
-#> 17     7 B          4     1
-#> 18     8 B          4     1
-#> 19     9 B          6     1
-#> 20    10 B          3     1
+#>    time arm enroll drop
+#> 1     1   A      4    0
+#> 2     2   A      4    0
+#> 3     3   A      4    0
+#> 4     4   A      4    0
+#> 5     5   A      8    0
+#> 6     6   A      8    2
+#> 7     7   A      8    2
+#> 8     8   A      8    2
+#> 9     9   A     12    2
+#> 10   10   A      7    2
+#> 11    1   B      2    0
+#> 12    2   B      2    0
+#> 13    3   B      2    0
+#> 14    4   B      2    0
+#> 15    5   B      4    0
+#> 16    6   B      4    1
+#> 17    7   B      4    1
+#> 18    8   B      4    1
+#> 19    9   B      6    1
+#> 20   10   B      3    1
 ```

@@ -3,9 +3,9 @@
 A class to collect and query *timepoints* - time-based enrollment and
 dropout events - across trial arms.
 
-Use `add_timepoint()` to register events, `get_timepoint()` for lookup,
-`get_end_timepoint()` / `get_n_arms()` / `get_unique_times()` for
-summary queries.
+Use `add_schedule()` to register events and `get_end_timepoint()` /
+`get_n_arms()` / `get_unique_times()` for summary queries. The full
+event table is the public `timelist` field.
 
 ## Details
 
@@ -32,8 +32,10 @@ that you pass to `Trial$new(conditions = list(...))`.
 to coordinate simulations with populations,
 [`Condition`](https://boehringer-ingelheim.github.io/rxsim/reference/Condition.md)
 for trigger/analysis logic,
-[`add_timepoints()`](https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.md)
-to attach multiple timepoints.
+[`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
+/
+[`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md)
+to build a schedule.
 
 ## Public fields
 
@@ -43,7 +45,7 @@ to attach multiple timepoints.
 
 - `timelist`:
 
-  `list` A list of timepoints. Each timepoint is a list with keys:
+  `data.frame` A data.frame of timepoints with columns:
 
   - `time` `numeric` Calendar time
 
@@ -57,9 +59,9 @@ to attach multiple timepoints.
 
 ### Public methods
 
-- [`Timer$new()`](#method-Timer-new)
+- [`Timer$new()`](#method-Timer-initialize)
 
-- [`Timer$add_timepoint()`](#method-Timer-add_timepoint)
+- [`Timer$add_schedule()`](#method-Timer-add_schedule)
 
 - [`Timer$get_end_timepoint()`](#method-Timer-get_end_timepoint)
 
@@ -67,13 +69,11 @@ to attach multiple timepoints.
 
 - [`Timer$get_unique_times()`](#method-Timer-get_unique_times)
 
-- [`Timer$get_timepoint()`](#method-Timer-get_timepoint)
-
 - [`Timer$clone()`](#method-Timer-clone)
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `Timer$new()`
 
 Create a new `Timer` instance.
 
@@ -89,7 +89,8 @@ Create a new `Timer` instance.
 
 - `timelist`:
 
-  `list` Optional list of timepoints.
+  `data.frame` Optional data.frame of timepoints with columns `time`,
+  `arm`, `drop`, `enroll`. If `NULL`, an empty frame is created.
 
 #### Returns
 
@@ -101,45 +102,42 @@ A new `Timer` instance.
 
 ------------------------------------------------------------------------
 
-### Method `add_timepoint()`
+### `Timer$add_schedule()`
 
-Add a timepoint to a timer.
+Add a schedule of timepoints to the timer.
 
 #### Usage
 
-    Timer$add_timepoint(time, arm, drop, enroll)
+    Timer$add_schedule(schedule)
 
 #### Arguments
 
-- `time`:
+- `schedule`:
 
-  `numeric` Calendar time.
+  `data.frame` with columns `time` (numeric), `arm` (character),
+  `enroll` (integer), `drop` (integer). One row per event; a single
+  event is a one-row data frame. Typically the output of
+  [`stochastic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.md)
+  or
+  [`deterministic_schedule()`](https://boehringer-ingelheim.github.io/rxsim/reference/deterministic_schedule.md).
 
-- `arm`:
-
-  `character` Arm identifier.
-
-- `drop`:
-
-  `integer` Count of subjects to drop.
-
-- `enroll`:
-
-  `integer` Count of subjects to enroll.
+  `enroll` and `drop` are subject counts and must be integer (`3L`, not
+  `3`) - fractional counts are silently truncated downstream, so they
+  are rejected here.
 
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(
-      time = 1,
-      arm = "A",
-      drop = 1L,
-      enroll = 3L
-    )
+
+    # single event
+    t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
+
+    # whole schedule (data.frame() recycles the constant columns)
+    t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 
 ------------------------------------------------------------------------
 
-### Method `get_end_timepoint()`
+### `Timer$get_end_timepoint()`
 
 Determine the last timepoint for a given instance of `Timer` class.
 
@@ -150,12 +148,12 @@ Determine the last timepoint for a given instance of `Timer` class.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+    t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
     t$get_end_timepoint()
 
 ------------------------------------------------------------------------
 
-### Method `get_n_arms()`
+### `Timer$get_n_arms()`
 
 Get number of unique arms.
 
@@ -170,13 +168,13 @@ Get number of unique arms.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+    t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+    t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
     t$get_n_arms()
 
 ------------------------------------------------------------------------
 
-### Method `get_unique_times()`
+### `Timer$get_unique_times()`
 
 Get unique timepoints.
 
@@ -191,45 +189,13 @@ Get unique timepoints.
 #### Examples
 
     t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+    t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+    t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
     t$get_unique_times()
 
 ------------------------------------------------------------------------
 
-### Method `get_timepoint()`
-
-Get a timepoint by arm and index.
-
-#### Usage
-
-    Timer$get_timepoint(arm, i)
-
-#### Arguments
-
-- `arm`:
-
-  `character` Arm identifier.
-
-- `i`:
-
-  `integer` Timepoint index.
-
-#### Returns
-
-`list` timepoint or `NULL` if not found.
-
-#### Examples
-
-    t <- Timer$new(name = "Timer")
-    t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-    t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-    t$get_timepoint("A", 1)
-
-------------------------------------------------------------------------
-
-### Method `clone()`
+### `Timer$clone()`
 
 The objects of this class are cloneable with this method.
 
@@ -250,9 +216,12 @@ The objects of this class are cloneable with this method.
 t <- Timer$new(name = "Timer")
 
 # Add timepoints
-t$add_timepoint(time = 1, arm = "A", drop = 2L, enroll = 10L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 12L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 8L)
+t$add_schedule(data.frame(
+  time   = c(1, 2, 1),
+  arm    = c("A", "A", "B"),
+  drop   = c(2L, 1L, 0L),
+  enroll = c(10L, 12L, 8L)
+))
 
 # Query
 t$get_end_timepoint() # max time => 2
@@ -261,76 +230,57 @@ t$get_n_arms()        # unique arms => 2
 #> [1] 2
 t$get_unique_times()  # unique times => c(1, 2)
 #> [1] 1 2
-t$get_timepoint("A", 1) # returns a single timepoint
-#> $time
-#> [1] 1
-#> 
-#> $arm
-#> [1] "A"
-#> 
-#> $drop
-#> [1] 2
-#> 
-#> $enroll
-#> [1] 10
-#> 
+t$timelist            # the full event table
+#>   time arm drop enroll
+#> 1    1   A    2     10
+#> 2    2   A    1     12
+#> 3    1   B    0      8
 
 
 ## ------------------------------------------------
-## Method `Timer$new`
+## Method `Timer$new()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
 
 ## ------------------------------------------------
-## Method `Timer$add_timepoint`
+## Method `Timer$add_schedule()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(
-  time = 1,
-  arm = "A",
-  drop = 1L,
-  enroll = 3L
-)
+
+# single event
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
+
+# whole schedule (data.frame() recycles the constant columns)
+t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 
 ## ------------------------------------------------
-## Method `Timer$get_end_timepoint`
+## Method `Timer$get_end_timepoint()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$get_end_timepoint()
 #> [1] 3.14
 
 ## ------------------------------------------------
-## Method `Timer$get_n_arms`
+## Method `Timer$get_n_arms()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_n_arms()
 #> [1] 2
 
 ## ------------------------------------------------
-## Method `Timer$get_unique_times`
+## Method `Timer$get_unique_times()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
+t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
+t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_unique_times()
 #> [1] 3.14 3.28
-
-## ------------------------------------------------
-## Method `Timer$get_timepoint`
-## ------------------------------------------------
-
-t <- Timer$new(name = "Timer")
-t$add_timepoint(time = 3.14, arm = "A", drop = 7L, enroll = 22L)
-t$add_timepoint(time = 3.28, arm = "B", drop = 6L, enroll = 23L)
-
-t$get_timepoint("A", 1)
-#> NULL
 ```

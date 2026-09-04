@@ -6,11 +6,6 @@
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/concepts.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/conditions.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/articles/index.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/authors.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/index.html</loc></url>
@@ -18,7 +13,6 @@
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/Population.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/Timer.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/Trial.html</loc></url>
-<url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/add_timepoints.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/as_population_data.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/clone_trial.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.html</loc></url>
@@ -32,6 +26,7 @@
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/run_trials.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/rxsim-package.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/stochastic_schedule.html</loc></url>
+<url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_events.html</loc></url>
 <url><loc>https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.html</loc></url>
 </urlset>
 

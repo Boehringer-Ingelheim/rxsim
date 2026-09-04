@@ -26,10 +26,10 @@ at each timepoint.
 
 1.  The filtered snapshot contains at least one row.
 
-2.  `current_time - last_trigger_time >= cooldown` (or the condition has
-    never fired before).
+2.  `trigger_count < max_triggers`.
 
-3.  `trigger_count < max_triggers`.
+3.  `current_time - last_trigger_time >= cooldown` (or the condition has
+    never fired before).
 
 If any gate fails, `check_conditions()` returns an empty list and state
 is not updated.
@@ -39,69 +39,6 @@ On a successful trigger, the condition calls
 `1L` when no name is set). Any values in `analysis_args` are appended as
 additional named arguments. If no analysis function is provided, the
 filtered data frame is returned as-is with a warning.
-
-## Fields
-
-- `where`:
-
-  `list` of quosures (from
-  [`rlang::quos()`](https://rlang.r-lib.org/reference/defusing-advanced.html))
-  used as
-  [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
-  predicates, or a `trigger` object (converted automatically). `NULL` or
-  an empty list passes the full snapshot.
-
-- `analysis`:
-
-  `function` or `NULL`. Called as `analysis(df, current_time, ...)` on a
-  successful trigger, where `...` are any values from `analysis_args`.
-  Should return a `data.frame` or named list. If `NULL`, the filtered
-  data frame is returned with a warning.
-
-- `analysis_args`:
-
-  `list` or `NULL`. Named list of extra arguments injected into every
-  call to `analysis`.
-
-- `name`:
-
-  `character` or `NULL`. Key used to label the result in the returned
-  list. Falls back to `1L` when `NULL`.
-
-- `cooldown`:
-
-  `numeric`. Minimum time units that must elapse between consecutive
-  triggers. Default `0` (no cooldown).
-
-- `max_triggers`:
-
-  `integer`. Maximum number of times this condition may fire. Use `Inf`
-  for unlimited. Default `1L`.
-
-- `trigger_count`:
-
-  `integer`. Number of successful triggers so far. Initialised to `0L`.
-
-- `last_trigger_time`:
-
-  `numeric`. Calendar time of the most recent successful trigger.
-  Initialised to `NA_real_`.
-
-## Methods
-
-- `$new(where, analysis, name, cooldown, max_triggers)`:
-
-  Construct a new `Condition`. All arguments except `where` are
-  optional. `cooldown` must be a single non-negative number;
-  `max_triggers` must be a single non-negative integer or `Inf`.
-
-- `$check_conditions(locked_data, current_time)`:
-
-  Evaluate the condition against `locked_data` at `current_time`.
-  Returns a named `list` containing the analysis result (or filtered
-  data frame) if the condition fires, or an empty `list` otherwise. On a
-  successful trigger, `trigger_count` is incremented and
-  `last_trigger_time` is updated.
 
 ## See also
 
@@ -132,6 +69,13 @@ filtered data frame is returned as-is with a warning.
   [`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html)
   predicates, or a `trigger` object (converted automatically). `NULL` or
   empty list passes the full snapshot.
+
+- `trigger_spec`:
+
+  The original `trigger` object passed to `where` (before quosure
+  conversion), or `NULL`. Used by the fixed fast path to compute the
+  earliest possible firing time and skip non-firing timepoints. `NULL`
+  means "evaluate at every timepoint" (safe fallback).
 
 - `analysis`:
 
@@ -171,7 +115,7 @@ filtered data frame is returned as-is with a warning.
 
 ### Public methods
 
-- [`Condition$new()`](#method-Condition-new)
+- [`Condition$new()`](#method-Condition-initialize)
 
 - [`Condition$check_conditions()`](#method-Condition-check_conditions)
 
@@ -179,7 +123,7 @@ filtered data frame is returned as-is with a warning.
 
 ------------------------------------------------------------------------
 
-### Method `new()`
+### `Condition$new()`
 
 Create a new `Condition` instance.
 
@@ -237,7 +181,7 @@ A new `Condition` instance.
 
 ------------------------------------------------------------------------
 
-### Method `check_conditions()`
+### `Condition$check_conditions()`
 
 Evaluate this condition against a data snapshot.
 
@@ -266,7 +210,7 @@ empty `list` if the condition did not fire.
 
 ------------------------------------------------------------------------
 
-### Method `clone()`
+### `Condition$clone()`
 
 The objects of this class are cloneable with this method.
 
@@ -283,21 +227,22 @@ The objects of this class are cloneable with this method.
 ## Examples
 
 ``` r
-# Build a snapshot data frame
+# Build a snapshot data frame (enroll_time = NA means not yet enrolled)
 snapshot <- data.frame(
-  arm    = c("A", "A", "A", "B"),
-  status = c("active", "active", "active", "active"),
+  arm         = c("A", "A", "A", "B"),
+  status      = c("active", "active", "active", "active"),
+  enroll_time = c(1, 2, 3, NA_real_),
   stringsAsFactors = FALSE
 )
 
-# Analysis function: count active subjects per arm
+# Analysis function: count enrolled subjects and record fire time
 count_fn <- function(df, current_time) {
   data.frame(n_active = nrow(df), fired_at = current_time)
 }
 
-# Condition fires once when 3+ subjects are active (max_triggers = 1)
+# Condition fires once when 3+ of 4 subjects are enrolled (max_triggers = 1)
 cond <- Condition$new(
-  where        = count_trigger("enroll_time", ">=", 3L),
+  where        = enroll_trigger(fraction = 0.75, sample_size = 4),
   analysis     = count_fn,
   name         = "interim_A",
   cooldown     = 0,
@@ -306,17 +251,12 @@ cond <- Condition$new(
 
 # First call: fires and returns analysis result
 res <- cond$check_conditions(snapshot, current_time = 5)
-#> Error in dplyr::filter(locked_data, !!!self$where): ℹ In argument: `sum(!is.na(.data[["enroll_time"]])) >= 3L`.
-#> Caused by error in `.data[["enroll_time"]]`:
-#> ! Column `enroll_time` not found in `.data`.
-res[["interim_A"]]  # data.frame(n_active = 3, fired_at = 5)
-#> Error: object 'res' not found
+res[["interim_A"]]  # data.frame(n_active = 4, fired_at = 5)
+#>   n_active fired_at
+#> 1        3        5
 
 # Second call: does not fire (max_triggers already reached)
 res2 <- cond$check_conditions(snapshot, current_time = 6)
-#> Error in dplyr::filter(locked_data, !!!self$where): ℹ In argument: `sum(!is.na(.data[["enroll_time"]])) >= 3L`.
-#> Caused by error in `.data[["enroll_time"]]`:
-#> ! Column `enroll_time` not found in `.data`.
 length(res2)  # 0
-#> Error: object 'res2' not found
+#> [1] 0
 ```

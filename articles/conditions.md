@@ -55,6 +55,20 @@ Use cases:
   [`value_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md):
   custom state-driven logic
 
+Three lower-level primitives complete the set. You rarely need them
+directly -
+[`enroll_trigger()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_primitives.md)
+and
+[`trigger_by_events()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_events.md)
+are built from them - but they are available for custom rules:
+
+- `notna_trigger(col)`: rows where `col` is not `NA`
+- `col_trigger(col, op, ref_col)`: compare two columns, e.g.
+  `col_trigger("enroll_time", "<=", "time")` selects subjects enrolled
+  by the current time
+- `timed_count_trigger(col, time_col, op, threshold)`: count events with
+  `col <= time_col` and compare against `threshold`
+
 ## Composing triggers with `&` and `|`
 
 Triggers are composable:
@@ -96,13 +110,13 @@ cond_composed <- Condition$new(
 
 class(cond_composed)
 #> [1] "Condition" "R6"
-length(cond_composed$where)
-#> [1] 2
+cond_composed$trigger_spec$combinator
+#> [1] "&"
 ```
 
 `where` accepts any `trigger` object (primitive or composed) and
 internally converts it to the filter predicates used during condition
-evaluation.
+evaluation. The original trigger is kept on `trigger_spec`.
 
 ## Helper constructors for common conditions
 
@@ -156,7 +170,7 @@ plan <- deterministic_schedule(
 )
 
 tmr <- Timer$new(name = "conditions_timer")
-add_timepoints(tmr, plan)
+tmr$add_schedule(plan)
 
 n_by_arm <- c(
   pbo = sum(plan$enroll[plan$arm == "pbo"]),
@@ -228,8 +242,8 @@ trial$run()
 trial$results
 #> $time_4
 #> $time_4$interim
-#>      look time n_total      p_value
-#> 1 interim    4      32 0.0007027072
+#>      look time n_total     p_value
+#> 1 interim    4      32 0.005971048
 #> 
 #> 
 #> $time_9
@@ -238,7 +252,7 @@ trial$results
 #> 1 final    9      80 9.633389e-06
 collect_results(trial)
 #>   replicate timepoint analysis    look time n_total      p_value
-#> 1         1         4  interim interim    4      32 7.027072e-04
+#> 1         1         4  interim interim    4      32 5.971048e-03
 #> 2         1         9    final   final    9      80 9.633389e-06
 ```
 
@@ -247,15 +261,68 @@ as a separate row in
 [`collect_results()`](https://boehringer-ingelheim.github.io/rxsim/reference/collect_results.md)
 via the `analysis` column.
 
+## Event-driven looks with `trigger_by_events()`
+
+For time-to-event endpoints, analyses usually fire after a target number
+of *events*, not at a calendar time.
+[`trigger_by_events()`](https://boehringer-ingelheim.github.io/rxsim/reference/trigger_by_events.md)
+builds that `Condition` directly: it fires once `n_events` rows have an
+event time at or before the current trial time, and automatically
+restricts to enrolled subjects.
+
+``` r
+cond_events <- trigger_by_events(
+  event_col = "pfs_event_time",
+  n_events  = 40,
+  analysis  = function(df, current_time) {
+    data.frame(
+      fired_at = current_time,
+      n_events = sum(!is.na(df$pfs_event_time))
+    )
+  },
+  name = "pfs_40_events"
+)
+
+class(cond_events)
+#> [1] "Condition" "R6"
+```
+
 ## Cooldown and max triggers
 
-For recurrent conditions, you can cap firing frequency with:
+By default every `Condition` fires **once** (`max_triggers = 1L`). For
+recurrent conditions, raise `max_triggers` (use `Inf` for unlimited) and
+optionally set `cooldown`, the minimum time gap between firings:
 
-- `cooldown`: minimum time gap between triggers
-- `max_triggers`: maximum total number of triggers
+``` r
+snapshot <- data.frame(
+  arm         = "pbo",
+  enroll_time = c(1, 2, 3, 4),
+  y           = rnorm(4),
+  time        = 5
+)
 
-These settings are useful for frequent data-driven checks where you want
-guardrails against over-triggering.
+cond_recurrent <- Condition$new(
+  where = calendar_trigger(5),
+  analysis = function(df, current_time) data.frame(fired_at = current_time),
+  name = "recurrent",
+  cooldown = 2,
+  max_triggers = 2L
+)
+
+# Fires at time 5 and 7 (cooldown of 2), then stops: max_triggers reached
+cond_recurrent$check_conditions(snapshot, current_time = 5)
+#> $recurrent
+#>   fired_at
+#> 1        5
+cond_recurrent$check_conditions(snapshot, current_time = 6)  # cooldown blocks
+#> list()
+cond_recurrent$check_conditions(snapshot, current_time = 7)
+#> $recurrent
+#>   fired_at
+#> 1        7
+cond_recurrent$check_conditions(snapshot, current_time = 9)  # cap reached
+#> list()
+```
 
 ## Pattern summary
 
@@ -275,5 +342,5 @@ guardrails against over-triggering.
   reference](https://boehringer-ingelheim.github.io/rxsim/reference/Trial.md) -
   how Trial orchestrates timer, populations, and conditions
 - [Example
-  5](https://boehringer-ingelheim.github.io/rxsim/articles/example-5.md) -
+  5](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html) -
   seamless Ph2a/2b with interim and final looks

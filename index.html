@@ -7,8 +7,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Reducing friction for Randomized Clinical Trial simulations • rxsim</title>
 <script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
+<script src="deps/bootstrap-5.3.8/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Reducing friction for Randomized Clinical Trial simulations">
 <meta name="description" content="Simulate phase II and/or phase III clinical trials. It supports various types of endpoints and adaptive strategies.">
@@ -27,7 +27,7 @@
 
     <a class="navbar-brand me-2" href="index.html">rxsim</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.6.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.3.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -50,13 +50,6 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>How-to</h6></li>
     <li><a class="dropdown-item" href="articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
-    <li><hr class="dropdown-divider"></li>
-    <li><h6 class="dropdown-header" data-toc-skip>Examples</h6></li>
-    <li><a class="dropdown-item" href="articles/example-1.html">Example 1: Two arm | Fixed design | Continuous</a></li>
-    <li><a class="dropdown-item" href="articles/example-2.html">Example 2: Two arm | Fixed design | Two correlated continuous endpoints | t-test</a></li>
-    <li><a class="dropdown-item" href="articles/example-3.html">Example 3: Multi-arm | Fixed design | Single continuous endpoint | Dunnett test + MCP-Mod</a></li>
-    <li><a class="dropdown-item" href="articles/example-4.html">Example 4: Two-arm | Fixed design | Single continuous endpoint | Bayesian Go/No-Go with placebo borrowing</a></li>
-    <li><a class="dropdown-item" href="articles/example-5.html">Example 5: Seamless Ph2a/2b | Two-arm -&gt; Multi-arm | Single continuous endpoint | Bayesian Go/No-Go + Bayesian MCP-Mod</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
@@ -108,7 +101,7 @@ This package is in early development. The API is not yet stable and may change w
 <div class="section level2">
 <h2 id="core-concepts">Core Concepts<a class="anchor" aria-label="anchor" href="#core-concepts"></a>
 </h2>
-<p>rxsim is built on three composable classes:</p>
+<p>rxsim is built on four composable classes:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -125,9 +118,13 @@ This package is in early development. The API is not yet stable and may change w
 </tr>
 <tr class="even">
 <td><strong><code>Timer</code></strong></td>
-<td>Drives the trial clock - stores discrete timepoints per arm and evaluates condition-triggered analyses</td>
+<td>Drives the trial clock - stores discrete enrollment and dropout timepoints per arm</td>
 </tr>
 <tr class="odd">
+<td><strong><code>Condition</code></strong></td>
+<td>Pairs a trigger expression with an analysis function - fires when the snapshot data meets the criterion</td>
+</tr>
+<tr class="even">
 <td><strong><code>Trial</code></strong></td>
 <td>Orchestrates the simulation - iterates over timepoints, updates populations, snapshots data, and collects results</td>
 </tr>
@@ -173,8 +170,18 @@ This package is in early development. The API is not yet stable and may change w
 <span>  n                     <span class="op">=</span> <span class="fl">500</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu"><a href="reference/run_trials.html">run_trials</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span></span></code></pre></div>
-<p>Collect results across all replicates in one pass - see the <a href="https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html">Two API Styles vignette</a> for the full walkthrough.</p>
+<span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu"><a href="reference/run_trials.html">run_trials</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Collect results across all replicates in one pass:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   replicate timepoint analysis   n      p_value</span></span>
+<span><span class="co">#&gt; 1         1  99.90854    final 100 6.245937e-02</span></span>
+<span><span class="co">#&gt; 2         2 105.63913    final 100 2.810251e-05</span></span>
+<span><span class="co">#&gt; 3         3  89.53149    final 100 8.723310e-03</span></span>
+<span><span class="co">#&gt; 4         4 104.78511    final 100 7.632889e-01</span></span>
+<span><span class="co">#&gt; 5         5  90.23233    final 100 8.664230e-03</span></span>
+<span><span class="co">#&gt; 6         6  87.83837    final 100 1.306854e-02</span></span></code></pre></div>
+<p>See the <a href="https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html">Two API Styles vignette</a> for the full walkthrough.</p>
 </div>
 <div class="section level2">
 <h2 id="documentation">Documentation<a class="anchor" aria-label="anchor" href="#documentation"></a>
@@ -217,23 +224,23 @@ This package is in early development. The API is not yet stable and may change w
 <td>Direct instantiation vs generator + replicate_trial</td>
 </tr>
 <tr class="odd">
-<td><a href="https://boehringer-ingelheim.github.io/rxsim/articles/example-1.html">Example 1: Fixed design, continuous</a></td>
+<td><a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-1.html">Example 1: Fixed design, continuous</a></td>
 <td>Two-arm fixed design, t-test</td>
 </tr>
 <tr class="even">
-<td><a href="https://boehringer-ingelheim.github.io/rxsim/articles/example-2.html">Example 2: Correlated endpoints</a></td>
+<td><a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-2.html">Example 2: Correlated endpoints</a></td>
 <td>Two correlated continuous endpoints, Holm correction</td>
 </tr>
 <tr class="odd">
-<td><a href="https://boehringer-ingelheim.github.io/rxsim/articles/example-3.html">Example 3: Dose-finding, MCP-Mod</a></td>
+<td><a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-3.html">Example 3: Dose-finding, MCP-Mod</a></td>
 <td>Multi-arm dose-finding with Dunnett + MCP-Mod</td>
 </tr>
 <tr class="even">
-<td><a href="https://boehringer-ingelheim.github.io/rxsim/articles/example-4.html">Example 4: Bayesian Go/No-Go</a></td>
+<td><a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-4.html">Example 4: Bayesian Go/No-Go</a></td>
 <td>Bayesian decision rule with historical placebo borrowing (RBesT)</td>
 </tr>
 <tr class="odd">
-<td><a href="https://boehringer-ingelheim.github.io/rxsim/articles/example-5.html">Example 5: Seamless Phase IIa/IIb</a></td>
+<td><a href="https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html">Example 5: Seamless Phase IIa/IIb</a></td>
 <td>Multi-stage adaptive design with BayesianMCPMod</td>
 </tr>
 </tbody>
@@ -243,7 +250,7 @@ This package is in early development. The API is not yet stable and may change w
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <p>Install the development version from <a href="https://github.com/Boehringer-Ingelheim/rxsim" class="external-link">GitHub</a>:</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"pak"</span><span class="op">)</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"Boehringer-Ingelheim/rxsim"</span><span class="op">)</span></span></code></pre></div>
 <hr>
@@ -257,7 +264,7 @@ This package is in early development. The API is not yet stable and may change w
 <p>rxsim provides that orchestration layer out of the box. The same simulation fits in <strong>&lt;100 lines of high-level, readable code</strong> where each section has a clear purpose: define trial scenario, populations, analysis rules, replicate, and run. This dramatically reduces the cognitive burden and makes it faster to: - prototype a new trial design - swap out an endpoint model - add/remove arms - add/remove looks or analyses - hand the code to a colleague</p>
 </details><details><summary><strong>Is rxsim only useful for simple two-arm trials?</strong>
 </summary><p><br></p>
-<p>No. rxsim supports any number of arms, any endpoint type, and arbitrary analysis functions. The built-in examples cover continuous endpoints, correlated multi-endpoints, time-to-event endpoints, multi-arm dose-finding (Dunnett + MCP-Mod), subgroup analyses, and Bayesian Go/No-Go rules with historical borrowing. If your analysis can be written as an R function, rxsim can run it.</p>
+<p>No. rxsim supports any number of arms, any endpoint type, and arbitrary analysis functions. The <a href="https://boehringer-ingelheim.github.io/rxsim-gallery/">gallery examples</a> cover continuous endpoints, correlated multi-endpoints, time-to-event endpoints, multi-arm dose-finding (Dunnett + MCP-Mod), subgroup analyses, and Bayesian Go/No-Go rules with historical borrowing. If your analysis can be written as an R function, rxsim can run it.</p>
 </details><details><summary><strong>Can rxsim handle adaptive designs with interim analyses?</strong>
 </summary><p><br></p>
 <p>Yes. Trigger conditions fire whenever a boolean expression on the accumulating data is satisfied - at a calendar time, an enrollment fraction, or any custom condition. Multiple triggers can be registered on the same trial, allowing interim and final analyses to coexist naturally. Adaptive rules (e.g., stopping early, adjusting sample size) can be implemented inside analysis functions and propagated across the trial state.</p>
@@ -268,19 +275,19 @@ This package is in early development. The API is not yet stable and may change w
 </details><details><summary><strong>How do I scale to thousands of replicates efficiently?</strong>
 </summary><p><br></p>
 <p><code>replicate_trial(n = N)</code> creates <code>N</code> fully independent <code>Trial</code> objects (each with its own population data and timer state). <code><a href="reference/run_trials.html">run_trials()</a></code> then executes them sequentially. For very large <code>N</code>, parallelization is straightforward - replace <code><a href="reference/run_trials.html">run_trials()</a></code> with any R parallel back-end:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example using parallel::mclapply (Unix/macOS)</span></span>
 <span><span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/mclapply.html" class="external-link">mclapply</a></span><span class="op">(</span><span class="va">trials</span>, <span class="kw">function</span><span class="op">(</span><span class="va">tr</span><span class="op">)</span> <span class="va">tr</span><span class="op">$</span><span class="fu">run</span><span class="op">(</span><span class="op">)</span>, mc.cores <span class="op">=</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-</details><details><summary><strong>What is the difference between <code>gen_plan()</code> and <code>gen_timepoints()</code>?</strong>
+</details><details><summary><strong>What is the difference between <code>stochastic_schedule()</code> and <code>deterministic_schedule()</code>?</strong>
 </summary><p><br></p>
 <p>Both functions produce an enrollment/dropout schedule that feeds into a <code>Timer</code>, but they model timing differently:</p>
 <ul>
 <li>
-<strong><code>gen_plan()</code></strong> is <strong>stochastic</strong>: you supply a inter-event time probability distribution function (e.g., <code>function(n) rexp(n, rate = 1)</code>). Each replicate gets a different realization of the enrollment process, capturing natural variability in study timelines.</li>
+<strong><code><a href="reference/stochastic_schedule.html">stochastic_schedule()</a></code></strong> is <strong>random</strong>: you supply an inter-event time distribution (e.g., <code>function(n) rexp(n, rate = 1)</code>). Each call draws a new realization, so every replicate captures natural variability in study timelines.</li>
 <li>
-<strong><code>gen_timepoints()</code></strong> is <strong>deterministic piecewise-constant rate</strong>: you specify enrollment rates per time period (e.g., 5 patients/month for months 1–4, then 10/month). Every replicate follows the same fixed schedule.</li>
+<strong><code><a href="reference/deterministic_schedule.html">deterministic_schedule()</a></code></strong> is <strong>piecewise-constant</strong>: you specify enrollment rates per time period (e.g., 5 patients/month for months 1–4, then 10/month) as <code>list(end_time = ..., rate = ...)</code>. Every replicate follows the same fixed schedule.</li>
 </ul>
-<p>See the <a href="https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html">Enrollment &amp; Dropout Modeling vignette</a> for a side-by-side comparison.</p>
+<p>See the <a href="https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html">Enrollment &amp; Dropout vignette</a> for a side-by-side comparison.</p>
 </details>
 </div>
 </div>

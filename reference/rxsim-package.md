@@ -15,6 +15,8 @@ Useful links:
 
 Authors:
 
+- Saumil Shah <saumil.shah@boehringer-ingelheim.com>
+
 - Matthew Valko <matthew.valko@boehringer-ingelheim.com>
 
 Other contributors:

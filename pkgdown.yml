@@ -7,12 +7,7 @@ articles:
   concepts: concepts.html
   conditions: conditions.html
   enrollment: enrollment.html
-  example-1: example-1.html
-  example-2: example-2.html
-  example-3: example-3.html
-  example-4: example-4.html
-  example-5: example-5.html
-last_built: 2026-06-08T16:44Z
+last_built: 2026-09-04T13:40Z
 urls:
   reference: https://boehringer-ingelheim.github.io/rxsim/reference
   article: https://boehringer-ingelheim.github.io/rxsim/articles
