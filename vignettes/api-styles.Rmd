@@ -46,7 +46,7 @@ The sections below use the same two-arm design in both styles:
 - stochastic dropout from `rexp(n, rate = 0.05)`
 - continuous endpoint with mean `0` for placebo and `0.5` for treatment
 - one final analysis at full enrollment
-- `100` replicates for the operating characteristics
+- `10` replicates for the operating characteristics
 
 ```{r shared-design}
 sample_size <- 40L
@@ -248,7 +248,7 @@ The trigger must be a `trigger` object such as
 `enroll_trigger(1.0, sample_size)`. No quotation helpers are needed.
 
 ```{r generator-replicates, results=FALSE}
-# 3. Ask rxsim to build 100 independent trials.
+# 3. Ask rxsim to build 10 independent trials.
 generator_trials <- replicate_trial(
   trial_name = "generator",
   sample_size = sample_size,
@@ -282,7 +282,8 @@ objects.
 - Use deterministic schedules from `deterministic_schedule()` or a hand-built plan.
 - Debug a single trial by inspecting `timer`, `population`, and `locked_data`.
 - Build multi-stage designs where the schedule is easier to express directly,
-  such as the seamless pattern in [Example 5](example-5.html).
+  such as the seamless pattern in
+  [Example 5](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html).
 
 ## When to use Style B
 
@@ -302,7 +303,7 @@ then scale out with `run_trials()` once you are happy with the setup.
 ```{r mixing-styles, results=FALSE}
 # 1. Build one trial directly so you can inspect it.
 mixed_trial <- build_direct_trial("mixed_1")
-head(do.call(rbind, mixed_trial$timer$timelist))
+mixed_trial$timer$timelist
 
 # 2. Extend the same direct pattern to more replicates.
 mixed_trials <- c(
@@ -318,10 +319,15 @@ If you intentionally want the same fixed timer and populations in each
 replicate, `clone_trial()` is also useful. That pattern is most natural for
 deterministic schedules, not for stochastic enrollment.
 
+```{r clone-trial}
+# Deep copies with independent timer and population state.
+clones <- clone_trial(mixed_trial, n = 2)
+names(clones)
+```
+
 ## Next steps
 
-- Add interims and multiple analyses: [Conditions and Triggers](conditions.html)
-- Learn more about trigger objects and analyses:
+- Add interims and compose trigger objects:
   [Conditions and Triggers](conditions.html)
 - Inspect the `Trial` class documentation:
   [Trial reference](../reference/Trial.html)

@@ -218,8 +218,9 @@ names(pop_tte$data)
 `Population` is one arm-level building block inside `Trial`. At each timer
 update, `Trial$run()` calls `set_enrolled()` and `set_dropped()` for each arm,
 then builds a locked snapshot from the currently enrolled subjects. That
-snapshot carries forward the original population columns and adds
-`enroll_time`, `drop_time`, `measurement_time`, and the current trial `time`.
+snapshot carries forward the original population columns and adds five more:
+`subject_id`, `enroll_time`, `drop_time`, `measurement_time` (enrollment +
+readout), and the current trial `time`.
 
 This example defines one simple analysis so that the trial stores a
 `locked_data` snapshot at calendar time 5.
@@ -269,6 +270,13 @@ trial$locked_data$time_5[
 ]
 
 trial$results$time_5$snapshot
+```
+
+`get_col_names()` tells you exactly which columns an analysis function will
+see in that snapshot - your population columns plus the five added ones:
+
+```{r get-col-names}
+get_col_names(trial_pop)
 ```
 
 ## Tips and gotchas

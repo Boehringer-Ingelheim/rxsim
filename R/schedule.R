@@ -1,4 +1,4 @@
-.validate_schedule_common_args <- function(sample_size, arms, allocation) {
+.validate_schedule_args <- function(sample_size, arms, allocation) {
   if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
     stop("`sample_size` must be a single positive number.")
   }
@@ -74,7 +74,7 @@
 stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout = NULL) {
 
   # Input validation
-  .validate_schedule_common_args(sample_size, arms, allocation)
+  .validate_schedule_args(sample_size, arms, allocation)
   if (!is.function(enrollment)) {
     stop("`enrollment` must be a function.")
   }
@@ -175,7 +175,7 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #' @importFrom dplyr arrange
 deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dropout = NULL) {
   # Input validation
-  .validate_schedule_common_args(sample_size, arms, allocation)
+  .validate_schedule_args(sample_size, arms, allocation)
   if (!is.list(enrollment) || !all(c("end_time", "rate") %in% names(enrollment))) {
     stop("`enrollment` must be a list with 'end_time' and 'rate'.")
   }
@@ -238,7 +238,7 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   # Identify undershooting periods (cumulative enrollment < target)
   checks <- df |>
     dplyr::mutate(
-      total_enrolled = ave(.data$enroll, .data$arm, FUN = cumsum),
+      total_enrolled = stats::ave(.data$enroll, .data$arm, FUN = cumsum),
       below_target   = .data$total_enrolled < target[.data$arm]
     )
 
