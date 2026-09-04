@@ -28,20 +28,20 @@ pop$set_data(as_population_data(rnorm(8)))
 
 
 ## ------------------------------------------------
-## Method `Population$new`
+## Method `Population$new()`
 ## ------------------------------------------------
 
 Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 
 ## ------------------------------------------------
-## Method `Population$set_enrolled`
+## Method `Population$set_enrolled()`
 ## ------------------------------------------------
 
 pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 
 ## ------------------------------------------------
-## Method `Population$set_dropped`
+## Method `Population$set_dropped()`
 ## ------------------------------------------------
 
 pop <- Population$new("Test", as_population_data(rnorm(10)))
@@ -49,7 +49,7 @@ pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 
 ## ------------------------------------------------
-## Method `Population$set_data`
+## Method `Population$set_data()`
 ## ------------------------------------------------
 
 pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
@@ -67,16 +67,14 @@ pop$set_data(
 
 \link{Population}, \link{Trial}.
 
-\link{Population}, \link{Trial}.
-
 \link{Population}.
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{name}}{\code{character} Unique identifier for the population.}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{name}}{\code{character} Unique identifier for the population.}
 
-\item{\code{data}}{\code{data.frame} Subject-level data frame with columns:
+    \item{\code{data}}{\code{data.frame} Subject-level data frame with columns:
 \itemize{
 \item \code{id} \code{integer}
 \item \code{arm} \code{character}
@@ -85,142 +83,138 @@ pop$set_data(
 \item may contain more columns
 }}
 
-\item{\code{enrolled}}{\code{numeric} Vector of enrollment times for each subject.}
+    \item{\code{enrolled}}{\code{numeric} Vector of enrollment times for each subject.}
 
-\item{\code{dropped}}{\code{numeric} Vector of dropout times for each subject.}
+    \item{\code{dropped}}{\code{numeric} Vector of dropout times for each subject.}
 
-\item{\code{n}}{\code{integer} Number of unique subjects in the population.}
+    \item{\code{n}}{\code{integer} Number of unique subjects in the population.}
 
-\item{\code{n_readouts}}{\code{integer} Number of readout_times in the population.}
-}
-\if{html}{\out{</div>}}
+    \item{\code{n_readouts}}{\code{integer} Number of readout_times in the population.}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Population-new}{\code{Population$new()}}
-\item \href{#method-Population-set_enrolled}{\code{Population$set_enrolled()}}
-\item \href{#method-Population-set_dropped}{\code{Population$set_dropped()}}
-\item \href{#method-Population-set_data}{\code{Population$set_data()}}
-\item \href{#method-Population-clone}{\code{Population$clone()}}
-}
+  \itemize{
+    \item \href{#method-Population-initialize}{\code{Population$new()}}
+    \item \href{#method-Population-set_enrolled}{\code{Population$set_enrolled()}}
+    \item \href{#method-Population-set_dropped}{\code{Population$set_dropped()}}
+    \item \href{#method-Population-set_data}{\code{Population$set_data()}}
+    \item \href{#method-Population-clone}{\code{Population$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Population-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Population-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new \code{Population} instance.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$new(name, data = NULL, enrolled = NULL, dropped = NULL)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{name}}{\code{character} Unique identifier for the population.}
-
-\item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{arm}, \code{readout_time},
+\if{html}{\out{<a id="method-Population-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Population-initialize}{}}}
+\subsection{\code{Population$new()}}{
+  Create a new \code{Population} instance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Population$new(name, data = NULL, enrolled = NULL, dropped = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{name}}{\code{character} Unique identifier for the population.}
+      \item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{arm}, \code{readout_time},
 \code{data}, and optionally more columns.}
-
-\item{\code{enrolled}}{\code{numeric} Optional enrollment times (auto-initialized if \code{NULL}).}
-
-\item{\code{dropped}}{\code{numeric} Optional dropout times (auto-initialized if \code{NULL}).}
+      \item{\code{enrolled}}{\code{numeric} Optional enrollment times (auto-initialized if \code{NULL}).}
+      \item{\code{dropped}}{\code{numeric} Optional dropout times (auto-initialized if \code{NULL}).}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{Population} instance.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new \code{Population} instance.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{Population$new(name = "Intervention", data = as_population_data(rnorm(5)))
-}
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Population-set_enrolled"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_enrolled}{}}}
-\subsection{Method \code{set_enrolled()}}{
-Mark subjects as enrolled at a given time.
+\subsection{\code{Population$set_enrolled()}}{
+  Mark subjects as enrolled at a given time.
 
 Enrollment applies only to unenrolled subjects (\code{NA}).
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$set_enrolled(n, time)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{n}}{\code{integer} Number of subjects to enroll.}
-
-\item{\code{time}}{\code{numeric} Enrollment time.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("Test", as_population_data(rnorm(10)))
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Population$set_enrolled(n, time)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{n}}{\code{integer} Number of subjects to enroll.}
+      \item{\code{time}}{\code{numeric} Enrollment time.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 4, time = 2)
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Population-set_dropped"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_dropped}{}}}
-\subsection{Method \code{set_dropped()}}{
-Mark subjects as dropped at a given time.
+\subsection{\code{Population$set_dropped()}}{
+  Mark subjects as dropped at a given time.
 
 Dropout applies only to enrolled, not-yet-dropped subjects.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$set_dropped(n, time)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{n}}{\code{integer} Number of subjects to drop.}
-
-\item{\code{time}}{\code{numeric} Dropout time.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("Test", as_population_data(rnorm(10)))
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Population$set_dropped(n, time)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{n}}{\code{integer} Number of subjects to drop.}
+      \item{\code{time}}{\code{numeric} Dropout time.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{pop <- Population$new("Test", as_population_data(rnorm(10)))
 pop$set_enrolled(n = 5, time = 1)
 pop$set_dropped(n = 2, time = 3)
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Population-set_data"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-set_data}{}}}
-\subsection{Method \code{set_data()}}{
-Replace underlying subject data and reset enrollment/dropout status.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$set_data(data)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{data}, \code{arm},
+\subsection{\code{Population$set_data()}}{
+  Replace underlying subject data and reset enrollment/dropout status.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Population$set_data(data)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{data}}{\code{data.frame} with columns: \code{id}, \code{data}, \code{arm},
 \code{readout_time}, and optionally more columns.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{pop <- Population$new("ResetDemo", as_population_data(rnorm(5)))
 pop$set_data(
   data.frame(
     id = 1:8,
@@ -230,26 +224,27 @@ pop$set_data(
   )
 )
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Population-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Population-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Population$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Population$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Population$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

@@ -25,13 +25,15 @@ export(stochastic_schedule)
 export(timed_count_trigger)
 export(trigger_by_events)
 export(value_trigger)
-importFrom(dplyr,.data)
-importFrom(dplyr,arrange)
-importFrom(dplyr,filter)
-importFrom(dplyr,group_by)
-importFrom(dplyr,mutate)
-importFrom(dplyr,select)
-importFrom(dplyr,ungroup)
-importFrom(rlang,":=")
-importFrom(rlang,enquos)
+importFrom(dplyr,
+  .data,
+  arrange,
+  filter,
+  mutate,
+  select
+)
+importFrom(rlang,
+  ":=",
+  enquos
+)
 importFrom(utils,tail)

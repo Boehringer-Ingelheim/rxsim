@@ -94,14 +94,13 @@ enrollment or a dropout:
 
 | Column | Meaning |
 |--------|---------|
+| `time` | Calendar time of the event |
 | `arm` | Arm label (`"pbo"` or `"trt"`) |
-| `enroll_time` | Calendar time of enrollment (cumulative sum of inter-arrival gaps) |
-| `drop_time` | Calendar time of dropout; `NA` if the subject completes |
 | `enroll` | `1` if this row is an enrollment event, `0` otherwise |
 | `drop` | `1` if this row is a dropout event, `0` otherwise |
 
-Because the times are cumulative sums of exponential random variables, they
-are continuous-valued and always positive.
+Because the enrollment times are cumulative sums of exponential random
+variables, they are continuous-valued and always positive.
 
 ### Every call produces a different schedule
 
@@ -200,14 +199,12 @@ the semantics differ:
 
 | Column | Meaning |
 |--------|---------|
+| `time` | Integer calendar time of the event |
 | `arm` | Arm label |
-| `enroll_time` | Integer calendar time at which one or more subjects enroll |
-| `drop_time` | Integer calendar time of dropout event |
 | `enroll` | Count of subjects enrolling at this time (can be > 1) |
 | `drop` | Count of subjects dropping out at this time |
 
-Because multiple subjects may enroll in the same time unit, `enroll` can
-be greater than 1. All times are positive integers.
+All times are positive integers.
 
 ### Every call returns the same schedule
 
@@ -323,9 +320,9 @@ and then combined into a single schedule.
 
 ## The Timer class: `add_schedule`, `timelist`
 
-A `Timer` is the trial clock. It stores a list of timepoint records, where each
-record says when something happens in one arm and how many subjects are
-affected. Each record has four fields: `time`, `arm`, `enroll`, and `drop`.
+A `Timer` is the trial clock. It stores a data frame of timepoint records,
+where each record says when something happens in one arm and how many subjects
+are affected. Each record has four fields: `time`, `arm`, `enroll`, and `drop`.
 
 `Trial$run()` does not step through subjects one by one. Instead, it collects
 all distinct event times from the timer, sorts them, and updates the trial at
@@ -480,8 +477,8 @@ contributes to simulation noise.
 This same timer-centric pattern scales to seamless and platform-style designs.
 You can stage arm activation by time, define multiple `Condition` objects for
 interim and final looks, and carry decision logic across looks inside the trial
-state. See [Example 5](example-5.html) for a complete seamless Ph2a/2b
-implementation.
+state. See [Example 5](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-5.html)
+for a complete seamless Ph2a/2b implementation.
 
 ## Next steps
 
@@ -489,5 +486,6 @@ implementation.
   `Condition`, `Trial`, and how they interact during a simulation run.
 - [Conditions and Triggers](conditions.html) - trigger API, interim analyses,
   `cooldown`, and `max_triggers`.
-- [Example 2](example-2.html) - a worked example using `deterministic_schedule()`
-  with two correlated continuous endpoints.
+- [Example 2](https://boehringer-ingelheim.github.io/rxsim-gallery/examples/example-2.html) -
+  a worked example using `deterministic_schedule()` with two correlated
+  continuous endpoints.
