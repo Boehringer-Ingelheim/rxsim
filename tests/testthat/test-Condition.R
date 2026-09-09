@@ -300,24 +300,30 @@ testthat::test_that("analysis_args: works end-to-end through Condition$new", {
   testthat::expect_equal(res$scaled, 30)
 })
 
-testthat::test_that("analysis_args: works end-to-end through replicate_trial", {
+testthat::test_that("analysis_args: flows through replicate_trial execution into analysis", {
   set.seed(1)
+  sample_size <- 6L
+  multiplier  <- 3L
   ag <- list(final = list(
-    trigger       = enroll_trigger(1.0, 6L),
+    trigger       = enroll_trigger(1.0, sample_size),
     analysis      = function(df, current_time, multiplier) nrow(df) * multiplier,
-    analysis_args = list(multiplier = 3L)
+    analysis_args = list(multiplier = multiplier)
   ))
   pop_gen <- list(
     A = function(n) data.frame(id = seq_len(n), value = rnorm(n), readout_time = 0),
     B = function(n) data.frame(id = seq_len(n), value = rnorm(n), readout_time = 0)
   )
   trials <- replicate_trial(
-    "t", 6L, c("A", "B"), c(1, 1),
+    "t", sample_size, c("A", "B"), c(1, 1),
     function(n) rexp(n, 1), function(n) rep(Inf, n),
     ag, pop_gen, 1L
   )
-  testthat::expect_r6_class(trials[[1L]]$conditions[[1L]], "Condition")
-  testthat::expect_equal(trials[[1L]]$conditions[[1L]]$analysis_args, list(multiplier = 3L))
+  trials[[1L]]$run()
+  # At the final look all `sample_size` subjects are enrolled => nrow(df) * multiplier
+  # = sample_size * multiplier. Without analysis_args the analysis would error on the
+  # missing `multiplier` arg, so this value proves the arg reached the executing
+  # analysis (not just that it was stored).
+  testthat::expect_true((sample_size * multiplier) %in% unlist(trials[[1L]]$results))
 })
 
 testthat::test_that("collect_results: combines analyses with different columns", {
@@ -337,7 +343,7 @@ testthat::test_that("collect_results: combines analyses with different columns",
   )
 
   t <- Timer$new(name = "timer")
-  add_timepoints(t, stochastic_schedule(sample_size, arms, allocation, enrollment_fn, dropout_fn))
+  t$add_schedule(stochastic_schedule(sample_size, arms, allocation, enrollment_fn, dropout_fn))
 
   final <- condition_enrollment_fraction(1.0, sample_size, analysis = function(df, time) {
     enrolled <- subset(df, !is.na(enroll_time))

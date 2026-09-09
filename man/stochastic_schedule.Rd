@@ -4,7 +4,7 @@
 \alias{stochastic_schedule}
 \title{Generate a Stochastic Enrollment and Dropout Schedule}
 \usage{
-stochastic_schedule(sample_size, arms, allocation, enrollment, dropout)
+stochastic_schedule(sample_size, arms, allocation, enrollment, dropout = NULL)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}
@@ -21,7 +21,8 @@ times.}
 }
 \value{
 \code{data.frame} with columns: \code{time}, \code{arm}, \code{enroll} (always 1),
-\code{drop} (always 0 or 1). One row per subject event, sorted by \code{time}.
+\code{drop} (always 0 or 1). One row per subject event, sorted by \code{arm},
+then \code{time}.
 }
 \description{
 Creates a time-indexed schedule of enrollment and dropout events across
@@ -45,5 +46,5 @@ stochastic_schedule(
 }
 \seealso{
 \code{\link[=deterministic_schedule]{deterministic_schedule()}} for piecewise-constant rates,
-\code{\link[=add_timepoints]{add_timepoints()}} to attach to a \code{Timer}.
+\link{Timer}$add_schedule() to attach to a \code{Timer}.
 }

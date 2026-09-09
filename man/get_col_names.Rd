@@ -10,7 +10,8 @@ get_col_names(populations)
 \item{populations}{\code{\link{Population}} object or \code{list} of \code{\link{Population}} objects.}
 }
 \value{
-\code{character} vector of unique column names.
+\code{character} vector of unique population column names augmented with
+\code{subject_id}, \code{enroll_time}, \code{drop_time}, \code{measurement_time}, and \code{time}.
 }
 \description{
 Collects all data frame column names from one or more populations.

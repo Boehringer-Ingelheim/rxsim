@@ -56,14 +56,17 @@ test_that("count_trigger: errors on invalid col and op", {
 
 # ── enroll_trigger ───────────────────────────────────────────────────────────
 
-test_that("enroll_trigger: wraps count_trigger with enroll_time", {
+test_that("enroll_trigger: wraps count_trigger with enroll_time, filters to enrolled", {
   t <- enroll_trigger(0.5, 200)
 
   expect_s3_class(t, "trigger")
-  expect_equal(t$type, "count")
-  expect_equal(t$col, "enroll_time")
-  expect_equal(t$op, ">=")
-  expect_equal(t$rhs, 100)  # 0.5 * 200
+  expect_equal(t$combinator, "&")
+  expect_equal(t$predicates[[1L]]$type, "count")
+  expect_equal(t$predicates[[1L]]$col, "enroll_time")
+  expect_equal(t$predicates[[1L]]$op, ">=")
+  expect_equal(t$predicates[[1L]]$rhs, 100)  # 0.5 * 200
+  expect_equal(t$predicates[[2L]]$type, "notna")
+  expect_equal(t$predicates[[2L]]$col, "enroll_time")
 })
 
 test_that("enroll_trigger: errors on fraction out of range", {
@@ -156,21 +159,13 @@ test_that("Condition$new: rxsim_trigger count_trigger produces correct quosure",
   expect_length(cond$where, 1L)
 })
 
-test_that("Condition$new: AND trigger produces two quosures (dplyr ANDs them)", {
-  trig <- enroll_trigger(0.5, 200) & calendar_trigger(52)
+test_that("Condition$new: AND trigger filters as logical AND (truth table)", {
+  trig <- value_trigger("a", "==", TRUE) & value_trigger("b", "==", TRUE)
   cond <- Condition$new(where = trig, name = "and_test")
+  df   <- cbind(id = 1:4, expand.grid(a = c(FALSE, TRUE), b = c(FALSE, TRUE)))
 
-  expect_r6_class(cond, "Condition")
-  expect_length(cond$where, 2L)  # dplyr::filter(..., pred1, pred2) ANDs them
-})
-
-test_that("Condition$new: OR trigger produces one quosure with | expression", {
-  trig <- enroll_trigger(0.5, 200) | calendar_trigger(26)
-  cond <- Condition$new(where = trig, name = "or_test")
-
-  expect_r6_class(cond, "Condition")
-  expect_length(cond$where, 1L)
-  expect_equal(rlang::call_name(rlang::get_expr(cond$where[[1L]])), "|")
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$id, with(df, id[a & b]))
 })
 
 test_that("Condition$new: cooldown and max_triggers are passed through", {
@@ -192,6 +187,15 @@ test_that("Condition$new value_trigger quosure evaluates correctly in filter", {
   expect_equal(result$time, 3:5)
 })
 
+test_that("Condition$new value_trigger %in% quosure evaluates correctly in filter", {
+  trig <- value_trigger("time", "%in%", c(2, 4))
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(time = 1:5)
+
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$time, c(2L, 4L))
+})
+
 test_that("Condition$new count_trigger quosure evaluates correctly in filter", {
   trig <- count_trigger("enroll_time", ">=", 2)
   cond <- Condition$new(where = trig)
@@ -201,22 +205,46 @@ test_that("Condition$new count_trigger quosure evaluates correctly in filter", {
   expect_equal(nrow(result), 4L)
 })
 
-test_that("Condition$new AND quosures: both conditions must hold", {
-  trig <- count_trigger("enroll_time", ">=", 1) & value_trigger("time", ">=", 3)
-  cond <- Condition$new(where = trig)
-  df   <- data.frame(time = 1:5, enroll_time = c(1, NA, 1, 1, 1))
+test_that("Condition$new OR distributes over AND", {
+  triggers <- lapply(letters[1:4], value_trigger, op = "==", rhs = TRUE)
+  cond <- Condition$new(where = (triggers[[1L]] & triggers[[2L]]) |
+    (triggers[[3L]] & triggers[[4L]]))
+  df <- cbind(id = 1:16, expand.grid(
+    a = c(FALSE, TRUE), b = c(FALSE, TRUE),
+    c = c(FALSE, TRUE), d = c(FALSE, TRUE)
+  ))
 
   result <- dplyr::filter(df, !!!cond$where)
-  expect_true(all(result$time >= 3))
+  expect_equal(result$id, with(df, id[(a & b) | (c & d)]))
 })
 
-test_that("Condition$new OR quosure: either condition fires", {
-  trig <- value_trigger("time", ">=", 4) | value_trigger("time", "<=", 2)
-  cond <- Condition$new(where = trig)
-  df   <- data.frame(time = 1:5)
+test_that("Condition$new AND preserves nested OR", {
+  triggers <- lapply(letters[1:3], value_trigger, op = "==", rhs = TRUE)
+  cond <- Condition$new(where = (triggers[[1L]] | triggers[[2L]]) &
+    triggers[[3L]])
+  df <- cbind(id = 1:8, expand.grid(
+    a = c(FALSE, TRUE), b = c(FALSE, TRUE), c = c(FALSE, TRUE)
+  ))
 
   result <- dplyr::filter(df, !!!cond$where)
-  expect_equal(result$time, c(1L, 2L, 4L, 5L))
+  expect_equal(result$id, with(df, id[(a | b) & c]))
+})
+
+test_that("OR keeps notna on the enroll branch: A | enroll_trigger drops unenrolled non-A rows", {
+  # Regression: enroll_trigger is count(enroll_time) & notna(enroll_time). When
+  # ORed with A, the notna guard must remain on the enroll branch, so an
+  # unenrolled row only survives via A, never via the enrollment count alone.
+  trig <- value_trigger("time", ">=", 100) | enroll_trigger(0.5, 4)
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(
+    id          = 1:4,
+    time        = c(200, 1, 1, 1),
+    enroll_time = c(NA, 1, 2, NA)  # row1 unenrolled but A true; row4 unenrolled, A false
+  )
+
+  result <- dplyr::filter(df, !!!cond$where)
+  # row1 via A; rows 2-3 via (count >= 2 & notna); row4 dropped by notna guard
+  expect_equal(result$id, c(1L, 2L, 3L))
 })
 
 # ── condition_calendar_time ───────────────────────────────────────────────────────
@@ -296,4 +324,209 @@ test_that("replicate_trial: accepts trigger and builds Condition", {
   expect_r6_class(trials[[1L]], "Trial")
   expect_length(trials[[1L]]$conditions, 1L)
   expect_r6_class(trials[[1L]]$conditions[[1L]], "Condition")
+})
+
+# ── notna_trigger ─────────────────────────────────────────────────────────────
+
+test_that("notna_trigger: returns trigger with correct fields", {
+  t <- notna_trigger("enroll_time")
+
+  expect_s3_class(t, "trigger")
+  expect_equal(t$type, "notna")
+  expect_equal(t$col, "enroll_time")
+})
+
+test_that("notna_trigger: errors on invalid col", {
+  expect_error(notna_trigger(123),            "`col`")
+  expect_error(notna_trigger(NA_character_),  "`col`")
+  expect_error(notna_trigger(c("a", "b")),    "`col`")
+})
+
+test_that("notna_trigger quosure evaluates correctly in filter", {
+  trig <- notna_trigger("enroll_time")
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(enroll_time = c(NA, 1, NA, 3))
+
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$enroll_time, c(1, 3))
+})
+
+# ── col_trigger ───────────────────────────────────────────────────────────────
+
+test_that("col_trigger: returns trigger with correct fields", {
+  t <- col_trigger("enroll_time", "<=", "time")
+
+  expect_s3_class(t, "trigger")
+  expect_equal(t$type, "col_compare")
+  expect_equal(t$col, "enroll_time")
+  expect_equal(t$op, "<=")
+  expect_equal(t$ref_col, "time")
+})
+
+test_that("col_trigger: errors on invalid arguments", {
+  expect_error(col_trigger(123,   "<=", "time"),         "`col`")
+  expect_error(col_trigger("a",   "INVALID", "time"),    "`op`")
+  expect_error(col_trigger("a",   "<=", NA_character_),  "`ref_col`")
+  expect_error(col_trigger("a",   "<=", c("x", "y")),   "`ref_col`")
+})
+
+test_that("col_trigger quosure evaluates correctly in filter", {
+  trig <- col_trigger("enroll_time", "<=", "time")
+  cond <- Condition$new(where = trig)
+  df   <- data.frame(enroll_time = c(1, 5, 10), time = rep(6, 3))
+
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(result$enroll_time, c(1, 5))
+})
+
+# ── timed_count_trigger ───────────────────────────────────────────────────────
+
+test_that("timed_count_trigger: returns trigger with correct fields", {
+  t <- timed_count_trigger("pfs_event_time", "time", ">=", 100)
+
+  expect_s3_class(t, "trigger")
+  expect_equal(t$type, "timed_count")
+  expect_equal(t$col, "pfs_event_time")
+  expect_equal(t$time_col, "time")
+  expect_equal(t$op, ">=")
+  expect_equal(t$threshold, 100)
+})
+
+test_that("timed_count_trigger: errors on invalid arguments", {
+  expect_error(timed_count_trigger(123, "time", ">=", 100),               "`col`")
+  expect_error(timed_count_trigger("ev", c("a","b"), ">=", 100),          "`time_col`")
+  expect_error(timed_count_trigger("ev", "time", "INVALID", 100),         "`op`")
+  expect_error(timed_count_trigger("ev", "time", ">=", "100"),            "`threshold`")
+  expect_error(timed_count_trigger("ev", "time", ">=", c(100, 200)),      "`threshold`")
+})
+
+test_that("timed_count_trigger quosure evaluates correctly: counts events <= time", {
+  trig <- timed_count_trigger("pfs_event_time", "time", ">=", 3)
+  cond <- Condition$new(where = trig)
+
+  # 2 events at or before time=8: should NOT fire
+  df_below <- data.frame(
+    pfs_event_time = c(3, 7, NA, NA),
+    time           = rep(8, 4)
+  )
+  result_below <- dplyr::filter(df_below, !!!cond$where)
+  expect_equal(nrow(result_below), 0L)
+
+  # 3 events at or before time=8: should fire (all rows pass)
+  df_above <- data.frame(
+    pfs_event_time = c(3, 7, NA, 5),
+    time           = rep(8, 4)
+  )
+  result_above <- dplyr::filter(df_above, !!!cond$where)
+  expect_equal(nrow(result_above), 4L)
+})
+
+test_that("timed_count_trigger quosure: events after current time do not count", {
+  trig <- timed_count_trigger("event_time", "time", ">=", 2)
+  cond <- Condition$new(where = trig)
+
+  # event at t=15 should NOT count when time=10
+  df <- data.frame(event_time = c(5, 15, NA), time = rep(10, 3))
+  result <- dplyr::filter(df, !!!cond$where)
+  expect_equal(nrow(result), 0L)  # only 1 event at t<=10, threshold=2
+})
+
+# ── trigger_by_events ─────────────────────────────────────────────────────────
+
+test_that("trigger_by_events: returns Condition with correct default name", {
+  cond <- trigger_by_events("pfs_event_time", 100)
+  expect_r6_class(cond, "Condition")
+  expect_equal(cond$name, "events_100")
+})
+
+test_that("trigger_by_events: custom name is used", {
+  cond <- trigger_by_events("pfs_event_time", 100, name = "pfs_ia")
+  expect_equal(cond$name, "pfs_ia")
+})
+
+test_that("trigger_by_events: errors on missing required arguments", {
+  expect_error(trigger_by_events(n_events = 100),                "`event_col` and `n_events`")
+  expect_error(trigger_by_events(event_col = "pfs_event_time"),  "`event_col` and `n_events`")
+})
+
+test_that("trigger_by_events: errors on invalid arguments", {
+  expect_error(trigger_by_events(123, 100),            "`event_col`")
+  expect_error(trigger_by_events("ev", "100"),          "`n_events`")
+  expect_error(trigger_by_events("ev", 100, op = "!"), "`op`")
+})
+
+test_that("trigger_by_events: filters as AND of its three conditions (truth table)", {
+  cond <- trigger_by_events("pfs_event_time", 2)
+  # enough events overall (2 <= time); vary enrolled / enroll<=time / event states
+  df <- cbind(id = 1:4, data.frame(
+    time           = 10,
+    enroll_time    = c(1, NA, 12, 3),           # enrolled?  T F T(future) T
+    pfs_event_time = c(5,  6, 7,  NA)
+  ))
+
+  result <- dplyr::filter(df, !!!cond$where)
+  gate   <- sum(!is.na(df$pfs_event_time) & df$pfs_event_time <= df$time) >= 2
+  keep   <- gate & !is.na(df$enroll_time) & df$enroll_time <= df$time
+  expect_equal(result$id, df$id[keep])
+})
+
+test_that("trigger_by_events: fires when event threshold is reached", {
+  cond <- trigger_by_events(
+    event_col = "pfs_event_time",
+    n_events  = 3,
+    analysis  = function(df, t) data.frame(n = nrow(df), fired_at = t)
+  )
+
+  # 2 events at time <= 10: should NOT fire
+  df_below <- data.frame(
+    time           = rep(10, 4),
+    enroll_time    = c(1, 2, 3, 4),
+    pfs_event_time = c(5, 8, NA, NA)
+  )
+  expect_length(cond$check_conditions(df_below, 10), 0L)
+
+  # 3 events at time <= 10: should fire
+  df_above <- data.frame(
+    time           = rep(10, 4),
+    enroll_time    = c(1, 2, 3, 4),
+    pfs_event_time = c(5, 8, 9, NA)
+  )
+  res <- cond$check_conditions(df_above, 10)
+  expect_length(res, 1L)
+  expect_equal(res[["events_3"]]$fired_at, 10)
+})
+
+test_that("trigger_by_events: unenrolled subjects are excluded from filtered result", {
+  cond <- trigger_by_events(
+    event_col = "pfs_event_time",
+    n_events  = 2,
+    analysis  = function(df, t) data.frame(n_enrolled = nrow(df))
+  )
+
+  # 3 events but 1 subject unenrolled (NA enroll_time); threshold=2 met
+  df <- data.frame(
+    time           = rep(10, 4),
+    enroll_time    = c(1, 2, NA, 4),
+    pfs_event_time = c(5, 8, 6, NA)
+  )
+  res <- cond$check_conditions(df, 10)
+  expect_length(res, 1L)
+  # analysis df contains only enrolled subjects enrolled before time
+  expect_equal(res[["events_2"]]$n_enrolled, 3L)
+})
+
+test_that("trigger_by_events: events after current time do not count towards threshold", {
+  cond <- trigger_by_events(
+    event_col = "pfs_event_time",
+    n_events  = 2,
+    analysis  = function(df, t) data.frame(n = nrow(df))
+  )
+
+  # 1 event at t=5, 1 event at t=15 (future) — only 1 counts
+  df <- data.frame(
+    time           = rep(10, 3),
+    enroll_time    = c(1, 2, 3),
+    pfs_event_time = c(5, 15, NA)
+  )
+  expect_length(cond$check_conditions(df, 10), 0L)
 })

@@ -4,7 +4,13 @@
 \alias{deterministic_schedule}
 \title{Generate a Deterministic Enrollment and Dropout Schedule}
 \usage{
-deterministic_schedule(sample_size, arms, allocation, enrollment, dropout)
+deterministic_schedule(
+  sample_size,
+  arms,
+  allocation,
+  enrollment,
+  dropout = NULL
+)
 }
 \arguments{
 \item{sample_size}{\code{integer} Trial sample size.}
@@ -21,7 +27,8 @@ deterministic_schedule(sample_size, arms, allocation, enrollment, dropout)
 \value{
 \code{data.frame} with columns: \code{time} (integer period), \code{arm},
 \code{enroll} (subjects enrolled in that period), \code{drop} (subjects
-dropped). Aggregated counts  -  multiple subjects per row.
+dropped). Aggregated counts  -  multiple subjects per row. Sorted by
+\code{arm}, then \code{time}.
 }
 \description{
 Creates a time-indexed schedule with piecewise-constant enrollment and
@@ -51,5 +58,5 @@ deterministic_schedule(
 }
 \seealso{
 \code{\link[=stochastic_schedule]{stochastic_schedule()}} for random inter-event times,
-\code{\link[=add_timepoints]{add_timepoints()}}.
+\link{Timer}$add_schedule().
 }

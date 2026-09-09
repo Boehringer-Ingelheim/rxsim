@@ -12,7 +12,7 @@ template:
 
 navbar:
   structure:
-    left: [intro, articles, reference]
+    left: [intro, articles, reference, news]
 
 articles:
   - title: "Architecture"
@@ -31,15 +31,6 @@ articles:
     navbar: How-to
     contents:
       - api-styles
-
-  - title: "Examples"
-    navbar: Examples
-    contents:
-      - example-1
-      - example-2
-      - example-3
-      - example-4
-      - example-5
 
 reference:
   - title: "Core classes"
@@ -60,7 +51,6 @@ reference:
   - title: "Timer helpers"
     desc: "Helpers for building Timer timepoint lists"
     contents:
-      - add_timepoints
       - deterministic_schedule
       - stochastic_schedule
 
@@ -70,6 +60,7 @@ reference:
       - trigger_primitives
       - condition_calendar_time
       - condition_enrollment_fraction
+      - trigger_by_events
 
   - title: "Population helpers"
     desc: "Helpers for building Population generators"

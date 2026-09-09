@@ -26,10 +26,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
 # Build a condition: fire at time >= 2 and count enrolled rows
 cond <- Condition$new(
@@ -54,7 +54,7 @@ collect_results(trial)
 
 
 ## ------------------------------------------------
-## Method `Trial$new`
+## Method `Trial$new()`
 ## ------------------------------------------------
 
 t <- Timer$new(name="simple_timer")
@@ -66,7 +66,7 @@ pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
 
 ## ------------------------------------------------
-## Method `Trial$run`
+## Method `Trial$run()`
 ## ------------------------------------------------
 
 # Create two populations
@@ -75,10 +75,10 @@ popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
 # Create a trial
 trial <- Trial$new(
@@ -100,74 +100,79 @@ collect_results(trial)
 \link{Timer}, \link{Condition}, \code{\link[=collect_results]{collect_results()}}.
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{name}}{\code{character} Unique trial identifier.}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{name}}{\code{character} Unique trial identifier.}
 
-\item{\code{seed}}{\code{numeric} or \code{NULL} Random seed for reproducibility.}
+    \item{\code{seed}}{\code{numeric} or \code{NULL} Random seed for reproducibility.}
 
-\item{\code{timer}}{\code{Timer} object with timepoints.}
+    \item{\code{timer}}{\code{Timer} object with timepoints.}
 
-\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
+    \item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
 
-\item{\code{conditions}}{\code{list} of \link{Condition} objects evaluated at each timepoint.}
+    \item{\code{conditions}}{\code{list} of \link{Condition} objects evaluated at each timepoint.}
 
-\item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
+    \item{\code{locked_data}}{\code{list} Snapshots at each timepoint.}
 
-\item{\code{results}}{\code{list} Analysis outputs per condition.}
-}
-\if{html}{\out{</div>}}
+    \item{\code{results}}{\code{list} Analysis outputs per condition.}
+
+    \item{\code{adaptive}}{\code{logical} When \code{FALSE} (default), uses the fixed fast path:
+enroll/drop times are precomputed deterministically before iteration,
+and snapshots are cheap prefix slices. When \code{TRUE}, uses the adaptive
+loop: enrollment and dropout are sampled incrementally at each
+timepoint, supporting designs where the schedule may change mid-trial.}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Trial-new}{\code{Trial$new()}}
-\item \href{#method-Trial-run}{\code{Trial$run()}}
-\item \href{#method-Trial-clone}{\code{Trial$clone()}}
-}
+  \itemize{
+    \item \href{#method-Trial-initialize}{\code{Trial$new()}}
+    \item \href{#method-Trial-run}{\code{Trial$run()}}
+    \item \href{#method-Trial-clone}{\code{Trial$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Trial-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Trial-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new \code{Trial} instance.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Trial$new(
+\if{html}{\out{<a id="method-Trial-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Trial-initialize}{}}}
+\subsection{\code{Trial$new()}}{
+  Create a new \code{Trial} instance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Trial$new(
   name,
   seed = NULL,
   timer = NULL,
   population = list(),
   locked_data = list(),
   conditions = list(),
-  results = list()
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{name}}{\code{character} Unique identifier for the trial.}
-
-\item{\code{seed}}{\code{numeric} or \code{NULL} Optional random seed for reproducibility.}
-
-\item{\code{timer}}{\code{Timer} object defining timepoints.}
-
-\item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
-
-\item{\code{locked_data}}{\code{list} Generated at each \verb{$run()} call.}
-
-\item{\code{conditions}}{\code{list} of \link{Condition} objects to evaluate at each timepoint.}
-
-\item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new \code{Trial} instance.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name="simple_timer")
+  results = list(),
+  adaptive = FALSE
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{name}}{\code{character} Unique identifier for the trial.}
+      \item{\code{seed}}{\code{numeric} or \code{NULL} Optional random seed for reproducibility.}
+      \item{\code{timer}}{\code{Timer} object defining timepoints.}
+      \item{\code{population}}{\code{list} of \link{Population} objects, one per arm.}
+      \item{\code{locked_data}}{\code{list} Generated at each \verb{$run()} call.}
+      \item{\code{conditions}}{\code{list} of \link{Condition} objects to evaluate at each timepoint.}
+      \item{\code{results}}{\code{list} Analysis outputs generated at each \verb{$run()} call.}
+      \item{\code{adaptive}}{\code{logical} When \code{FALSE} (default), uses the fixed fast path
+(deterministic precompute, prefix snapshots). When \code{TRUE}, uses the
+adaptive loop (incremental random sampling at each timepoint).}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{Trial} instance.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name="simple_timer")
 pop <- Population$new(
   name = "simple_pop",
   data = as_population_data(rnorm(5))
@@ -175,44 +180,49 @@ pop <- Population$new(
 pop$set_enrolled(5, 1)
 Trial$new(name = "simple_trial", timer=t, population = list(pop))
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Trial-run"></a>}}
 \if{latex}{\out{\hypertarget{method-Trial-run}{}}}
-\subsection{Method \code{run()}}{
-Execute a trial simulation.
+\subsection{\code{Trial$run()}}{
+  Execute a trial simulation.
 
-At each unique time defined by the trial's \code{Timer}:
-\itemize{
-\item Apply enrollment and dropout actions to each \code{Population}
-\item Build a combined snapshot of all currently enrolled subjects
-\item Attach a \code{time} column to the snapshot
-\item Evaluate each \code{\link{Condition}} in \code{self$conditions} against the snapshot
-\item Store snapshots and condition outputs under time‑indexed list keys
-}
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Trial$run()}\if{html}{\out{</div>}}
-}
+Dispatches to the fixed fast path (\code{adaptive = FALSE}, default) or the
+adaptive loop (\code{adaptive = TRUE}). Both paths update \code{locked_data} and
+\code{results} fields with the same structure.
 
-\subsection{Returns}{
-Updates \code{locked_data} and \code{results} fields.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{# Create two populations
+\strong{Fixed path} (\code{adaptive = FALSE}): enroll/drop times are precomputed
+deterministically before iteration. Snapshots are cheap prefix slices of
+a single combined data frame. Conditions are evaluated with per-condition
+exhausted-skip.
+
+\strong{Adaptive loop} (\code{adaptive = TRUE}): enrollment and dropout are sampled
+randomly at each timepoint, supporting designs where the schedule may
+change mid-trial based on interim results.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Trial$run()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Updates \code{locked_data} and \code{results} fields; returns \code{self}
+invisibly.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{# Create two populations
 popA <- Population$new("A", data = as_population_data(rnorm(10)))
 popB <- Population$new("B", data = as_population_data(rnorm(12)))
 
 # Create a timer and add timepoints
 t <- Timer$new("Timer")
-t$add_timepoint(time = 1, arm = "A", drop = 0L, enroll = 4L)
-t$add_timepoint(time = 1, arm = "B", drop = 0L, enroll = 5L)
-t$add_timepoint(time = 2, arm = "A", drop = 1L, enroll = 2L)
-t$add_timepoint(time = 2, arm = "B", drop = 2L, enroll = 3L)
+t$add_schedule(data.frame(time = 1, arm = "A", drop = 0L, enroll = 4L))
+t$add_schedule(data.frame(time = 1, arm = "B", drop = 0L, enroll = 5L))
+t$add_schedule(data.frame(time = 2, arm = "A", drop = 1L, enroll = 2L))
+t$add_schedule(data.frame(time = 2, arm = "B", drop = 2L, enroll = 3L))
 
 # Create a trial
 trial <- Trial$new(
@@ -227,26 +237,27 @@ trial$run()
 
 collect_results(trial)
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Trial-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Trial-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Trial$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Trial$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Trial$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

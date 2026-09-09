@@ -10,10 +10,11 @@ replicate_trial(
   arms,
   allocation,
   enrollment,
-  dropout,
+  dropout = NULL,
   analysis_generators,
   population_generators,
-  n
+  n,
+  adaptive = FALSE
 )
 }
 \arguments{
@@ -28,7 +29,8 @@ Defaults to \code{"name"}.}
 
 \item{enrollment}{\code{function} that generates inter-enrollment times.}
 
-\item{dropout}{\code{function} that generates inter-dropout times.}
+\item{dropout}{\code{function} that generates inter-dropout times, or \code{NULL} for
+no dropout.}
 
 \item{analysis_generators}{\code{list} (named) of analysis specifications. Each
 \verb{$trigger} must be a \code{trigger} object created by
@@ -38,6 +40,9 @@ Defaults to \code{"name"}.}
 \item{population_generators}{\code{list} (named) of population generator functions.}
 
 \item{n}{\code{integer} Number of trials to create.}
+
+\item{adaptive}{\code{logical} Passed to each \code{Trial$new()}. When \code{FALSE}
+(default), uses the fixed fast path. When \code{TRUE}, uses the adaptive loop.}
 }
 \value{
 \code{list} of \code{n} \code{Trial} objects with indexed names,

@@ -1,47 +1,4 @@
-#' Generate a Stochastic Enrollment and Dropout Schedule
-#'
-#' Creates a time-indexed schedule of enrollment and dropout events across
-#' arms by sampling inter-event times from user-supplied distribution
-#' functions. Each call produces a different realization, capturing
-#' natural variability in study timelines.
-#'
-#' Use this when trial-duration variability is substantively important.
-#' For a fixed, reproducible schedule see [deterministic_schedule()].
-#'
-#' @param sample_size `integer` Trial sample size.
-#' @param arms `character` vector of arm identifiers.
-#' @param allocation `numeric` vector of allocation ratios.
-#' @param enrollment `function` that takes `n` and returns `n` inter-arrival
-#'   times (e.g. `function(n) rexp(n, rate = 1)`).
-#' @param dropout `function` that takes `n` and returns `n` inter-dropout
-#'   times.
-#'
-#' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
-#'   `drop` (always 0 or 1). One row per subject event, sorted by `time`.
-#'
-#' @seealso [deterministic_schedule()] for piecewise-constant rates,
-#'   [add_timepoints()] to attach to a `Timer`.
-#'
-#' @export
-#'
-#' @examples
-#' stochastic_schedule(
-#'   sample_size = 100,
-#'   arms = c("A", "B"),
-#'   allocation = c(2, 1),
-#'   enrollment = function(n) rexp(n, rate = 0.5),
-#'   dropout    = function(n) rexp(n, rate = 0.1)
-#' )
-#'
-#' @importFrom rlang :=
-#' @importFrom dplyr .data
-#' @importFrom dplyr mutate
-#' @importFrom dplyr group_by
-#' @importFrom dplyr ungroup
-#' @importFrom dplyr filter
-#' @importFrom dplyr select
-#' @importFrom dplyr arrange
-.validate_schedule_common_args <- function(sample_size, arms, allocation) {
+.validate_schedule_args <- function(sample_size, arms, allocation) {
   if (!is.numeric(sample_size) || length(sample_size) != 1L || sample_size <= 0) {
     stop("`sample_size` must be a single positive number.")
   }
@@ -73,12 +30,57 @@
   target
 }
 
-stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
+#' Generate a Stochastic Enrollment and Dropout Schedule
+#'
+#' Creates a time-indexed schedule of enrollment and dropout events across
+#' arms by sampling inter-event times from user-supplied distribution
+#' functions. Each call produces a different realization, capturing
+#' natural variability in study timelines.
+#'
+#' Use this when trial-duration variability is substantively important.
+#' For a fixed, reproducible schedule see [deterministic_schedule()].
+#'
+#' @param sample_size `integer` Trial sample size.
+#' @param arms `character` vector of arm identifiers.
+#' @param allocation `numeric` vector of allocation ratios.
+#' @param enrollment `function` that takes `n` and returns `n` inter-arrival
+#'   times (e.g. `function(n) rexp(n, rate = 1)`).
+#' @param dropout `function` that takes `n` and returns `n` inter-dropout
+#'   times.
+#'
+#' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
+#'   `drop` (always 0 or 1). One row per subject event, sorted by `arm`,
+#'   then `time`.
+#'
+#' @seealso [deterministic_schedule()] for piecewise-constant rates,
+#'   [Timer]$add_schedule() to attach to a `Timer`.
+#'
+#' @export
+#'
+#' @examples
+#' stochastic_schedule(
+#'   sample_size = 100,
+#'   arms = c("A", "B"),
+#'   allocation = c(2, 1),
+#'   enrollment = function(n) rexp(n, rate = 0.5),
+#'   dropout    = function(n) rexp(n, rate = 0.1)
+#' )
+#'
+#' @importFrom rlang :=
+#' @importFrom dplyr .data
+#' @importFrom dplyr mutate
+#' @importFrom dplyr filter
+#' @importFrom dplyr select
+#' @importFrom dplyr arrange
+stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropout = NULL) {
 
   # Input validation
-  .validate_schedule_common_args(sample_size, arms, allocation)
-  if (!is.function(enrollment) || !is.function(dropout)) {
-    stop("`enrollment` and `dropout` must be functions.")
+  .validate_schedule_args(sample_size, arms, allocation)
+  if (!is.function(enrollment)) {
+    stop("`enrollment` must be a function.")
+  }
+  if (!is.null(dropout) && !is.function(dropout)) {
+    stop("`dropout` must be a function or NULL.")
   }
 
   # Calculate arm allocation ratios
@@ -89,9 +91,8 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
   # Calculate target enrollment per arm
   target <- .allocate_targets(sample_size, arms, ratio)
 
-  # Generate enrollment and dropout inter-event times
+  # Generate enrollment inter-event times
   enroll_events <- enrollment(sample_size)
-  drop_events <- dropout(sample_size)
 
   # Shuffle arms to randomize allocation
   shuffled_arms <- sample(
@@ -108,7 +109,12 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
     drop = 0L
   )
 
+  if (is.null(dropout)) {
+    return(dplyr::arrange(df_enroll, .data$arm, .data$time))
+  }
+
   # Create dropout events (cumulative timing)
+  drop_events <- dropout(sample_size)
   df_drop <- data.frame(
     time = cumsum(drop_events),
     arm = sample(arms, sample_size, replace = TRUE, prob = ratio),
@@ -117,7 +123,7 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
   )
 
   # Combine and sort by time
-  rbind(df_enroll, df_drop) |> dplyr::arrange(.data$time)
+  rbind(df_enroll, df_drop) |> dplyr::arrange(.data$arm, .data$time)
 }
 
 #' Generate a Deterministic Enrollment and Dropout Schedule
@@ -139,10 +145,11 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #'
 #' @return `data.frame` with columns: `time` (integer period), `arm`,
 #'   `enroll` (subjects enrolled in that period), `drop` (subjects
-#'   dropped). Aggregated counts  -  multiple subjects per row.
+#'   dropped). Aggregated counts  -  multiple subjects per row. Sorted by
+#'   `arm`, then `time`.
 #'
 #' @seealso [stochastic_schedule()] for random inter-event times,
-#'   [add_timepoints()].
+#'   [Timer]$add_schedule().
 #'
 #' @export
 #'
@@ -165,19 +172,16 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #' @importFrom rlang :=
 #' @importFrom dplyr .data
 #' @importFrom dplyr mutate
-#' @importFrom dplyr group_by
-#' @importFrom dplyr ungroup
 #' @importFrom dplyr filter
 #' @importFrom dplyr select
-#' @importFrom dplyr arrange
-deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dropout) {
+deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dropout = NULL) {
   # Input validation
-  .validate_schedule_common_args(sample_size, arms, allocation)
+  .validate_schedule_args(sample_size, arms, allocation)
   if (!is.list(enrollment) || !all(c("end_time", "rate") %in% names(enrollment))) {
     stop("`enrollment` must be a list with 'end_time' and 'rate'.")
   }
-  if (!is.list(dropout) || !all(c("end_time", "rate") %in% names(dropout))) {
-    stop("`dropout` must be a list with 'end_time' and 'rate'.")
+  if (!is.null(dropout) && (!is.list(dropout) || !all(c("end_time", "rate") %in% names(dropout)))) {
+    stop("`dropout` must be a list with 'end_time' and 'rate', or NULL.")
   }
 
   # Calculate arm allocation ratios
@@ -185,7 +189,11 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   names(ratio) <- arms
 
   # Define timeline endpoint
-  end <- max(utils::tail(enrollment$end_time, 1), utils::tail(dropout$end_time, 1))
+  end <- if (is.null(dropout)) {
+    utils::tail(enrollment$end_time, 1)
+  } else {
+    max(utils::tail(enrollment$end_time, 1), utils::tail(dropout$end_time, 1))
+  }
 
   # Calculate target enrollment per arm
   target <- .allocate_targets(sample_size, arms, ratio)
@@ -202,11 +210,20 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   }
 
   enrollment <- pad(enrollment, end)
-  dropout <- pad(dropout, end)
 
   # Calculate duration of each time period
   get_durations <- function(x) diff(c(0, x))
   n_arms <- length(arms)
+
+  if (!is.null(dropout)) {
+    dropout <- pad(dropout, end)
+    drop_col <- rep(
+      as.vector(outer(dropout$rate, ratio)),
+      rep(get_durations(dropout$end_time), n_arms)
+    ) |> as.integer()
+  } else {
+    drop_col <- 0L
+  }
 
   # Create base schedule (may exceed target enrollment)
   df <- data.frame(
@@ -216,18 +233,15 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
       as.vector(outer(enrollment$rate, ratio)),
       rep(get_durations(enrollment$end_time), n_arms)
     ) |> as.integer(),
-    drop = rep(
-      as.vector(outer(dropout$rate, ratio)),
-      rep(get_durations(dropout$end_time), n_arms)
-    ) |> as.integer()
+    drop = drop_col
   )
 
   # Identify undershooting periods (cumulative enrollment < target)
   checks <- df |>
-    dplyr::group_by(.data$arm) |>
-    dplyr::mutate(total_enrolled = cumsum(.data$enroll)) |>
-    dplyr::ungroup() |>
-    dplyr::mutate(below_target = .data$total_enrolled < target[.data$arm])
+    dplyr::mutate(
+      total_enrolled = stats::ave(.data$enroll, .data$arm, FUN = cumsum),
+      below_target   = .data$total_enrolled < target[.data$arm]
+    )
 
   last_under <- do.call(rbind, lapply(arms, function(a) {
     arm_rows <- checks[checks$arm == a & checks$below_target, , drop = FALSE]
@@ -245,20 +259,28 @@ deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dr
   names(next_enroll) <- last_under$arm
 
   # Create correction row(s) to reach target enrollment
+  correction_drop <- if (!is.null(dropout)) {
+    # ponytail: findInterval is 0 before the first boundary; clamp to period 1
+    # (periods are right-closed, so t <= end_time[1] belongs to rate[1]).
+    idx <- pmax.int(1L, findInterval(next_t, dropout$end_time))
+    as.integer(round(dropout$rate[idx] * ratio))
+  } else {
+    0L
+  }
   df_add <- data.frame(
     time = as.integer(next_t[arms]),
     arm = arms,
     enroll = as.integer(next_enroll[arms]),
-    drop = as.integer(round(dropout$rate[findInterval(next_t, dropout$end_time)] * ratio))
+    drop = correction_drop
   )
 
   # Combine schedule and corrections, sort by arm and time
-  checks |>
+  out <- checks |>
     dplyr::filter(.data$below_target) |>
     dplyr::bind_rows(df_add) |>
     dplyr::filter(.data$enroll > 0L | .data$drop > 0L) |>
-    dplyr::select(-dplyr::all_of(c("total_enrolled", "below_target"))) |>
-    dplyr::group_by(.data$arm) |>
-    dplyr::arrange(.data$time, .by_group = TRUE) |>
-    dplyr::ungroup()
+    dplyr::select(-dplyr::all_of(c("total_enrolled", "below_target")))
+  out <- out[order(out$arm, out$time), ]
+  rownames(out) <- NULL
+  out
 }
