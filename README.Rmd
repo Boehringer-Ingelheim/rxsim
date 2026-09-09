@@ -23,6 +23,8 @@ knitr::opts_chunk$set(
 > prototype Phase II/III trial designs at high speed  -  without writing hundreds
 > of lines of low-level plumbing code.
 
+---
+
 > [!WARNING]  
 > This package is in early development. The API is not yet stable and may change
 > without deprecation. Use with caution and please share feedback!

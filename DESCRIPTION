@@ -43,7 +43,10 @@ Suggests:
 VignetteBuilder: knitr
 Imports: 
     dplyr,
-    rlang
+    R6,
+    rlang,
+    stats,
+    utils
 Roxygen: list(markdown = TRUE)
 Config/renv/profiles/ci/dependencies: pak, rcmdcheck
 URL: https://boehringer-ingelheim.github.io/rxsim

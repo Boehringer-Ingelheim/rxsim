@@ -3,11 +3,6 @@
 
 # rxsim
 
-> \[!WARNING\]  
-> This package is in early development. The API is not yet stable and
-> may change without deprecation. Use with caution and please share
-> feedback!
-
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml)
@@ -16,6 +11,13 @@
 > **Reduce friction in randomized controlled trial simulation.** rxsim
 > lets you prototype Phase II/III trial designs at high speed - without
 > writing hundreds of lines of low-level plumbing code.
+
+------------------------------------------------------------------------
+
+> \[!WARNING\]  
+> This package is in early development. The API is not yet stable and
+> may change without deprecation. Use with caution and please share
+> feedback!
 
 ------------------------------------------------------------------------
 
@@ -111,13 +113,13 @@ Collect results across all replicates in one pass:
 
 ``` r
 head(collect_results(trials))
-#>   replicate timepoint analysis   n      p_value
-#> 1         1  99.90854    final 100 6.245937e-02
-#> 2         2 105.63913    final 100 2.810251e-05
-#> 3         3  89.53149    final 100 8.723310e-03
-#> 4         4 104.78511    final 100 7.632889e-01
-#> 5         5  90.23233    final 100 8.664230e-03
-#> 6         6  87.83837    final 100 1.306854e-02
+#>   replicate timepoint analysis   n     p_value
+#> 1         1 113.72083    final 100 0.070276153
+#> 2         2  92.71503    final 100 0.009075772
+#> 3         3  94.50171    final 100 0.001682158
+#> 4         4 107.93141    final 100 0.218673103
+#> 5         5  88.28073    final 100 0.081214915
+#> 6         6  89.98516    final 100 0.156076065
 ```
 
 See the [Two API Styles

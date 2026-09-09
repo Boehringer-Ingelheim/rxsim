@@ -49,7 +49,8 @@
 #'   times.
 #'
 #' @return `data.frame` with columns: `time`, `arm`, `enroll` (always 1),
-#'   `drop` (always 0 or 1). One row per subject event, sorted by `time`.
+#'   `drop` (always 0 or 1). One row per subject event, sorted by `arm`,
+#'   then `time`.
 #'
 #' @seealso [deterministic_schedule()] for piecewise-constant rates,
 #'   [Timer]$add_schedule() to attach to a `Timer`.
@@ -144,7 +145,8 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #'
 #' @return `data.frame` with columns: `time` (integer period), `arm`,
 #'   `enroll` (subjects enrolled in that period), `drop` (subjects
-#'   dropped). Aggregated counts  -  multiple subjects per row.
+#'   dropped). Aggregated counts  -  multiple subjects per row. Sorted by
+#'   `arm`, then `time`.
 #'
 #' @seealso [stochastic_schedule()] for random inter-event times,
 #'   [Timer]$add_schedule().
@@ -172,7 +174,6 @@ stochastic_schedule <- function(sample_size, arms, allocation, enrollment, dropo
 #' @importFrom dplyr mutate
 #' @importFrom dplyr filter
 #' @importFrom dplyr select
-#' @importFrom dplyr arrange
 deterministic_schedule <- function(sample_size, arms, allocation, enrollment, dropout = NULL) {
   # Input validation
   .validate_schedule_args(sample_size, arms, allocation)

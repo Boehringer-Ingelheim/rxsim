@@ -21,7 +21,8 @@ times.}
 }
 \value{
 \code{data.frame} with columns: \code{time}, \code{arm}, \code{enroll} (always 1),
-\code{drop} (always 0 or 1). One row per subject event, sorted by \code{time}.
+\code{drop} (always 0 or 1). One row per subject event, sorted by \code{arm},
+then \code{time}.
 }
 \description{
 Creates a time-indexed schedule of enrollment and dropout events across
