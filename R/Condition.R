@@ -52,9 +52,9 @@
 #' **Three-gate logic.** A trigger fires only when all three gates pass:
 #' \enumerate{
 #'   \item The filtered snapshot contains at least one row.
+#'   \item `trigger_count < max_triggers`.
 #'   \item `current_time - last_trigger_time >= cooldown` (or the condition
 #'     has never fired before).
-#'   \item `trigger_count < max_triggers`.
 #' }
 #' If any gate fails, `check_conditions()` returns an empty list and state
 #' is not updated.

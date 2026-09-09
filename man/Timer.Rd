@@ -40,13 +40,13 @@ t$timelist            # the full event table
 
 
 ## ------------------------------------------------
-## Method `Timer$new`
+## Method `Timer$new()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
 
 ## ------------------------------------------------
-## Method `Timer$add_schedule`
+## Method `Timer$add_schedule()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
@@ -58,7 +58,7 @@ t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
 t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 
 ## ------------------------------------------------
-## Method `Timer$get_end_timepoint`
+## Method `Timer$get_end_timepoint()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
@@ -66,7 +66,7 @@ t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$get_end_timepoint()
 
 ## ------------------------------------------------
-## Method `Timer$get_n_arms`
+## Method `Timer$get_n_arms()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
@@ -75,7 +75,7 @@ t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_n_arms()
 
 ## ------------------------------------------------
-## Method `Timer$get_unique_times`
+## Method `Timer$get_unique_times()`
 ## ------------------------------------------------
 
 t <- Timer$new(name = "Timer")
@@ -89,75 +89,75 @@ t$get_unique_times()
 \code{\link[=stochastic_schedule]{stochastic_schedule()}} / \code{\link[=deterministic_schedule]{deterministic_schedule()}} to build a schedule.
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{name}}{\code{character} Unique identifier for the \code{Timer} instance.}
 
-\item{\code{timelist}}{\code{data.frame} A data.frame of timepoints with columns:
+    \item{\code{timelist}}{\code{data.frame} A data.frame of timepoints with columns:
 \itemize{
 \item \code{time} \code{numeric} Calendar time
 \item \code{arm} \code{character} Unique identifier of the arm
 \item \code{drop} \code{integer} # of subjects dropped at \code{time}
 \item \code{enroll} \code{integer} # of subjects enrolled at \code{time}
 }}
-}
-\if{html}{\out{</div>}}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Timer-new}{\code{Timer$new()}}
-\item \href{#method-Timer-add_schedule}{\code{Timer$add_schedule()}}
-\item \href{#method-Timer-get_end_timepoint}{\code{Timer$get_end_timepoint()}}
-\item \href{#method-Timer-get_n_arms}{\code{Timer$get_n_arms()}}
-\item \href{#method-Timer-get_unique_times}{\code{Timer$get_unique_times()}}
-\item \href{#method-Timer-clone}{\code{Timer$clone()}}
-}
+  \itemize{
+    \item \href{#method-Timer-initialize}{\code{Timer$new()}}
+    \item \href{#method-Timer-add_schedule}{\code{Timer$add_schedule()}}
+    \item \href{#method-Timer-get_end_timepoint}{\code{Timer$get_end_timepoint()}}
+    \item \href{#method-Timer-get_n_arms}{\code{Timer$get_n_arms()}}
+    \item \href{#method-Timer-get_unique_times}{\code{Timer$get_unique_times()}}
+    \item \href{#method-Timer-clone}{\code{Timer$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Timer-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Timer-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new \code{Timer} instance.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$new(name, timelist = NULL)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{name}}{\code{character} Unique identifier.}
-
-\item{\code{timelist}}{\code{data.frame} Optional data.frame of timepoints with columns
+\if{html}{\out{<a id="method-Timer-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Timer-initialize}{}}}
+\subsection{\code{Timer$new()}}{
+  Create a new \code{Timer} instance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$new(name, timelist = NULL)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{name}}{\code{character} Unique identifier.}
+      \item{\code{timelist}}{\code{data.frame} Optional data.frame of timepoints with columns
 \code{time}, \code{arm}, \code{drop}, \code{enroll}. If \code{NULL}, an empty frame is created.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{Timer} instance.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name = "Timer")
 }
-\if{html}{\out{</div>}}
+    \if{html}{\out{</div>}}
+  }
 }
-\subsection{Returns}{
-A new \code{Timer} instance.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
-}
-\if{html}{\out{</div>}}
 
-}
-
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Timer-add_schedule"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-add_schedule}{}}}
-\subsection{Method \code{add_schedule()}}{
-Add a schedule of timepoints to the timer.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$add_schedule(schedule)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{schedule}}{\code{data.frame} with columns \code{time} (numeric), \code{arm}
+\subsection{\code{Timer$add_schedule()}}{
+  Add a schedule of timepoints to the timer.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$add_schedule(schedule)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{schedule}}{\code{data.frame} with columns \code{time} (numeric), \code{arm}
 (character), \code{enroll} (integer), \code{drop} (integer). One row per event;
 a single event is a one-row data frame. Typically the output of
 \code{\link[=stochastic_schedule]{stochastic_schedule()}} or \code{\link[=deterministic_schedule]{deterministic_schedule()}}.
@@ -165,12 +165,12 @@ a single event is a one-row data frame. Typically the output of
 \code{enroll} and \code{drop} are subject counts and must be integer
 (\code{3L}, not \code{3}) - fractional counts are silently truncated
 downstream, so they are rejected here.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name = "Timer")
 
 # single event
 t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
@@ -178,94 +178,95 @@ t$add_schedule(data.frame(time = 1, arm = "A", drop = 1L, enroll = 3L))
 # whole schedule (data.frame() recycles the constant columns)
 t$add_schedule(data.frame(time = 2:3, arm = "A", enroll = 2L, drop = 0L))
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Timer-get_end_timepoint"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_end_timepoint}{}}}
-\subsection{Method \code{get_end_timepoint()}}{
-Determine the last timepoint for a given instance of \code{Timer} class.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$get_end_timepoint()}\if{html}{\out{</div>}}
-}
-
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
+\subsection{\code{Timer$get_end_timepoint()}}{
+  Determine the last timepoint for a given instance of \code{Timer} class.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$get_end_timepoint()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name = "Timer")
 t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$get_end_timepoint()
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Timer-get_n_arms"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_n_arms}{}}}
-\subsection{Method \code{get_n_arms()}}{
-Get number of unique arms.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$get_n_arms()}\if{html}{\out{</div>}}
-}
-
-\subsection{Returns}{
-\code{integer} Number of unique arms.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
+\subsection{\code{Timer$get_n_arms()}}{
+  Get number of unique arms.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$get_n_arms()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    \code{integer} Number of unique arms.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name = "Timer")
 t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_n_arms()
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Timer-get_unique_times"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-get_unique_times}{}}}
-\subsection{Method \code{get_unique_times()}}{
-Get unique timepoints.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$get_unique_times()}\if{html}{\out{</div>}}
-}
-
-\subsection{Returns}{
-\code{numeric} vector of unique times.
-}
-\subsection{Examples}{
-\if{html}{\out{<div class="r example copy">}}
-\preformatted{t <- Timer$new(name = "Timer")
+\subsection{\code{Timer$get_unique_times()}}{
+  Get unique timepoints.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$get_unique_times()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    \code{numeric} vector of unique times.
+  }
+  \subsection{Examples}{
+    \if{html}{\out{<div class="r example copy">}}
+    \preformatted{t <- Timer$new(name = "Timer")
 t$add_schedule(data.frame(time = 3.14, arm = "A", drop = 7L, enroll = 22L))
 t$add_schedule(data.frame(time = 3.28, arm = "B", drop = 6L, enroll = 23L))
 t$get_unique_times()
 }
-\if{html}{\out{</div>}}
-
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Timer-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Timer-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Timer$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Timer$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Timer$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

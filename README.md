@@ -3,11 +3,6 @@
 
 # rxsim
 
-> \[!WARNING\]\
-> This package is in early development. The API is not yet stable and
-> may change without deprecation. Use with caution and please share
-> feedback!
-
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/Boehringer-Ingelheim/rxsim/actions/workflows/R-CMD-check.yaml)
@@ -16,6 +11,13 @@
 > **Reduce friction in randomized controlled trial simulation.** rxsim
 > lets you prototype Phase II/III trial designs at high speed - without
 > writing hundreds of lines of low-level plumbing code.
+
+------------------------------------------------------------------------
+
+> \[!WARNING\]  
+> This package is in early development. The API is not yet stable and
+> may change without deprecation. Use with caution and please share
+> feedback!
 
 ------------------------------------------------------------------------
 
@@ -53,12 +55,13 @@ matter: endpoints, allocation, analysis rules, and adaptive strategies.
 
 ## Core Concepts
 
-rxsim is built on three composable classes:
+rxsim is built on four composable classes:
 
 | Class | Role |
 |----|----|
 | **`Population`** | Holds subject-level data (endpoints, covariates) and tracks each subject’s enrollment and dropout times |
-| **`Timer`** | Drives the trial clock - stores discrete timepoints per arm and evaluates condition-triggered analyses |
+| **`Timer`** | Drives the trial clock - stores discrete enrollment and dropout timepoints per arm |
+| **`Condition`** | Pairs a trigger expression with an analysis function - fires when the snapshot data meets the criterion |
 | **`Trial`** | Orchestrates the simulation - iterates over timepoints, updates populations, snapshots data, and collects results |
 
 The high-level helpers `replicate_trial()` and `run_trials()` wrap these
@@ -103,11 +106,23 @@ trials <- replicate_trial(
   n                     = 500
 )
 
-run_trials(trials)
+invisible(run_trials(trials))
 ```
 
-Collect results across all replicates in one pass - see the [Two API
-Styles
+Collect results across all replicates in one pass:
+
+``` r
+head(collect_results(trials))
+#>   replicate timepoint analysis   n     p_value
+#> 1         1 113.72083    final 100 0.070276153
+#> 2         2  92.71503    final 100 0.009075772
+#> 3         3  94.50171    final 100 0.001682158
+#> 4         4 107.93141    final 100 0.218673103
+#> 5         5  88.28073    final 100 0.081214915
+#> 6         6  89.98516    final 100 0.156076065
+```
+
+See the [Two API Styles
 vignette](https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html)
 for the full walkthrough.
 
@@ -179,11 +194,12 @@ or analyses - hand the code to a colleague
 <br>
 
 No. rxsim supports any number of arms, any endpoint type, and arbitrary
-analysis functions. The built-in examples cover continuous endpoints,
-correlated multi-endpoints, time-to-event endpoints, multi-arm
-dose-finding (Dunnett + MCP-Mod), subgroup analyses, and Bayesian
-Go/No-Go rules with historical borrowing. If your analysis can be
-written as an R function, rxsim can run it.
+analysis functions. The [gallery
+examples](https://boehringer-ingelheim.github.io/rxsim-gallery/) cover
+continuous endpoints, correlated multi-endpoints, time-to-event
+endpoints, multi-arm dose-finding (Dunnett + MCP-Mod), subgroup
+analyses, and Bayesian Go/No-Go rules with historical borrowing. If your
+analysis can be written as an R function, rxsim can run it.
 
 </details>
 
@@ -254,8 +270,9 @@ parallel::mclapply(trials, function(tr) tr$run(), mc.cores = parallel::detectCor
 
 <summary>
 
-<strong>What is the difference between <code>gen_plan()</code> and
-<code>gen_timepoints()</code>?</strong>
+<strong>What is the difference between
+<code>stochastic_schedule()</code> and
+<code>deterministic_schedule()</code>?</strong>
 </summary>
 
 <br>
@@ -263,18 +280,17 @@ parallel::mclapply(trials, function(tr) tr$run(), mc.cores = parallel::detectCor
 Both functions produce an enrollment/dropout schedule that feeds into a
 `Timer`, but they model timing differently:
 
-- **`gen_plan()`** is **stochastic**: you supply a inter-event time
-  probability distribution function (e.g.,
-  `function(n) rexp(n, rate = 1)`). Each replicate gets a different
-  realization of the enrollment process, capturing natural variability
-  in study timelines.
-- **`gen_timepoints()`** is **deterministic piecewise-constant rate**:
-  you specify enrollment rates per time period (e.g., 5 patients/month
-  for months 1–4, then 10/month). Every replicate follows the same fixed
-  schedule.
+- **`stochastic_schedule()`** is **random**: you supply an inter-event
+  time distribution (e.g., `function(n) rexp(n, rate = 1)`). Each call
+  draws a new realization, so every replicate captures natural
+  variability in study timelines.
+- **`deterministic_schedule()`** is **piecewise-constant**: you specify
+  enrollment rates per time period (e.g., 5 patients/month for months
+  1–4, then 10/month) as `list(end_time = ..., rate = ...)`. Every
+  replicate follows the same fixed schedule.
 
-See the [Enrollment & Dropout Modeling
-vignette](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment-dropout.html)
+See the [Enrollment & Dropout
+vignette](https://boehringer-ingelheim.github.io/rxsim/articles/enrollment.html)
 for a side-by-side comparison.
 
 </details>

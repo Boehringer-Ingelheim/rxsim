@@ -20,6 +20,7 @@ Useful links:
 
 Authors:
 \itemize{
+  \item Saumil Shah \email{saumil.shah@boehringer-ingelheim.com}
   \item Matthew Valko \email{matthew.valko@boehringer-ingelheim.com}
 }
 

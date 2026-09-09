@@ -24,9 +24,9 @@ last trigger, and the maximum trigger count has not been reached.
 \strong{Three-gate logic.} A trigger fires only when all three gates pass:
 \enumerate{
 \item The filtered snapshot contains at least one row.
+\item \code{trigger_count < max_triggers}.
 \item \code{current_time - last_trigger_time >= cooldown} (or the condition
 has never fired before).
-\item \code{trigger_count < max_triggers}.
 }
 If any gate fails, \code{check_conditions()} returns an empty list and state
 is not updated.
@@ -80,135 +80,135 @@ for convenient \code{Condition} constructors
 }
 }
 \section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{where}}{\code{list} of quosures (\code{rlang::quos()}) used as \code{dplyr::filter()}
 predicates, or a \code{trigger} object (converted automatically). \code{NULL} or
 empty list passes the full snapshot.}
 
-\item{\code{trigger_spec}}{The original \code{trigger} object passed to \code{where}
+    \item{\code{trigger_spec}}{The original \code{trigger} object passed to \code{where}
 (before quosure conversion), or \code{NULL}. Used by the fixed fast path to
 compute the earliest possible firing time and skip non-firing
 timepoints. \code{NULL} means "evaluate at every timepoint" (safe fallback).}
 
-\item{\code{analysis}}{\code{function} or \code{NULL}. Called as
+    \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
 are any values from \code{analysis_args}.}
 
-\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra values injected
+    \item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra values injected
 into the analysis function call as additional named arguments.}
 
-\item{\code{name}}{\code{character} or \code{NULL}. Key labelling the result in the output
+    \item{\code{name}}{\code{character} or \code{NULL}. Key labelling the result in the output
 list. Falls back to \code{1L} when \code{NULL}.}
 
-\item{\code{cooldown}}{\code{numeric}. Minimum time units between consecutive
+    \item{\code{cooldown}}{\code{numeric}. Minimum time units between consecutive
 triggers. Default \code{0}.}
 
-\item{\code{max_triggers}}{\code{integer} or \code{Inf}. Maximum number of times this
+    \item{\code{max_triggers}}{\code{integer} or \code{Inf}. Maximum number of times this
 condition may fire. Default \code{1L}.}
 
-\item{\code{trigger_count}}{\code{integer}. Number of successful triggers so far.
+    \item{\code{trigger_count}}{\code{integer}. Number of successful triggers so far.
 Initialised to \code{0L}.}
 
-\item{\code{last_trigger_time}}{\code{numeric}. Calendar time of the most recent
+    \item{\code{last_trigger_time}}{\code{numeric}. Calendar time of the most recent
 successful trigger. \code{NA_real_} until first trigger.}
-}
-\if{html}{\out{</div>}}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Condition-new}{\code{Condition$new()}}
-\item \href{#method-Condition-check_conditions}{\code{Condition$check_conditions()}}
-\item \href{#method-Condition-clone}{\code{Condition$clone()}}
-}
+  \itemize{
+    \item \href{#method-Condition-initialize}{\code{Condition$new()}}
+    \item \href{#method-Condition-check_conditions}{\code{Condition$check_conditions()}}
+    \item \href{#method-Condition-clone}{\code{Condition$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Condition-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Condition-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new \code{Condition} instance.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Condition$new(
+\if{html}{\out{<a id="method-Condition-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Condition-initialize}{}}}
+\subsection{\code{Condition$new()}}{
+  Create a new \code{Condition} instance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Condition$new(
   where = NULL,
   analysis = NULL,
   analysis_args = NULL,
   name = NULL,
   cooldown = 0,
   max_triggers = 1L
-)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{where}}{\code{trigger} object (from \code{value_trigger()}, \code{count_trigger()},
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{where}}{\code{trigger} object (from \code{value_trigger()}, \code{count_trigger()},
 \code{enroll_trigger()}, or \code{calendar_trigger()}), a \code{list} of quosures
 from \code{rlang::quos()}, or \code{NULL} to use the full snapshot.}
-
-\item{\code{analysis}}{\code{function} or \code{NULL}. Called as
+      \item{\code{analysis}}{\code{function} or \code{NULL}. Called as
 \code{analysis(df, current_time, ...)} on a successful trigger, where \code{...}
 are the values from \code{analysis_args}.}
-
-\item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra arguments
+      \item{\code{analysis_args}}{\code{list} or \code{NULL}. Named list of extra arguments
 passed to the analysis function after \code{df} and \code{current_time}.}
-
-\item{\code{name}}{\code{character} or \code{NULL}. Result key. Defaults to \code{1L}.}
-
-\item{\code{cooldown}}{\code{numeric}. Minimum time between triggers. Default \code{0}.}
-
-\item{\code{max_triggers}}{\code{integer}. Maximum trigger count. Default \code{1L}.
+      \item{\code{name}}{\code{character} or \code{NULL}. Result key. Defaults to \code{1L}.}
+      \item{\code{cooldown}}{\code{numeric}. Minimum time between triggers. Default \code{0}.}
+      \item{\code{max_triggers}}{\code{integer}. Maximum trigger count. Default \code{1L}.
 Use \code{Inf} for unlimited.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A new \code{Condition} instance.
+  }
 }
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A new \code{Condition} instance.
-}
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Condition-check_conditions"></a>}}
 \if{latex}{\out{\hypertarget{method-Condition-check_conditions}{}}}
-\subsection{Method \code{check_conditions()}}{
-Evaluate this condition against a data snapshot.
+\subsection{\code{Condition$check_conditions()}}{
+  Evaluate this condition against a data snapshot.
 
 Applies the three-gate logic: non-empty filter result, cooldown
 elapsed, and trigger count below \code{max_triggers}. Returns the analysis
 result (or filtered data) on a successful trigger, or an empty list
 otherwise.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Condition$check_conditions(locked_data, current_time)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{locked_data}}{\code{data.frame} The trial snapshot at the current time.}
-
-\item{\code{current_time}}{\code{numeric} Calendar time of the current timepoint.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Named \code{list} with one entry (the analysis result) on success,
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Condition$check_conditions(locked_data, current_time)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{locked_data}}{\code{data.frame} The trial snapshot at the current time.}
+      \item{\code{current_time}}{\code{numeric} Calendar time of the current timepoint.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Named \code{list} with one entry (the analysis result) on success,
 or an empty \code{list} if the condition did not fire.
+  }
 }
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Condition-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Condition-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Condition$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Condition$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Condition$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

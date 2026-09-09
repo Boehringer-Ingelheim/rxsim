@@ -27,7 +27,8 @@ deterministic_schedule(
 \value{
 \code{data.frame} with columns: \code{time} (integer period), \code{arm},
 \code{enroll} (subjects enrolled in that period), \code{drop} (subjects
-dropped). Aggregated counts  -  multiple subjects per row.
+dropped). Aggregated counts  -  multiple subjects per row. Sorted by
+\code{arm}, then \code{time}.
 }
 \description{
 Creates a time-indexed schedule with piecewise-constant enrollment and
