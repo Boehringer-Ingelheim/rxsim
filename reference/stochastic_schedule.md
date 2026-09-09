@@ -37,7 +37,8 @@ stochastic_schedule(sample_size, arms, allocation, enrollment, dropout = NULL)
 ## Value
 
 `data.frame` with columns: `time`, `arm`, `enroll` (always 1), `drop`
-(always 0 or 1). One row per subject event, sorted by `time`.
+(always 0 or 1). One row per subject event, sorted by `arm`, then
+`time`.
 
 ## Details
 

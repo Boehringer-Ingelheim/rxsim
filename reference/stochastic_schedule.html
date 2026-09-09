@@ -40,6 +40,7 @@ natural variability in study timelines."><script src="https://cdn.jsdelivr.net/n
     <li><a class="dropdown-item" href="../articles/api-styles.html">Two API Styles: Direct and Generator</a></li>
   </ul></li>
 <li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
       </ul></div>
@@ -96,7 +97,8 @@ times.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p><code>data.frame</code> with columns: <code>time</code>, <code>arm</code>, <code>enroll</code> (always 1),
-<code>drop</code> (always 0 or 1). One row per subject event, sorted by <code>time</code>.</p>
+<code>drop</code> (always 0 or 1). One row per subject event, sorted by <code>arm</code>,
+then <code>time</code>.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

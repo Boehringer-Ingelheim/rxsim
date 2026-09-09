@@ -53,6 +53,7 @@
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul>
 <ul class="navbar-nav">
 <li class="nav-item"><form class="form-inline" role="search">
@@ -68,14 +69,15 @@
   <main id="main" class="col-md-9"><div class="section level1">
 <div class="page-header"><h1 id="rxsim">rxsim<a class="anchor" aria-label="anchor" href="#rxsim"></a>
 </h1></div>
-<blockquote>
-<p>[!WARNING]<br>
-This package is in early development. The API is not yet stable and may change without deprecation. Use with caution and please share feedback!</p>
-</blockquote>
 <!-- badges: start -->
 
 <blockquote>
 <p><strong>Reduce friction in randomized controlled trial simulation.</strong> rxsim lets you prototype Phase II/III trial designs at high speed - without writing hundreds of lines of low-level plumbing code.</p>
+</blockquote>
+<hr>
+<blockquote>
+<p>[!WARNING]<br>
+This package is in early development. The API is not yet stable and may change without deprecation. Use with caution and please share feedback!</p>
 </blockquote>
 <hr>
 <div class="section level2">
@@ -174,13 +176,13 @@ This package is in early development. The API is not yet stable and may change w
 <p>Collect results across all replicates in one pass:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="reference/collect_results.html">collect_results</a></span><span class="op">(</span><span class="va">trials</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   replicate timepoint analysis   n      p_value</span></span>
-<span><span class="co">#&gt; 1         1  99.90854    final 100 6.245937e-02</span></span>
-<span><span class="co">#&gt; 2         2 105.63913    final 100 2.810251e-05</span></span>
-<span><span class="co">#&gt; 3         3  89.53149    final 100 8.723310e-03</span></span>
-<span><span class="co">#&gt; 4         4 104.78511    final 100 7.632889e-01</span></span>
-<span><span class="co">#&gt; 5         5  90.23233    final 100 8.664230e-03</span></span>
-<span><span class="co">#&gt; 6         6  87.83837    final 100 1.306854e-02</span></span></code></pre></div>
+<span><span class="co">#&gt;   replicate timepoint analysis   n     p_value</span></span>
+<span><span class="co">#&gt; 1         1 113.72083    final 100 0.070276153</span></span>
+<span><span class="co">#&gt; 2         2  92.71503    final 100 0.009075772</span></span>
+<span><span class="co">#&gt; 3         3  94.50171    final 100 0.001682158</span></span>
+<span><span class="co">#&gt; 4         4 107.93141    final 100 0.218673103</span></span>
+<span><span class="co">#&gt; 5         5  88.28073    final 100 0.081214915</span></span>
+<span><span class="co">#&gt; 6         6  89.98516    final 100 0.156076065</span></span></code></pre></div>
 <p>See the <a href="https://boehringer-ingelheim.github.io/rxsim/articles/api-styles.html">Two API Styles vignette</a> for the full walkthrough.</p>
 </div>
 <div class="section level2">

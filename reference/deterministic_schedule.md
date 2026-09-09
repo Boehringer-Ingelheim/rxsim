@@ -43,7 +43,8 @@ deterministic_schedule(
 
 `data.frame` with columns: `time` (integer period), `arm`, `enroll`
 (subjects enrolled in that period), `drop` (subjects dropped).
-Aggregated counts - multiple subjects per row.
+Aggregated counts - multiple subjects per row. Sorted by `arm`, then
+`time`.
 
 ## Details
 
